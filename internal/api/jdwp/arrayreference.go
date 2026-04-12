@@ -35,8 +35,8 @@ func (c *Client) Length(arrayID string) (int, error) {
 	return arrayLength, nil
 }
 
-// GetValues Get array values
-func (c *Client) GetValues(arrayID string, startIndex int, length int) ([]interface{}, error) {
+// GetArrayValues Get array values
+func (c *Client) GetArrayValues(arrayID string, startIndex int, length int) ([]interface{}, error) {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(arrayID, c.idsizes.ObjectIDSize)...)
@@ -75,8 +75,8 @@ func (c *Client) GetValues(arrayID string, startIndex int, length int) ([]interf
 	return values, nil
 }
 
-// SetValues Set array values
-func (c *Client) SetValues(arrayID string, startIndex int, values []interface{}) error {
+// SetArrayValues Set array values
+func (c *Client) SetArrayValues(arrayID string, startIndex int, values []interface{}) error {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(arrayID, c.idsizes.ObjectIDSize)...)

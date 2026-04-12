@@ -8,6 +8,13 @@ import (
 	"cli-debugger/pkg/types"
 )
 
+func init() {
+	// Register a mock JDWP plugin for testing
+	RegisterPlugin("jdwp", func() DebugProtocol {
+		return &testProtocol{}
+	})
+}
+
 func TestRegisterPlugin(t *testing.T) {
 	// Test Plug-in Registration
 	factory := func() DebugProtocol { return &testProtocol{} }

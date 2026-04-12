@@ -41,8 +41,8 @@ func (c *Client) Superclass(classID string) (string, error) {
 	return superclassID, nil
 }
 
-// SetValues Set static field values
-func (c *Client) SetValues(classID string, fieldValues map[string]interface{}) error {
+// SetStaticFieldValues Set static field values
+func (c *Client) SetStaticFieldValues(classID string, fieldValues map[string]interface{}) error {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(classID, c.idsizes.ReferenceTypeIDSize)...)
@@ -112,8 +112,8 @@ func (c *Client) SetValues(classID string, fieldValues map[string]interface{}) e
 	return nil
 }
 
-// InvokeMethod Invoke static method
-func (c *Client) InvokeMethod(classID string, threadID string, methodID string, args []interface{}, options int) (*InvokeResult, error) {
+// InvokeStaticMethod Invoke static method
+func (c *Client) InvokeStaticMethod(classID string, threadID string, methodID string, args []interface{}, options int) (*InvokeResult, error) {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(classID, c.idsizes.ReferenceTypeIDSize)...)

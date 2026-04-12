@@ -44,8 +44,8 @@ func (c *Client) ReferenceType(objectID string) (string, error) {
 	return fmt.Sprintf("%c:%s", tag, refTypeID), nil
 }
 
-// GetValues Get instance field values
-func (c *Client) GetValues(objectID string, fieldIDs []string) ([]interface{}, error) {
+// GetInstanceFieldValues Get instance field values
+func (c *Client) GetInstanceFieldValues(objectID string, fieldIDs []string) ([]interface{}, error) {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(objectID, c.idsizes.ObjectIDSize)...)
@@ -81,8 +81,8 @@ func (c *Client) GetValues(objectID string, fieldIDs []string) ([]interface{}, e
 	return values, nil
 }
 
-// SetValues Set instance field values
-func (c *Client) SetValues(objectID string, fieldValues map[string]interface{}) error {
+// SetInstanceFieldValues Set instance field values
+func (c *Client) SetInstanceFieldValues(objectID string, fieldValues map[string]interface{}) error {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(objectID, c.idsizes.ObjectIDSize)...)
@@ -190,8 +190,8 @@ func (c *Client) MonitorInfo(objectID string) (*MonitorInfo, error) {
 	}, nil
 }
 
-// InvokeMethod Invoke instance method
-func (c *Client) InvokeMethod(objectID string, threadID string, methodID string, args []interface{}, options int) (interface{}, string, error) {
+// InvokeInstanceMethod Invoke instance method
+func (c *Client) InvokeInstanceMethod(objectID string, threadID string, methodID string, args []interface{}, options int) (interface{}, string, error) {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(objectID, c.idsizes.ObjectIDSize)...)

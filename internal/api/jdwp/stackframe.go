@@ -213,8 +213,8 @@ func isPrimitiveTag(tag byte) bool {
 	return false
 }
 
-// SetValues Set local variable values
-func (c *Client) SetValues(threadID string, frameID string, slotValues map[int]interface{}) error {
+// SetLocalVariableValues Set local variable values
+func (c *Client) SetLocalVariableValues(threadID string, frameID string, slotValues map[int]interface{}) error {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(threadID, c.idsizes.ObjectIDSize)...)

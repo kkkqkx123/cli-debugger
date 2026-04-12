@@ -37,11 +37,11 @@ func TestGetFormatterType(t *testing.T) {
 		input    string
 		expected FormatterType
 	}{
-		{"text", TextFormatter},
-		{"json", JSONFormatter},
-		{"table", TableFormatter},
-		{"invalid", TextFormatter}, // default value
-		{"", TextFormatter},        // Empty String Default Value
+		{"text", TextFormatType},
+		{"json", JSONFormatType},
+		{"table", TableFormatType},
+		{"invalid", TextFormatType}, // default value
+		{"", TextFormatType},        // Empty String Default Value
 	}
 
 	for _, tt := range tests {
@@ -57,13 +57,13 @@ func TestNewFormatter(t *testing.T) {
 		typeStr  string
 		expected FormatterType
 	}{
-		{"text", TextFormatter},
-		{"json", JSONFormatter},
-		{"table", TableFormatter},
+		{"text", TextFormatType},
+		{"json", JSONFormatType},
+		{"table", TableFormatType},
 	}
 
 	for _, tt := range tests {
-		f := NewFormatter(tt.typeStr, true)
+		f := NewFormatter(tt.expected, true)
 		if f == nil {
 			t.Errorf("NewFormatter(%q) 返回 nil", tt.typeStr)
 		}

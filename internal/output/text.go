@@ -376,7 +376,7 @@ func (f *TextFormatter) FormatVerboseError(err error) error {
 	if f.color {
 		errorColor := color.New(color.FgRed, color.Bold).SprintFunc()
 		fmt.Fprintf(f.writer, "\n")
-		fmt.Fprintf(f.writer, "%s: %s:%d\n", errorColor("Error Type"), err.(*errors.APIError).Type, err.(*errors.APIError).Code)
+		fmt.Fprintf(f.writer, "%s: %s:%d\n", errorColor("Error Type"), errors.ErrorTypeToString(err.(*errors.APIError).Type), err.(*errors.APIError).Code)
 		fmt.Fprintf(f.writer, "%s: %s\n", errorColor("Message"), err.(*errors.APIError).Message)
 		if err.(*errors.APIError).Cause != nil {
 			fmt.Fprintf(f.writer, "%s: %v\n", errorColor("Cause"), err.(*errors.APIError).Cause)
@@ -384,7 +384,7 @@ func (f *TextFormatter) FormatVerboseError(err error) error {
 		fmt.Fprintf(f.writer, "\n")
 	} else {
 		fmt.Fprintf(f.writer, "\n")
-		fmt.Fprintf(f.writer, "Error Type: %s\n", err.(*errors.APIError).Type)
+		fmt.Fprintf(f.writer, "Error Type: %s\n", errors.ErrorTypeToString(err.(*errors.APIError).Type))
 		fmt.Fprintf(f.writer, "Error Code: %d\n", err.(*errors.APIError).Code)
 		fmt.Fprintf(f.writer, "Message: %s\n", err.(*errors.APIError).Message)
 		if err.(*errors.APIError).Cause != nil {

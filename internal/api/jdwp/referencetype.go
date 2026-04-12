@@ -161,8 +161,8 @@ func (c *Client) SourceFile(refTypeID string) (string, error) {
 	return sourceFile, nil
 }
 
-// GetValues Get static field values
-func (c *Client) GetValues(refTypeID string, fieldIDs []string) ([]interface{}, error) {
+// GetStaticFieldValues Get static field values
+func (c *Client) GetStaticFieldValues(refTypeID string, fieldIDs []string) ([]interface{}, error) {
 	data := make([]byte, 0)
 
 	data = append(data, encodeID(refTypeID, c.idsizes.ReferenceTypeIDSize)...)
