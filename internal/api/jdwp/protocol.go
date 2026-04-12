@@ -18,32 +18,63 @@ const (
 	vmCommandSet byte = 1
 	// ReferenceType Command Set
 	referenceTypeCommandSet byte = 2
+	referenceTypeCommandSignature byte = 1
+	referenceTypeCommandFields byte = 4
+	referenceTypeCommandMethods byte = 5
+	referenceTypeCommandSourceFile byte = 7
 	// ClassType Command Set
 	classTypeCommandSet byte = 3
+	classTypeCommandSuperclass byte = 1
+	classTypeCommandSetValues byte = 2
+	classTypeCommandInvokeMethod byte = 3
+	classTypeCommandNewInstance byte = 4
 	// ArrayType Command Set
 	arrayTypeCommandSet byte = 4
 	// Method Command Set
 	methodCommandSet byte = 5
+	methodCommandLineTable byte = 1
+	methodCommandVariableTable byte = 2
+	methodCommandBytecodes byte = 3
+	methodCommandIsObsolete byte = 4
+	methodCommandVariableTableWithGeneric byte = 5
 	// Field Command Set
 	fieldCommandSet byte = 6
 	// ObjectReference Command Set
 	objectReferenceCommandSet byte = 7
+	objectReferenceCommandReferenceType byte = 1
+	objectReferenceCommandGetValues byte = 2
+	objectReferenceCommandSetValues byte = 3
+	objectReferenceCommandMonitorInfo byte = 5
+	objectReferenceCommandInvokeMethod byte = 6
+	objectReferenceCommandDisableCollection byte = 7
+	objectReferenceCommandEnableCollection byte = 8
+	objectReferenceCommandIsCollected byte = 9
+	objectReferenceCommandReferringObjects byte = 10
 	// StringReference Command Set
 	stringReferenceCommandSet byte = 8
+	stringReferenceCommandValue byte = 1
 	// ThreadReference Command Set
 	threadCommandSet byte = 10
 	// ThreadGroupReference Command Set
 	threadGroupCommandSet byte = 11
+	threadGroupCommandName byte = 1
+	threadGroupCommandParent byte = 2
+	threadGroupCommandChildren byte = 3
 	// ArrayReference Command Set
 	arrayReferenceCommandSet byte = 12
+	arrayReferenceCommandLength byte = 1
+	arrayReferenceCommandGetValues byte = 2
+	arrayReferenceCommandSetValues byte = 3
 	// ClassLoaderReference Command Set
 	classLoaderCommandSet byte = 13
+	classLoaderCommandVisibleClasses byte = 1
 	// EventRequest Command Set
 	eventRequestCommandSet byte = 14
 	// StackFrame Command Set
 	stackFrameCommandSet byte = 15
 	// ClassObjectReference Command Set
 	classObjectCommandSet byte = 16
+	classObjectCommandReflectedType byte = 1
 	// Event Command Set (VM to debugger)
 	eventCommandSet byte = 64
 
@@ -398,6 +429,25 @@ func (r *PacketReader) readValue(tag byte) (interface{}, error) {
 	default:
 		return fmt.Sprintf("unknown(%c)", tag), nil
 	}
+}
+
+func (r *PacketReader) readBytes() []byte {
+	length := r.readInt()
+	if length < 0 || r.pos+length > len(r.data) {
+		return nil
+	}
+	data := r.data[r.pos : r.pos+length]
+	r.pos += length
+	return data
+}
+
+func (r *PacketReader) readInt64() int64 {
+	if r.pos+8 > len(r.data) {
+		return 0
+	}
+	val := binary.BigEndian.Uint64(r.data[r.pos : r.pos+8])
+	r.pos += 8
+	return int64(val)
 }
 
 // bytesToUint32 bytes array to uint32

@@ -224,3 +224,88 @@ func isPrimitiveTag(tag byte) bool {
 	}
 	return false
 }
+
+// SetValues Set local variable values
+func (c *Client) SetValues(threadID string, frameID string, slotValues map[int]interface{}) error {
+	data := make([]byte, 0)
+
+	data = append(data, encodeID(threadID, c.idsizes.ObjectIDSize)...)
+	data = append(data, encodeID(frameID, c.idsizes.FrameIDSize)...)
+
+	data = append(data, 0, 0, 0, byte(len(slotValues)))
+	for slot, value := range slotValues {
+		slotBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(slotBytes, uint32(slot))
+		data = append(data, slotBytes...)
+
+		valueBytes := make([]byte, 0)
+		switch val := value.(type) {
+		case int8:
+			valueBytes = append(valueBytes, 'B')
+			valueBytes = append(valueBytes, byte(val))
+		case int16:
+			valueBytes = append(valueBytes, 'S')
+			valueBytes = append(valueBytes, byte(val>>8), byte(val))
+		case int32:
+			valueBytes = append(valueBytes, 'I')
+			valueBytes = append(valueBytes, byte(val>>24), byte(val>>16), byte(val>>8), byte(val))
+		case int64:
+			valueBytes = append(valueBytes, 'J')
+			valueBytes = append(valueBytes, byte(val>>56), byte(val>>48), byte(val>>40), byte(val>>32), byte(val>>24), byte(val>>16), byte(val>>8), byte(val))
+		case float32:
+			valueBytes = append(valueBytes, 'F')
+			bits := uint32(val)
+			valueBytes = append(valueBytes, byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
+		case float64:
+			valueBytes = append(valueBytes, 'D')
+			bits := uint64(val)
+			valueBytes = append(valueBytes, byte(bits>>56), byte(bits>>48), byte(bits>>40), byte(bits>>32), byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
+		case bool:
+			valueBytes = append(valueBytes, 'Z')
+			if val {
+				valueBytes = append(valueBytes, 1)
+			} else {
+				valueBytes = append(valueBytes, 0)
+			}
+		case string:
+			valueBytes = append(valueBytes, 'L')
+			valueBytes = append(valueBytes, encodeID(val, c.idsizes.ObjectIDSize)...)
+		case nil:
+			valueBytes = append(valueBytes, 'L')
+			valueBytes = append(valueBytes, 0, 0, 0, 0, 0, 0, 0, 0)
+		default:
+			valueBytes = append(valueBytes, 'L')
+			valueBytes = append(valueBytes, 0, 0, 0, 0, 0, 0, 0, 0)
+		}
+
+		data = append(data, valueBytes...)
+	}
+
+	packet := createCommandPacketWithData(stackFrameCommandSet, stackFrameCommandSetValues, data)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to set local variable values",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to set local variable values",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Set local variable values failed: %s", reply.Message),
+		}
+	}
+
+	return nil
+}

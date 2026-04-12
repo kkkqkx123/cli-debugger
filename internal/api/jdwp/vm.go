@@ -190,6 +190,37 @@ type ClassInfo struct {
 	Status int
 }
 
+// CapabilitiesInfo VM capabilities information
+type CapabilitiesInfo struct {
+	CanWatchFieldModification bool
+	CanWatchFieldAccess       bool
+	CanGetBytecodes           bool
+	CanGetSyntheticAttribute  bool
+	CanGetOwnedMonitorInfo    bool
+	CanGetCurrentContendedMonitor bool
+	CanGetMonitorInfo         bool
+	CanRedefineClasses        bool
+	CanAddMethod              bool
+	CanUnrestrictedlyRedefineClasses bool
+	CanPopFrames              bool
+	CanUseInstanceFilters     bool
+	CanGetSourceDebugExtension bool
+	CanRequestVMDeathEvent    bool
+	CanSetDefaultStratum      bool
+	CanGetInstanceInfo        bool
+	CanRequestMonitorEvents   bool
+	CanGetMonitorFrameInfo    bool
+	CanGetConstantPool        bool
+	CanSetNativeMethodPrefix  bool
+	CanRedefineClassesWhenMismatched bool
+}
+
+// ClassPathsInfo Class paths information
+type ClassPathsInfo struct {
+	Classpath     []string
+	BootClasspath []string
+}
+
 // GetIDSizes Get ID sizes (internal use)
 func (c *Client) GetIDSizes(ctx context.Context) (*IDSizes, error) {
 	return c.idsizes, nil
@@ -328,10 +359,10 @@ func (c *Client) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
 	threads := make([]*types.ThreadInfo, 0, threadCount)
 	for i := 0; i < threadCount; i++ {
 		threadID := reader.readID(c.idsizes.ObjectIDSize)
-		
+
 		// Get the thread name (the ThreadReference.Name command needs to be sent)
 		name, _ := c.GetThreadName(ctx, threadID)
-		
+
 		// Get thread status
 		state, _, _ := c.GetThreadStatus(ctx, threadID)
 
@@ -346,4 +377,334 @@ func (c *Client) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
 	}
 
 	return threads, nil
+}
+
+// Capabilities Get VM capabilities
+func (c *Client) Capabilities(ctx context.Context) (*CapabilitiesInfo, error) {
+	packet := createCommandPacket(vmCommandSet, vmCommandCapabilities)
+	if err := c.sendPacket(packet); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get VM capabilities",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get VM capabilities",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return nil, &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Get VM capabilities failed: %s", reply.Message),
+		}
+	}
+
+	reader := newPacketReader(reply.Data)
+	capabilities := &CapabilitiesInfo{
+		CanWatchFieldModification: reader.readByte() != 0,
+		CanWatchFieldAccess:       reader.readByte() != 0,
+		CanGetBytecodes:           reader.readByte() != 0,
+		CanGetSyntheticAttribute:  reader.readByte() != 0,
+		CanGetOwnedMonitorInfo:    reader.readByte() != 0,
+		CanGetCurrentContendedMonitor: reader.readByte() != 0,
+		CanGetMonitorInfo:         reader.readByte() != 0,
+		CanRedefineClasses:        reader.readByte() != 0,
+		CanAddMethod:              reader.readByte() != 0,
+		CanUnrestrictedlyRedefineClasses: reader.readByte() != 0,
+		CanPopFrames:              reader.readByte() != 0,
+		CanUseInstanceFilters:     reader.readByte() != 0,
+		CanGetSourceDebugExtension: reader.readByte() != 0,
+		CanRequestVMDeathEvent:    reader.readByte() != 0,
+		CanSetDefaultStratum:      reader.readByte() != 0,
+		CanGetInstanceInfo:        reader.readByte() != 0,
+		CanRequestMonitorEvents:   reader.readByte() != 0,
+		CanGetMonitorFrameInfo:    reader.readByte() != 0,
+		CanGetConstantPool:        reader.readByte() != 0,
+		CanSetNativeMethodPrefix:  reader.readByte() != 0,
+		CanRedefineClassesWhenMismatched: reader.readByte() != 0,
+	}
+
+	return capabilities, nil
+}
+
+// ClassPaths Get class paths
+func (c *Client) ClassPaths(ctx context.Context) (*ClassPathsInfo, error) {
+	packet := createCommandPacket(vmCommandSet, vmCommandClassPaths)
+	if err := c.sendPacket(packet); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get class paths",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get class paths",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return nil, &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Get class paths failed: %s", reply.Message),
+		}
+	}
+
+	reader := newPacketReader(reply.Data)
+	classpath := make([]string, 0)
+	bootclasspath := make([]string, 0)
+
+	classpathCount := reader.readInt()
+	for i := 0; i < classpathCount; i++ {
+		path, _ := reader.readString()
+		classpath = append(classpath, path)
+	}
+
+	bootclasspathCount := reader.readInt()
+	for i := 0; i < bootclasspathCount; i++ {
+		path, _ := reader.readString()
+		bootclasspath = append(bootclasspath, path)
+	}
+
+	return &ClassPathsInfo{
+		Classpath:     classpath,
+		BootClasspath: bootclasspath,
+	}, nil
+}
+
+// Exit Exit the VM
+func (c *Client) Exit(ctx context.Context, exitCode int) error {
+	data := make([]byte, 4)
+	binary.BigEndian.PutUint32(data, uint32(exitCode))
+
+	packet := createCommandPacketWithData(vmCommandSet, vmCommandExit, data)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to exit VM",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to exit VM",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Exit VM failed: %s", reply.Message),
+		}
+	}
+
+	return nil
+}
+
+// CreateString Create a string in the VM
+func (c *Client) CreateString(ctx context.Context, str string) (string, error) {
+	data := EncodeString(str)
+
+	packet := createCommandPacketWithData(vmCommandSet, vmCommandCreateString, data)
+	if err := c.sendPacket(packet); err != nil {
+		return "", &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to create string",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return "", &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to create string",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return "", &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Create string failed: %s", reply.Message),
+		}
+	}
+
+	reader := newPacketReader(reply.Data)
+	tag := reader.readByte()
+	stringID := reader.readID(c.idsizes.ObjectIDSize)
+
+	return fmt.Sprintf("%c:%s", tag, stringID), nil
+}
+
+// HoldEvents Hold events
+func (c *Client) HoldEvents(ctx context.Context) error {
+	packet := createCommandPacket(vmCommandSet, vmCommandHoldEvents)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to hold events",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to hold events",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Hold events failed: %s", reply.Message),
+		}
+	}
+
+	return nil
+}
+
+// ReleaseEvents Release events
+func (c *Client) ReleaseEvents(ctx context.Context) error {
+	packet := createCommandPacket(vmCommandSet, vmCommandReleaseEvents)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to release events",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to release events",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Release events failed: %s", reply.Message),
+		}
+	}
+
+	return nil
+}
+
+// RedefineClasses Redefine classes
+func (c *Client) RedefineClasses(ctx context.Context, classes []*ClassDef) error {
+	data := make([]byte, 0)
+
+	data = append(data, 0, 0, 0, byte(len(classes)))
+	for _, class := range classes {
+		data = append(data, encodeID(class.RefTypeID, c.idsizes.ReferenceTypeIDSize)...)
+		classBytes := class.ClassBytes
+		data = append(data, 0, 0, 0, byte(len(classBytes)))
+		data = append(data, classBytes...)
+	}
+
+	packet := createCommandPacketWithData(vmCommandSet, vmCommandRedefineClasses, data)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to redefine classes",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to redefine classes",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Redefine classes failed: %s", reply.Message),
+		}
+	}
+
+	return nil
+}
+
+// AllClassesWithGeneric Get all classes with generic signature
+func (c *Client) AllClassesWithGeneric(ctx context.Context) ([]*ClassInfo, error) {
+	packet := createCommandPacket(vmCommandSet, vmCommandAllClassesWithGeneric)
+	if err := c.sendPacket(packet); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get all classes with generic",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get all classes with generic",
+			Cause:   err,
+		}
+	}
+
+	reader := newPacketReader(reply.Data)
+	classCount := reader.readInt()
+
+	classes := make([]*ClassInfo, 0, classCount)
+	for i := 0; i < classCount; i++ {
+		tag := reader.readByte()
+		refID := reader.readID(c.idsizes.ReferenceTypeIDSize)
+		signature, _ := reader.readString()
+		genericSignature, _ := reader.readString()
+		status := reader.readInt()
+
+		_ = signature
+		_ = genericSignature
+
+		classes = append(classes, &ClassInfo{
+			Tag:    tag,
+			RefID:  refID,
+			Status: status,
+		})
+	}
+
+	return classes, nil
+}
+
+// ClassDef Class definition
+type ClassDef struct {
+	RefTypeID  string
+	ClassBytes []byte
 }

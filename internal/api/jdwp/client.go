@@ -320,14 +320,93 @@ func (c *Client) StepOut(ctx context.Context, threadID string) error {
 
 // SetBreakpoint sets a breakpoint.
 func (c *Client) SetBreakpoint(ctx context.Context, location string, condition string) (string, error) {
-	// TODO: 实现 EventRequest.Set 命令
+	className, methodName, lineNumber := parseLocation(location)
+
+	classInfo, err := c.ClassByName(ctx, className)
+	if err != nil {
+		return "", err
+	}
+
+	methods, err := c.Methods(classInfo.RefID)
+	if err != nil {
+		return "", err
+	}
+
+	var methodID string
+	for _, method := range methods {
+		if method.Name == methodName {
+			methodID = method.MethodID
+			break
+		}
+	}
+
+	if methodID == "" {
+		return "", &api.APIError{
+			Type:    api.CommandError,
+			Message: "Method not found",
+		}
+	}
+
+	lineTable, err := c.LineTable(classInfo.RefID, methodID)
+	if err != nil {
+		return "", err
+	}
+
+	var codeIndex int64 = -1
+	for _, lineLocation := range lineTable {
+		if lineLocation.LineNumber == lineNumber {
+			codeIndex = lineLocation.LineCodeIndex
+			break
+		}
+	}
+
+	if codeIndex == -1 {
+		return "", &api.APIError{
+			Type:    api.CommandError,
+			Message: "Line number not found in method",
+		}
+	}
+
+	requestID, err := c.SetBreakpointRequest(ctx, classInfo.RefID, methodID, uint64(codeIndex), SuspendEventThread)
+	if err != nil {
+		return "", err
+	}
+
 	bpID := fmt.Sprintf("bp_%d", len(c.breakpoints)+1)
 	c.breakpoints[bpID] = &BreakpointInfo{
-		ID:       bpID,
-		Location: location,
-		Enabled:  true,
+		ID:        bpID,
+		RequestID: requestID,
+		Location:  location,
+		Enabled:   true,
+		HitCount:  0,
 	}
+
 	return bpID, nil
+}
+
+func parseLocation(location string) (string, string, int) {
+	className := ""
+	methodName := ""
+	lineNumber := 0
+
+	lastDot := -1
+	lastColon := -1
+	for i, ch := range location {
+		if ch == '.' {
+			lastDot = i
+		} else if ch == ':' {
+			lastColon = i
+		}
+	}
+
+	if lastDot != -1 && lastColon != -1 && lastColon > lastDot {
+		className = location[:lastDot]
+		methodName = location[lastDot+1 : lastColon]
+		lineStr := location[lastColon+1:]
+		fmt.Sscanf(lineStr, "%d", &lineNumber)
+	}
+
+	return className, methodName, lineNumber
 }
 
 // RemoveBreakpoint Removes a breakpoint.
@@ -432,8 +511,43 @@ func (c *Client) GetLocalVariablesFromFrame(ctx context.Context, threadID string
 
 // GetFields Get object fields
 func (c *Client) GetFields(ctx context.Context, objectID string) ([]*types.Variable, error) {
-	// TODO: 实现 ReferenceType.Fields 命令
-	return []*types.Variable{}, nil
+	tag := byte('L')
+	if len(objectID) > 0 && objectID[0] == '[' {
+		tag = byte('[')
+	}
+
+	refTypeID := objectID[2:]
+	fields, err := c.Fields(refTypeID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(fields) == 0 {
+		return []*types.Variable{}, nil
+	}
+
+	fieldIDs := make([]string, 0, len(fields))
+	for _, field := range fields {
+		fieldIDs = append(fieldIDs, field.FieldID)
+	}
+
+	tags, values, err := c.GetValuesWithTags(objectID[2:], fieldIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	variables := make([]*types.Variable, 0, len(fields))
+	for i := 0; i < len(fields); i++ {
+		variables = append(variables, &types.Variable{
+			Name:        fields[i].Name,
+			Type:        fields[i].Signature,
+			Value:       values[i],
+			IsPrimitive: isPrimitiveTag(tags[i]),
+			IsNull:      values[i] == nil,
+		})
+	}
+
+	return variables, nil
 }
 
 // EnableStreaming enables event streaming with WebSocket support

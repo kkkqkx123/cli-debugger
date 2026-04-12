@@ -250,11 +250,13 @@ func (c *Client) WaitForEvent(ctx context.Context, timeout time.Duration) (*type
 
 // encodeID Encoding ID
 func encodeID(id string, size int) []byte {
-	// Converting String IDs to Bytes
-	// TODO: 实现正确的 ID 编码
+	var idVal uint64
+	fmt.Sscanf(id, "%d", &idVal)
+
 	buf := make([]byte, size)
-	for i := 0; i < size && i < len(id); i++ {
-		buf[i] = id[i]
+	for i := 0; i < size; i++ {
+		shift := (size - 1 - i) * 8
+		buf[i] = byte((idVal >> uint(shift)) & 0xFF)
 	}
 	return buf
 }

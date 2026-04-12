@@ -375,13 +375,208 @@ func (c *Client) GetCurrentContendedMonitor(ctx context.Context, threadID string
 
 // Stop stops the thread (throws an exception)
 func (c *Client) Stop(ctx context.Context, threadID string, exceptionID string) error {
-	// TODO: 实现 ThreadReference.Stop 命令
+	data := make([]byte, 0)
+
+	data = append(data, encodeID(threadID, c.idsizes.ObjectIDSize)...)
+	data = append(data, encodeID(exceptionID, c.idsizes.ObjectIDSize)...)
+
+	packet := createCommandPacketWithData(threadCommandSet, threadCommandStop, data)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to stop thread",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to stop thread",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Stop thread failed: %s", reply.Message),
+		}
+	}
+
 	return nil
 }
 
 // Breakpoint Setting breakpoints in a thread
 func (c *Client) Breakpoint(ctx context.Context, threadID string) error {
-	// TODO: 实现 ThreadReference.Breakpoint 命令
+	data := encodeID(threadID, c.idsizes.ObjectIDSize)
+
+	packet := createCommandPacketWithData(threadCommandSet, 13, data)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to interrupt thread",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to interrupt thread",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Interrupt thread failed: %s", reply.Message),
+		}
+	}
+
+	return nil
+}
+
+// Interrupt interrupt thread
+func (c *Client) Interrupt(threadID string) error {
+	data := encodeID(threadID, c.idsizes.ObjectIDSize)
+
+	packet := createCommandPacketWithData(threadCommandSet, threadCommandInterrupt, data)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to interrupt thread",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to interrupt thread",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Interrupt thread failed: %s", reply.Message),
+		}
+	}
+
+	return nil
+}
+
+// SuspendCount Get suspend count
+func (c *Client) SuspendCount(threadID string) (int, error) {
+	data := encodeID(threadID, c.idsizes.ObjectIDSize)
+
+	packet := createCommandPacketWithData(threadCommandSet, threadCommandSuspendCount, data)
+	if err := c.sendPacket(packet); err != nil {
+		return 0, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get suspend count",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return 0, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get suspend count",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return 0, &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Get suspend count failed: %s", reply.Message),
+		}
+	}
+
+	reader := newPacketReader(reply.Data)
+	suspendCount := reader.readInt()
+
+	return suspendCount, nil
+}
+
+// ForceEarlyReturn Force early return
+func (c *Client) ForceEarlyReturn(threadID string, frameID string, value interface{}, tag byte) error {
+	data := make([]byte, 0)
+
+	data = append(data, encodeID(threadID, c.idsizes.ObjectIDSize)...)
+	data = append(data, encodeID(frameID, c.idsizes.FrameIDSize)...)
+	data = append(data, tag)
+
+	valueBytes := make([]byte, 0)
+	switch val := value.(type) {
+	case int8:
+		valueBytes = append(valueBytes, byte(val))
+	case int16:
+		valueBytes = append(valueBytes, byte(val>>8), byte(val))
+	case int32:
+		valueBytes = append(valueBytes, byte(val>>24), byte(val>>16), byte(val>>8), byte(val))
+	case int64:
+		valueBytes = append(valueBytes, byte(val>>56), byte(val>>48), byte(val>>40), byte(val>>32), byte(val>>24), byte(val>>16), byte(val>>8), byte(val))
+	case float32:
+		bits := uint32(val)
+		valueBytes = append(valueBytes, byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
+	case float64:
+		bits := uint64(val)
+		valueBytes = append(valueBytes, byte(bits>>56), byte(bits>>48), byte(bits>>40), byte(bits>>32), byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
+	case bool:
+		if val {
+			valueBytes = append(valueBytes, 1)
+		} else {
+			valueBytes = append(valueBytes, 0)
+		}
+	case string:
+		valueBytes = append(valueBytes, encodeID(val, c.idsizes.ObjectIDSize)...)
+	case nil:
+		break
+	default:
+		valueBytes = append(valueBytes, 0)
+	}
+
+	data = append(data, valueBytes...)
+
+	packet := createCommandPacketWithData(threadCommandSet, 14, data)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to force early return",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to force early return",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Force early return failed: %s", reply.Message),
+		}
+	}
+
 	return nil
 }
 
