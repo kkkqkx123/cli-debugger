@@ -1,0 +1,44 @@
+# 多语言调试 CLI - 示例配置文件
+# 将此文件复制为 .debugger.yaml 或 ~/.config/debugger/config.yaml 使用
+
+# 默认配置
+defaults:
+  protocol: jdwp           # 默认协议 (jdwp, dap, 等)
+  host: 127.0.0.1          # 默认主机地址
+  port: 5005               # 默认调试端口
+  timeout: 30              # 超时时间（秒）
+  output: text             # 输出格式 (text/json/table)
+  color: true              # 启用彩色输出
+  watch: false             # 是否启用监控模式
+  interval: 1              # 监控刷新间隔（秒）
+  verbose: false           # 是否显示详细日志
+
+# 命名配置文件
+profiles:
+  - name: dev-java
+    config:
+      host: 127.0.0.1
+      port: 5005
+      protocol: jdwp
+      timeout: 10
+
+  - name: prod-java
+    config:
+      host: 192.168.1.100
+      port: 5005
+      protocol: jdwp
+      timeout: 30
+
+  - name: local-test
+    config:
+      host: localhost
+      port: 8000
+      protocol: jdwp
+      timeout: 5
+
+# 插件特定配置
+plugins:
+  jdwp:
+    # JDWP 特定选项（未来扩展）
+    enable_events: true
+    auto_suspend: false
