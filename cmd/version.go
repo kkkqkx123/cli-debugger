@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"cli-debugger/internal/api"
 )
 
 var versionCmd = &cobra.Command{
@@ -13,17 +14,11 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Multi-language debugging CLI")
 		fmt.Println("Version: 0.1.0-dev")
-		fmt.Println("Build Time: 2024-01-01")
-		fmt.Printf("Supported protocols: %v\n", getSupportedProtocols())
+		fmt.Println("Build Time: 2026-04-12")
+		fmt.Printf("Supported protocols: %v\n", api.GetRegisteredProtocols())
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
-}
-
-// getSupportedProtocols - Retrieve a list of supported protocols
-func getSupportedProtocols() []string {
-	// TODO: 从插件注册表获取
-	return []string{"jdwp"}
 }

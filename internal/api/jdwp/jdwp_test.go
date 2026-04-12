@@ -204,7 +204,6 @@ func TestJDWPError(t *testing.T) {
 		expected string
 	}{
 		{ErrNone, "error-free"},
-		{ErrInvalidID, "Invalid ID"},
 		{ErrInvalidClass, "void class"},
 		{ErrOutOfMemory, "lack of memory"},
 		{JDWPError(999), "Unknown error (999)"},

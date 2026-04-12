@@ -30,12 +30,12 @@ type Formatter interface {
 type FormatterType string
 
 const (
-	// TextFormatter Text Formatter
-	TextFormatter FormatterType = "text"
-	// JSONFormatter JSON Formatter
-	JSONFormatter FormatterType = "json"
-	// TableFormatter Table Formatter
-	TableFormatter FormatterType = "table"
+	// TextFormatType Text Formatter
+	TextFormatType FormatterType = "text"
+	// JSONFormatType JSON Formatter
+	JSONFormatType FormatterType = "json"
+	// TableFormatType Table Formatter
+	TableFormatType FormatterType = "table"
 )
 
 // FormatterFactory Formatter factory function
@@ -44,9 +44,9 @@ type FormatterFactory func(color bool) Formatter
 // NewFormatter Creates a formatter
 func NewFormatter(formatterType FormatterType, color bool) Formatter {
 	switch formatterType {
-	case JSONFormatter:
+	case JSONFormatType:
 		return NewJSONFormatter()
-	case TableFormatter:
+	case TableFormatType:
 		return NewTableFormatter(color)
 	default:
 		return NewTextFormatter(color)
@@ -57,10 +57,10 @@ func NewFormatter(formatterType FormatterType, color bool) Formatter {
 func GetFormatterType(outputFormat string) FormatterType {
 	switch outputFormat {
 	case "json":
-		return JSONFormatter
+		return JSONFormatType
 	case "table":
-		return TableFormatter
+		return TableFormatType
 	default:
-		return TextFormatter
+		return TextFormatType
 	}
 }

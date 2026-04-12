@@ -9,6 +9,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"cli-debugger/pkg/types"
 )
 
@@ -33,17 +34,10 @@ func (f *TableFormatter) SetWriter(writer io.Writer) {
 
 // FormatVersion Format version information
 func (f *TableFormatter) FormatVersion(info *types.VersionInfo) error {
-	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"causality", "value"})
-	table.SetBorder(false)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-
-	if f.color {
-		table.SetHeaderColor(
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgGreenColor},
-		)
-	}
+	table := tablewriter.NewTable(f.writer,
+		tablewriter.WithHeader([]string{"causality", "value"}),
+		tablewriter.WithRendition(tw.Rendition{Borders: tw.Border{Top: tw.State(1), Bottom: tw.State(1)}}),
+	)
 
 	table.Append([]string{"protocol version", info.ProtocolVersion})
 	table.Append([]string{"runtime version", info.RuntimeVersion})
@@ -63,41 +57,21 @@ func (f *TableFormatter) FormatThreads(threads []*types.ThreadInfo) error {
 		return nil
 	}
 
-	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"ID", "name", "state", "prioritization", "daemon thread", "pending"})
-	table.SetBorder(true)
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(true)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.SetCenterSeparator("|")
-	table.SetColumnSeparator("|")
-	table.SetRowSeparator("-")
-	table.SetHeaderLine(true)
-	table.SetTablePadding("\t")
-	table.SetNoWhiteSpace(true)
-
-	if f.color {
-		table.SetHeaderColor(
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgGreenColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgYellowColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgMagentaColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlueColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgRedColor},
-		)
-	}
+	table := tablewriter.NewTable(f.writer,
+		tablewriter.WithHeader([]string{"ID", "name", "state", "prioritization", "daemon thread", "pending"}),
+		tablewriter.WithRendition(tw.Rendition{Borders: tw.Border{Top: tw.State(1), Bottom: tw.State(1), Left: tw.State(1), Right: tw.State(1)}}),
+		tablewriter.WithRowAlignment(tw.AlignLeft),
+	)
 
 	for _, thread := range threads {
-		row := []string{
+		table.Append([]string{
 			thread.ID,
 			thread.Name,
 			thread.State,
 			strconv.Itoa(thread.Priority),
 			f.formatBool(thread.IsDaemon),
 			f.formatBool(thread.IsSuspended),
-		}
-		table.Append(row)
+		})
 	}
 
 	table.Render()
@@ -112,39 +86,20 @@ func (f *TableFormatter) FormatStack(frames []*types.StackFrame) error {
 		return nil
 	}
 
-	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"#", "method", "position", "line number", "local method"})
-	table.SetBorder(true)
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(true)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.SetCenterSeparator("|")
-	table.SetColumnSeparator("|")
-	table.SetRowSeparator("-")
-	table.SetHeaderLine(true)
-	table.SetTablePadding("\t")
-	table.SetNoWhiteSpace(true)
-
-	if f.color {
-		table.SetHeaderColor(
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgGreenColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgYellowColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgMagentaColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlueColor},
-		)
-	}
+	table := tablewriter.NewTable(f.writer,
+		tablewriter.WithHeader([]string{"#", "method", "position", "line number", "local method"}),
+		tablewriter.WithRendition(tw.Rendition{Borders: tw.Border{Top: tw.State(1), Bottom: tw.State(1), Left: tw.State(1), Right: tw.State(1)}}),
+		tablewriter.WithRowAlignment(tw.AlignLeft),
+	)
 
 	for i, frame := range frames {
-		row := []string{
+		table.Append([]string{
 			strconv.Itoa(i),
 			frame.Method,
 			frame.Location,
 			strconv.Itoa(frame.Line),
 			f.formatBool(frame.IsNative),
-		}
-		table.Append(row)
+		})
 	}
 
 	table.Render()
@@ -159,40 +114,21 @@ func (f *TableFormatter) FormatVariables(variables []*types.Variable) error {
 		return nil
 	}
 
-	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"name", "typology", "value", "Original type", "null value"})
-	table.SetBorder(true)
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(true)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.SetCenterSeparator("|")
-	table.SetColumnSeparator("|")
-	table.SetRowSeparator("-")
-	table.SetHeaderLine(true)
-	table.SetTablePadding("\t")
-	table.SetNoWhiteSpace(true)
-
-	if f.color {
-		table.SetHeaderColor(
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgGreenColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgYellowColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgMagentaColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlueColor},
-		)
-	}
+	table := tablewriter.NewTable(f.writer,
+		tablewriter.WithHeader([]string{"name", "typology", "value", "Original type", "null value"}),
+		tablewriter.WithRendition(tw.Rendition{Borders: tw.Border{Top: tw.State(1), Bottom: tw.State(1), Left: tw.State(1), Right: tw.State(1)}}),
+		tablewriter.WithRowAlignment(tw.AlignLeft),
+	)
 
 	for _, variable := range variables {
 		valueStr := f.formatValue(variable.Value)
-		row := []string{
+		table.Append([]string{
 			variable.Name,
 			variable.Type,
 			valueStr,
 			f.formatBool(variable.IsPrimitive),
 			f.formatBool(variable.IsNull),
-		}
-		table.Append(row)
+		})
 	}
 
 	table.Render()
@@ -207,39 +143,20 @@ func (f *TableFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) 
 		return nil
 	}
 
-	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"ID", "position", "enabled", "Number of hits", "conditions"})
-	table.SetBorder(true)
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(true)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.SetCenterSeparator("|")
-	table.SetColumnSeparator("|")
-	table.SetRowSeparator("-")
-	table.SetHeaderLine(true)
-	table.SetTablePadding("\t")
-	table.SetNoWhiteSpace(true)
-
-	if f.color {
-		table.SetHeaderColor(
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgGreenColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgYellowColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgMagentaColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgBlueColor},
-		)
-	}
+	table := tablewriter.NewTable(f.writer,
+		tablewriter.WithHeader([]string{"ID", "position", "enabled", "Number of hits", "conditions"}),
+		tablewriter.WithRendition(tw.Rendition{Borders: tw.Border{Top: tw.State(1), Bottom: tw.State(1), Left: tw.State(1), Right: tw.State(1)}}),
+		tablewriter.WithRowAlignment(tw.AlignLeft),
+	)
 
 	for _, bp := range breakpoints {
-		row := []string{
+		table.Append([]string{
 			bp.ID,
 			bp.Location,
 			f.formatBool(bp.Enabled),
 			strconv.Itoa(bp.HitCount),
 			bp.Condition,
-		}
-		table.Append(row)
+		})
 	}
 
 	table.Render()
@@ -249,17 +166,11 @@ func (f *TableFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) 
 
 // FormatEvent Format debug event
 func (f *TableFormatter) FormatEvent(event *types.DebugEvent) error {
-	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"attribute", "值"})
-	table.SetBorder(false)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-
-	if f.color {
-		table.SetHeaderColor(
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
-			tablewriter.Colors{tablewriter.Bold, tablewriter.FgGreenColor},
-		)
-	}
+	table := tablewriter.NewTable(f.writer,
+		tablewriter.WithHeader([]string{"attribute", "值"}),
+		tablewriter.WithRendition(tw.Rendition{Borders: tw.Border{Top: tw.State(1), Bottom: tw.State(1)}}),
+		tablewriter.WithRowAlignment(tw.AlignLeft),
+	)
 
 	table.Append([]string{"event type", event.Type})
 	table.Append([]string{"Thread ID", event.ThreadID})

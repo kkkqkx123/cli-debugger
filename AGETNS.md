@@ -126,7 +126,7 @@ Corresponding formatters are created through the `NewFormatter(formatterType, co
 ### Build
 
 ```powershell
-go build -o debugger
+go build -o debugger.exe
 ```
 
 ### Lint

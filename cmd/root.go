@@ -2,25 +2,29 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	cfgFile string
-	protocol string
-	host string
-	port int
-	timeout int
+	cfgFile      string
+	protocol     string
+	host         string
+	port         int
+	timeout      int
 	outputFormat string
-	jsonOutput bool
-	watchMode bool
-	interval int
-	verbose bool
-	noColor bool
+	jsonOutput   bool
+	watchMode    bool
+	interval     int
+	verbose      bool
+	noColor      bool
 )
+
+// Execute Executes the root command.
+func Execute() error {
+	return rootCmd.Execute()
+}
 
 // rootCmd Indicates the base command
 var rootCmd = &cobra.Command{
@@ -30,14 +34,13 @@ var rootCmd = &cobra.Command{
 Support plugin architecture, different debugging protocols can be selected through the -- protocol flag.
 By default, it supports JDWP (Java Debugging Protocol) and can be extended to support other languages in the future.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Override output format if --json is set
+		if jsonOutput {
+			outputFormat = "json"
+		}
 		// Initialization Configuration
-		return initConfig()
+		return initConfig(cmd)
 	},
-}
-
-// Execute Executes the root command.
-func Execute() error {
-	return rootCmd.Execute()
 }
 
 func init() {
@@ -53,18 +56,10 @@ func init() {
 	rootCmd.PersistentFlags().IntVarP(&interval, "interval", "i", 1, "Monitor Refresh Interval (sec)")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Display protocol level details")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable color output")
-
-	// If --json is set, the output format is overridden.
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if jsonOutput {
-			outputFormat = "json"
-		}
-		return initConfig()
-	}
 }
 
 // initConfig Initialization Configuration
-func initConfig() error {
+func initConfig(cmd *cobra.Command) error {
 	if cfgFile != "" {
 		// Use the specified configuration file
 		viper.SetConfigFile(cfgFile)
@@ -96,12 +91,12 @@ func initConfig() error {
 	}
 
 	// Bind command line arguments to viper
-	viper.BindPFlag("protocol", rootCmd.PersistentFlags().Lookup("protocol"))
-	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
-	viper.BindPFlag("port", rootCmd.PersistentFlags().Lookup("port"))
-	viper.BindPFlag("timeout", rootCmd.PersistentFlags().Lookup("timeout"))
-	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
-	viper.BindPFlag("color", rootCmd.PersistentFlags().Lookup("no-color"))
+	viper.BindPFlag("protocol", cmd.PersistentFlags().Lookup("protocol"))
+	viper.BindPFlag("host", cmd.PersistentFlags().Lookup("host"))
+	viper.BindPFlag("port", cmd.PersistentFlags().Lookup("port"))
+	viper.BindPFlag("timeout", cmd.PersistentFlags().Lookup("timeout"))
+	viper.BindPFlag("output", cmd.PersistentFlags().Lookup("output"))
+	viper.BindPFlag("color", cmd.PersistentFlags().Lookup("no-color"))
 
 	return nil
 }

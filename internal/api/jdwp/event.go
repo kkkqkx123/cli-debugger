@@ -208,8 +208,43 @@ const (
 
 // WaitForEvent Wait for an event
 func (c *Client) WaitForEvent(ctx context.Context, timeout time.Duration) (*types.DebugEvent, error) {
-	// TODO: 实现事件循环
-	// Need to listen to asynchronous event packages from the JVM
+	c.eventMutex.Lock()
+	defer c.eventMutex.Unlock()
+
+	// Set read deadline
+	if timeout > 0 {
+		deadline := time.Now().Add(timeout)
+		if err := c.conn.SetReadDeadline(deadline); err != nil {
+			return nil, err
+		}
+		defer c.conn.SetReadDeadline(time.Time{})
+	}
+
+	// Read packet length
+	lenBuf := make([]byte, 4)
+	if _, err := c.conn.Read(lenBuf); err != nil {
+		return nil, err
+	}
+
+	length := bytesToUint32(lenBuf)
+
+	// Read remaining data
+	data := make([]byte, length-4)
+	if _, err := c.conn.Read(data); err != nil {
+		return nil, err
+	}
+
+	// Check if it's an event packet (flag = 0x80, but not a reply)
+	if len(data) >= 2 {
+		flags := data[4]
+		if flags == 0x80 && len(data) > 7 {
+			// This is a composite command
+			// Parse event packet
+			reader := newPacketReader(data[7:])
+			return c.parseEvent(reader)
+		}
+	}
+
 	return nil, nil
 }
 

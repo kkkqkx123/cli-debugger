@@ -158,7 +158,6 @@ func (f *TextFormatter) formatStackFrame(index int, frame *types.StackFrame) {
 	}
 
 	if f.color {
-		frameColor := color.New(color.FgYellow).SprintFunc()
 		methodColor := color.New(color.FgGreen).SprintFunc()
 		locationColor := color.New(color.FgCyan).SprintFunc()
 		lineColor := color.New(color.FgMagenta).SprintFunc()

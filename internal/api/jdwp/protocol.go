@@ -165,7 +165,7 @@ const (
 )
 
 var errorMessages = map[JDWPError]string{
-	ErrNone:               "successes",
+	ErrNone:               "error-free",
 	ErrInvalidThread:      "Invalid thread ID",
 	ErrInvalidMethodID:    "Invalid Method ID",
 	ErrInvalidLocation:    "void",
@@ -198,7 +198,7 @@ func (e JDWPError) Error() string {
 
 // encodeCommandPacket encodeCommandPacket
 func encodeCommandPacket(id uint32, commandSet byte, command byte, data []byte) []byte {
-	// 总长度 = 4(长度) + 4(ID) + 1(标志) + 1(命令集) + 1(命令) + 数据长度
+	// Total length=4 (length) 4 (ID) 1 (flag) 1 (command set) 1 (command) Data length
 	length := 11 + len(data)
 	packet := make([]byte, length)
 

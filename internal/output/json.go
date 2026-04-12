@@ -8,25 +8,25 @@ import (
 	"cli-debugger/pkg/types"
 )
 
-// JSONFormatter JSON Formatter
-type JSONFormatter struct {
+// jsonFormatter JSON Formatter
+type jsonFormatter struct {
 	writer io.Writer
 }
 
 // NewJSONFormatter Creates a JSON formatter.
-func NewJSONFormatter() *JSONFormatter {
-	return &JSONFormatter{
+func NewJSONFormatter() Formatter {
+	return &jsonFormatter{
 		writer: os.Stdout,
 	}
 }
 
 // SetWriter Sets the output writer
-func (f *JSONFormatter) SetWriter(writer io.Writer) {
+func (f *jsonFormatter) SetWriter(writer io.Writer) {
 	f.writer = writer
 }
 
 // FormatVersion Formatting version information
-func (f *JSONFormatter) FormatVersion(info *types.VersionInfo) error {
+func (f *jsonFormatter) FormatVersion(info *types.VersionInfo) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":    "version",
 		"version": info,
@@ -34,7 +34,7 @@ func (f *JSONFormatter) FormatVersion(info *types.VersionInfo) error {
 }
 
 // FormatThreads Format threads list
-func (f *JSONFormatter) FormatThreads(threads []*types.ThreadInfo) error {
+func (f *jsonFormatter) FormatThreads(threads []*types.ThreadInfo) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":    "threads",
 		"count":   len(threads),
@@ -43,7 +43,7 @@ func (f *JSONFormatter) FormatThreads(threads []*types.ThreadInfo) error {
 }
 
 // FormatStack Format call stack
-func (f *JSONFormatter) FormatStack(frames []*types.StackFrame) error {
+func (f *jsonFormatter) FormatStack(frames []*types.StackFrame) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":   "stack",
 		"count":  len(frames),
@@ -52,7 +52,7 @@ func (f *JSONFormatter) FormatStack(frames []*types.StackFrame) error {
 }
 
 // FormatVariables Format variable list
-func (f *JSONFormatter) FormatVariables(variables []*types.Variable) error {
+func (f *jsonFormatter) FormatVariables(variables []*types.Variable) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":      "variables",
 		"count":     len(variables),
@@ -61,7 +61,7 @@ func (f *JSONFormatter) FormatVariables(variables []*types.Variable) error {
 }
 
 // FormatBreakpoints Format the breakpoint list.
-func (f *JSONFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) error {
+func (f *jsonFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":        "breakpoints",
 		"count":       len(breakpoints),
@@ -70,15 +70,15 @@ func (f *JSONFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) e
 }
 
 // FormatEvent Format debug event
-func (f *JSONFormatter) FormatEvent(event *types.DebugEvent) error {
+func (f *jsonFormatter) FormatEvent(event *types.DebugEvent) error {
 	return f.encodeJSON(map[string]interface{}{
-		"type": "event",
+		"type":  "event",
 		"event": event,
 	})
 }
 
 // FormatError Formatting error
-func (f *JSONFormatter) FormatError(err error) error {
+func (f *jsonFormatter) FormatError(err error) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type": "error",
 		"error": map[string]interface{}{
@@ -88,7 +88,7 @@ func (f *JSONFormatter) FormatError(err error) error {
 }
 
 // encodeJSON Encoding JSON
-func (f *JSONFormatter) encodeJSON(data interface{}) error {
+func (f *jsonFormatter) encodeJSON(data interface{}) error {
 	encoder := json.NewEncoder(f.writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(data)

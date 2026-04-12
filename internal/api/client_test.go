@@ -11,7 +11,7 @@ import (
 func TestRegisterPlugin(t *testing.T) {
 	// Test Plug-in Registration
 	factory := func() DebugProtocol { return &testProtocol{} }
-	
+
 	err := RegisterPlugin("test", factory)
 	if err != nil {
 		t.Errorf("Failed to register plugin: %v", err)

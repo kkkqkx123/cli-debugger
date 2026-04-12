@@ -5,11 +5,12 @@ import (
 	"os"
 
 	"cli-debugger/cmd"
+	_ "cli-debugger/internal/api/jdwp"
 )
 
 func main() {
 	if err := cmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }

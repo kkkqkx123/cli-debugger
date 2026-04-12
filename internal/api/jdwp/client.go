@@ -23,6 +23,11 @@ type Client struct {
 	idsizes    *IDSizes
 	breakpoints map[string]*BreakpointInfo
 	eventMutex sync.Mutex
+
+	// Event streaming support
+	eventStream *EventStream
+	wsServer    *WebSocketServer
+	wsPort      int
 }
 
 // BreakpointInfo Internal breakpoint information
@@ -49,6 +54,7 @@ func NewClient() *Client {
 		port:        5005,
 		timeout:     30 * time.Second,
 		breakpoints: make(map[string]*BreakpointInfo),
+		wsPort:      8080,
 	}
 }
 
@@ -108,6 +114,11 @@ func (c *Client) Close() error {
 
 	if !c.connected || c.conn == nil {
 		return nil
+	}
+
+	// Stop event streaming if active
+	if c.eventStream != nil {
+		c.eventStream.Stop()
 	}
 
 	err := c.conn.Close()
@@ -423,6 +434,23 @@ func (c *Client) GetLocalVariablesFromFrame(ctx context.Context, threadID string
 func (c *Client) GetFields(ctx context.Context, objectID string) ([]*types.Variable, error) {
 	// TODO: 实现 ReferenceType.Fields 命令
 	return []*types.Variable{}, nil
+}
+
+// EnableStreaming enables event streaming with WebSocket support
+func (c *Client) EnableStreaming() error {
+	c.eventStream = NewEventStream(c)
+	if err := c.eventStream.Start(); err != nil {
+		return err
+	}
+
+	c.wsServer = NewWebSocketServer(c.wsPort, c.eventStream)
+	go func() {
+		if err := c.wsServer.Start(); err != nil {
+			fmt.Printf("WebSocket server error: %v\n", err)
+		}
+	}()
+
+	return nil
 }
 
 // parseEvent parsing JDWP case

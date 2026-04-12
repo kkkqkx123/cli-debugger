@@ -56,7 +56,7 @@ func (p *Plugin) Capabilities(ctx context.Context) (*types.Capabilities, error) 
 		SupportsFinish:       true,
 		SupportsEvents:       true,
 		SupportsWatchMode:    true,
-		SupportsStreaming:    false, // TODO: 实现 WebSocket 支持
+		SupportsStreaming:    true,
 	}, nil
 }
 
