@@ -10,15 +10,7 @@ import (
 )
 
 // StackFrame Command Set Implementation
-
-// StackFrame Command Constants
-const (
-	stackFrameCommandSet byte = 10
-	stackFrameCommandGetValues byte = 1
-	stackFrameCommandSetValues byte = 2
-	stackFrameCommandThisObject byte = 3
-	stackFrameCommandPopFrames byte = 4
-)
+// StackFrame command constants are already defined in protocol.go
 
 // GetStackFrames Get a list of the thread's stack frames.
 func (c *Client) GetStackFrames(ctx context.Context, threadID string, startFrame int, length int) ([]*types.StackFrame, error) {
@@ -231,20 +223,4 @@ func isPrimitiveTag(tag byte) bool {
 		}
 	}
 	return false
-}
-
-// Thread command constants (for stack frame operations)
-const (
-	threadCommandSet byte = 2
-	threadCommandFrames byte = 8
-)
-
-// readUint64 Reads a 64-bit unsigned integer.
-func (r *PacketReader) readUint64() uint64 {
-	if r.pos+8 > len(r.data) {
-		return 0
-	}
-	val := binary.BigEndian.Uint64(r.data[r.pos : r.pos+8])
-	r.pos += 8
-	return val
 }

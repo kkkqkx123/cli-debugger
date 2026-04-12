@@ -58,8 +58,7 @@ func CreateClient(protocolName string) (DebugProtocol, error) {
 
 // AutoDetect Automatically detects protocols
 func AutoDetect() string {
-	// Get host and port from configuration
-	host := viper.GetString("host")
+	// Get port from configuration
 	port := viper.GetInt("port")
 
 	// Simple Port Inspection Policy

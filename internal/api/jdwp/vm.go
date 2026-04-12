@@ -3,6 +3,7 @@ package jdwp
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"cli-debugger/internal/api"
 	"cli-debugger/pkg/types"
@@ -80,6 +81,25 @@ func (c *Client) SuspendVM(ctx context.Context) error {
 			Cause:   err,
 		}
 	}
+	
+	// Read reply to ensure command success
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to hang VM",
+			Cause:   err,
+		}
+	}
+	
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Suspend VM failed: %s", reply.Message),
+		}
+	}
+	
 	return nil
 }
 
@@ -93,13 +113,32 @@ func (c *Client) ResumeVM(ctx context.Context) error {
 			Cause:   err,
 		}
 	}
+	
+	// Read reply to ensure command success
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Recovery VM Failed",
+			Cause:   err,
+		}
+	}
+	
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Resume VM failed: %s", reply.Message),
+		}
+	}
+	
 	return nil
 }
 
 // ClassByName Finds a class by name
 func (c *Client) ClassByName(ctx context.Context, className string) (*ClassInfo, error) {
 	data := EncodeString(className)
-	packet := createCommandPacketWithData(vmCommandSet, vmCommandClassByName, data)
+	packet := createCommandPacketWithData(vmCommandSet, vmCommandClassesBySignature, data)
 	if err := c.sendPacket(packet); err != nil {
 		return nil, err
 	}
@@ -118,6 +157,12 @@ func (c *Client) ClassByName(ctx context.Context, className string) (*ClassInfo,
 	}
 
 	reader := newPacketReader(reply.Data)
+	// ClassesBySignature returns an array
+	count := reader.readInt()
+	if count == 0 {
+		return nil, nil
+	}
+	
 	tag := reader.readByte()
 	refID := reader.readID(c.idsizes.ReferenceTypeIDSize)
 	status := reader.readInt()
@@ -148,4 +193,157 @@ type ClassInfo struct {
 // GetIDSizes Get ID sizes (internal use)
 func (c *Client) GetIDSizes(ctx context.Context) (*IDSizes, error) {
 	return c.idsizes, nil
+}
+
+// getIDSizesInternal 获取 ID 大小 (内部方法,在连接时调用)
+func (c *Client) getIDSizesInternal(ctx context.Context) error {
+	packet := createCommandPacket(vmCommandSet, vmCommandIDSizes)
+	if err := c.sendPacket(packet); err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get ID sizes",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get ID sizes",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Get ID sizes failed: %s", reply.Message),
+		}
+	}
+
+	// Parse ID sizes from response
+	if len(reply.Data) < 40 {
+		return &api.APIError{
+			Type:    api.ProtocolError,
+			Message: "IDSizes response too short",
+		}
+	}
+
+	reader := newPacketReader(reply.Data)
+	c.idsizes = &IDSizes{
+		FieldIDSize:         int(reader.readInt()),
+		MethodIDSize:        int(reader.readInt()),
+		ObjectIDSize:        int(reader.readInt()),
+		ReferenceTypeIDSize: int(reader.readInt()),
+		FrameIDSize:         int(reader.readInt()),
+	}
+
+	return nil
+}
+
+// Version 获取版本信息 (实现 DebugProtocol 接口)
+func (c *Client) Version(ctx context.Context) (*types.VersionInfo, error) {
+	packet := createCommandPacket(vmCommandSet, vmCommandVersion)
+	if err := c.sendPacket(packet); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get version",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get version",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return nil, &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Get version failed: %s", reply.Message),
+		}
+	}
+
+	// Parsing version information
+	reader := newPacketReader(reply.Data)
+
+	description, _ := reader.readString()
+	jdwpMajor := reader.readInt()
+	jdwpMinor := reader.readInt()
+	vmVersion, _ := reader.readString()
+	vmName, _ := reader.readString()
+
+	return &types.VersionInfo{
+		ProtocolVersion: fmt.Sprintf("%d.%d", jdwpMajor, jdwpMinor),
+		RuntimeVersion:  vmVersion,
+		RuntimeName:     vmName,
+		Description:     description,
+	}, nil
+}
+
+// GetThreads 获取所有线程 (实现 DebugProtocol 接口)
+func (c *Client) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
+	// 首先挂起 VM 以获取一致的线程信息
+	if err := c.SuspendVM(ctx); err != nil {
+		return nil, err
+	}
+	defer c.ResumeVM(ctx) // 确保恢复 VM
+
+	packet := createCommandPacket(vmCommandSet, vmCommandAllThreads)
+	if err := c.sendPacket(packet); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get threads",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get threads",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return nil, &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Get threads failed: %s", reply.Message),
+		}
+	}
+
+	reader := newPacketReader(reply.Data)
+	threadCount := reader.readInt()
+
+	threads := make([]*types.ThreadInfo, 0, threadCount)
+	for i := 0; i < threadCount; i++ {
+		threadID := reader.readID(c.idsizes.ObjectIDSize)
+		
+		// 获取线程名称 (需要发送 ThreadReference.Name 命令)
+		name, _ := c.GetThreadName(ctx, threadID)
+		
+		// 获取线程状态
+		state, _, _ := c.GetThreadStatus(ctx, threadID)
+
+		threads = append(threads, &types.ThreadInfo{
+			ID:          threadID,
+			Name:        name,
+			State:       state,
+			Priority:    5, // 默认优先级
+			IsDaemon:    false,
+			CreatedAt:   time.Now(),
+		})
+	}
+
+	return threads, nil
 }

@@ -287,8 +287,23 @@ func (c *Client) getThreadStateInternal(threadID string) (string, error) {
 
 // GetThreadStack Get Thread Call Stack
 func (c *Client) GetThreadStack(ctx context.Context, threadID string) ([]*types.StackFrame, error) {
-	// TODO: 实现 StackFrame.GetFrames 命令
-	return []*types.StackFrame{}, nil
+	// 获取帧数
+	frameCount, err := c.GetThreadFrameCount(ctx, threadID)
+	if err != nil {
+		return nil, err
+	}
+
+	if frameCount == 0 {
+		return []*types.StackFrame{}, nil
+	}
+
+	// 获取所有栈帧
+	frames, err := c.GetStackFrames(ctx, threadID, 0, frameCount)
+	if err != nil {
+		return nil, err
+	}
+
+	return frames, nil
 }
 
 // GetThreadState Get Thread State
@@ -310,32 +325,78 @@ func (c *Client) ResumeVM(ctx context.Context) error {
 
 // SuspendThread Suspends the specified thread.
 func (c *Client) SuspendThread(ctx context.Context, threadID string) error {
-	// TODO: 实现 ThreadReference.Suspend 命令
-	return nil
+	return c.suspendThreadInternal(ctx, threadID)
 }
 
 // ResumeThread Resumes the specified thread.
 func (c *Client) ResumeThread(ctx context.Context, threadID string) error {
-	// TODO: 实现 ThreadReference.Resume 命令
-	return nil
+	return c.resumeThreadInternal(ctx, threadID)
 }
 
 // StepInto Single StepInto
 func (c *Client) StepInto(ctx context.Context, threadID string) error {
-	// TODO: 实现事件请求和等待
-	return nil
+	// 设置单步进入事件
+	requestID, err := c.SetStepRequest(ctx, threadID, StepInto, SuspendAll)
+	if err != nil {
+		return err
+	}
+
+	// 恢复 VM 执行
+	if err := c.ResumeVM(ctx); err != nil {
+		return err
+	}
+
+	// 等待事件
+	_, err = c.WaitForEvent(ctx, 30*time.Second)
+	
+	// 清理事件请求
+	c.ClearBreakpointRequest(ctx, requestID)
+	
+	return err
 }
 
 // StepOver Single-step skip
 func (c *Client) StepOver(ctx context.Context, threadID string) error {
-	// TODO: 实现事件请求和等待
-	return nil
+	// 设置单步跳过事件
+	requestID, err := c.SetStepRequest(ctx, threadID, StepOver, SuspendAll)
+	if err != nil {
+		return err
+	}
+
+	// 恢复 VM 执行
+	if err := c.ResumeVM(ctx); err != nil {
+		return err
+	}
+
+	// 等待事件
+	_, err = c.WaitForEvent(ctx, 30*time.Second)
+	
+	// 清理事件请求
+	c.ClearBreakpointRequest(ctx, requestID)
+	
+	return err
 }
 
 // StepOut
 func (c *Client) StepOut(ctx context.Context, threadID string) error {
-	// TODO: 实现事件请求和等待
-	return nil
+	// 设置单步跳出事件
+	requestID, err := c.SetStepRequest(ctx, threadID, StepOut, SuspendAll)
+	if err != nil {
+		return err
+	}
+
+	// 恢复 VM 执行
+	if err := c.ResumeVM(ctx); err != nil {
+		return err
+	}
+
+	// 等待事件
+	_, err = c.WaitForEvent(ctx, 30*time.Second)
+	
+	// 清理事件请求
+	c.ClearBreakpointRequest(ctx, requestID)
+	
+	return err
 }
 
 // SetBreakpoint sets a breakpoint.
@@ -378,8 +439,92 @@ func (c *Client) GetBreakpoints(ctx context.Context) ([]*types.BreakpointInfo, e
 
 // GetLocalVariables Get Local Variables
 func (c *Client) GetLocalVariables(ctx context.Context, threadID string, frameIndex int) ([]*types.Variable, error) {
-	// TODO: 实现 StackFrame.GetValues 命令
-	return []*types.Variable{}, nil
+	// 首先获取栈帧
+	frames, err := c.GetStackFrames(ctx, threadID, frameIndex, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(frames) == 0 {
+		return []*types.Variable{}, nil
+	}
+
+	// 获取局部变量 (委托给 stackframe.go 中的实现)
+	return c.GetLocalVariablesFromFrame(ctx, threadID, frames[0].ID)
+}
+
+// GetLocalVariablesFromFrame 从指定帧获取局部变量
+func (c *Client) GetLocalVariablesFromFrame(ctx context.Context, threadID string, frameID string) ([]*types.Variable, error) {
+	// 构造请求数据
+	data := make([]byte, 0)
+
+	// Thread ID
+	threadIDBytes := encodeID(threadID, c.idsizes.ObjectIDSize)
+	data = append(data, threadIDBytes...)
+
+	// Frame ID
+	frameIDBytes := encodeID(frameID, c.idsizes.FrameIDSize)
+	data = append(data, frameIDBytes...)
+
+	// 变量数量 (这里假设获取所有变量,实际应该从方法信息中获取)
+	// 简化处理,发送一个合理的最大值
+	varCount := int32(10)
+	varCountBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(varCountBytes, uint32(varCount))
+	data = append(data, varCountBytes...)
+
+	// 发送 StackFrame.GetValues 命令 (Command Set = 15, Command = 1)
+	packet := createCommandPacketWithData(stackFrameCommandSet, stackFrameCommandGetValues, data)
+	if err := c.sendPacket(packet); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get local variables",
+			Cause:   err,
+		}
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to get local variables",
+			Cause:   err,
+		}
+	}
+
+	if reply.ErrorCode != 0 {
+		return nil, &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Get local variables failed: %s", reply.Message),
+		}
+	}
+
+	// 解析响应
+	reader := newPacketReader(reply.Data)
+	valueCount := reader.readInt()
+
+	variables := make([]*types.Variable, 0, valueCount)
+	for i := 0; i < valueCount; i++ {
+		// 读取值标签
+		tag := reader.readByte()
+
+		// 获取值
+		value, err := reader.readValue(tag)
+		if err != nil {
+			continue
+		}
+
+		variables = append(variables, &types.Variable{
+			Name:        fmt.Sprintf("var_%d", i),
+			Type:        string(tag),
+			Value:       value,
+			IsPrimitive: isPrimitiveTag(tag),
+			IsNull:      value == nil,
+		})
+	}
+
+	return variables, nil
 }
 
 // GetFields Get object fields
@@ -390,6 +535,94 @@ func (c *Client) GetFields(ctx context.Context, objectID string) ([]*types.Varia
 
 // WaitForEvent Wait for debug event
 func (c *Client) WaitForEvent(ctx context.Context, timeout time.Duration) (*types.DebugEvent, error) {
-	// TODO: 实现事件循环
+	// 设置读取超时
+	if err := c.conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to set read deadline",
+			Cause:   err,
+		}
+	}
+
+	// 读取事件数据
+	lenBuf := make([]byte, 4)
+	if _, err := c.conn.Read(lenBuf); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to read event",
+			Cause:   err,
+		}
+	}
+
+	length := bytesToUint32(lenBuf)
+	data := make([]byte, length-4)
+	if _, err := c.conn.Read(data); err != nil {
+		return nil, &api.APIError{
+			Type:    api.CommandError,
+			Message: "Failed to read event data",
+			Cause:   err,
+		}
+	}
+
+	// 解析事件包
+	reader := newPacketReader(data)
+	reader.readUint32() // ID
+	flags := reader.readByte()
+
+	// 检查是否是事件包 (flags should be 0x80 for reply, or event set)
+	if flags != replyFlag {
+		// 这是 VM 发送的事件包
+		return c.parseEvent(reader)
+	}
+
 	return nil, nil
+}
+
+// parseEvent 解析 JDWP 事件
+func (c *Client) parseEvent(reader *PacketReader) (*types.DebugEvent, error) {
+	// 读取事件集 ID
+	eventSetID := reader.readByte()
+	
+	// 读取事件数量
+	eventCount := reader.readInt()
+
+	if eventCount == 0 {
+		return nil, nil
+	}
+
+	// 读取挂起策略
+	suspendPolicy := reader.readByte()
+
+	// 读取第一个事件 (简化处理)
+	eventKind := reader.readByte()
+	requestID := reader.readUint32()
+	threadID := reader.readID(c.idsizes.ObjectIDSize)
+
+	// 根据事件类型解析
+	var eventType string
+	switch eventKind {
+	case EventKindBreakpoint:
+		eventType = "breakpoint"
+	case EventKindSingleStep:
+		eventType = "step"
+	case EventKindException:
+		eventType = "exception"
+	case EventKindThreadStart:
+		eventType = "thread_start"
+	case EventKindThreadDeath:
+		eventType = "thread_death"
+	default:
+		eventType = fmt.Sprintf("unknown(%d)", eventKind)
+	}
+
+	return &types.DebugEvent{
+		Type:      eventType,
+		ThreadID:  threadID,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"event_kind":    eventKind,
+			"request_id":    requestID,
+			"suspend_policy": suspendPolicy,
+		},
+	}, nil
 }

@@ -10,43 +10,82 @@ import (
 const (
 	// Command Packet Flag
 	cmdFlag byte = 0x00
-	// response kitemarker
+	// Reply Packet Flag
 	replyFlag byte = 0x80
 
-	// VM Command Set
+	// Command Sets (from JDWP spec)
+	// VirtualMachine Command Set
 	vmCommandSet byte = 1
-	// Thread Instructions
-	threadCommandSet byte = 2
-	// ClassType command set
-	classTypeCommandSet byte = 3
-	// Method Instruction Collection
-	methodCommandSet byte = 4
-	// Field command set
-	fieldCommandSet byte = 5
 	// ReferenceType Command Set
-	referenceTypeCommandSet byte = 6
-	// ArrayType Instructions
-	arrayTypeCommandSet byte = 7
-	// VirtualMachine Instruction Collection
-	virtualMachineCommandSet byte = 8
-	// EventRequest command set
-	eventRequestCommandSet byte = 9
+	referenceTypeCommandSet byte = 2
+	// ClassType Command Set
+	classTypeCommandSet byte = 3
+	// ArrayType Command Set
+	arrayTypeCommandSet byte = 4
+	// Method Command Set
+	methodCommandSet byte = 5
+	// Field Command Set
+	fieldCommandSet byte = 6
+	// ObjectReference Command Set
+	objectReferenceCommandSet byte = 7
+	// StringReference Command Set
+	stringReferenceCommandSet byte = 8
+	// ThreadReference Command Set
+	threadCommandSet byte = 10
+	// ThreadGroupReference Command Set
+	threadGroupCommandSet byte = 11
+	// ArrayReference Command Set
+	arrayReferenceCommandSet byte = 12
+	// ClassLoaderReference Command Set
+	classLoaderCommandSet byte = 13
+	// EventRequest Command Set
+	eventRequestCommandSet byte = 14
 	// StackFrame Command Set
-	stackFrameCommandSet byte = 10
-	// ObjectReference command set
-	objectReferenceCommandSet byte = 11
-	// ReferenceType Command set (repeat)
-	referenceTypeCommandSet2 byte = 12
+	stackFrameCommandSet byte = 15
+	// ClassObjectReference Command Set
+	classObjectCommandSet byte = 16
+	// Event Command Set (VM to debugger)
+	eventCommandSet byte = 64
 
-	// VM Commands
-	vmCommandVersion byte = 1
-	vmCommandAllClasses byte = 2
-	vmCommandAllThreads byte = 3
-	vmCommandSuspend byte = 4
-	vmCommandResume byte = 5
-	vmCommandIDSizes byte = 6
-	vmCommandClassByName byte = 7
-	vmCommandDispose byte = 8
+	// VM Commands (VirtualMachine Command Set = 1)
+	vmCommandVersion    byte = 1
+	vmCommandClassesBySignature byte = 2
+	vmCommandAllClasses byte = 3
+	vmCommandAllThreads byte = 4
+	vmCommandTopLevelThreadGroups byte = 5
+	vmCommandDispose    byte = 6
+	vmCommandIDSizes    byte = 7
+	vmCommandSuspend    byte = 8
+	vmCommandResume     byte = 9
+	vmCommandExit       byte = 10
+	vmCommandCreateString byte = 11
+	vmCommandCapabilities byte = 12
+	vmCommandClassPaths byte = 13
+	vmCommandHoldEvents byte = 15
+	vmCommandReleaseEvents byte = 16
+	vmCommandRedefineClasses byte = 18
+	vmCommandSetDefaultStratum byte = 19
+	vmCommandAllClassesWithGeneric byte = 20
+
+	// ThreadReference Commands (Command Set = 10)
+	threadCommandName byte = 1
+	threadCommandSuspend byte = 2
+	threadCommandResume byte = 3
+	threadCommandStatus byte = 4
+	threadCommandThreadGroup byte = 5
+	threadCommandFrames byte = 6
+	threadCommandFrameCount byte = 7
+	threadCommandOwnedMonitors byte = 8
+	threadCommandCurrentContendedMonitor byte = 9
+	threadCommandStop byte = 10
+	threadCommandInterrupt byte = 11
+	threadCommandSuspendCount byte = 12
+
+	// StackFrame Commands (Command Set = 15)
+	stackFrameCommandGetValues byte = 1
+	stackFrameCommandSetValues byte = 2
+	stackFrameCommandThisObject byte = 3
+	stackFrameCommandPopFrames byte = 4
 
 	// Event Type
 	eventTypeSingleStep byte = 1
@@ -82,49 +121,66 @@ type ReplyPacket struct {
 	Data       []byte
 }
 
-// JDWPError JDWP Error Code
+// JDWPError JDWP Error Code (from JDWP spec)
 type JDWPError uint16
 
 const (
-	ErrNone                      JDWPError = 0
-	ErrInvalidID                 JDWPError = 1
-	ErrInvalidInstance           JDWPError = 10
-	ErrInvalidObject             JDWPError = 10
-	ErrInvalidClass              JDWPError = 20
-	ErrClassNotPrepared          JDWPError = 21
-	ErrInvalidMethodID           JDWPError = 30
-	ErrInvalidLocation           JDWPError = 40
-	ErrInvalidFieldID            JDWPError = 50
-	ErrInvalidFrameID            JDWPError = 60
-	ErrInvalidThread             JDWPError = 70
-	ErrInvalidEventRequest       JDWPError = 80
-	ErrInvalidCaptureThread      JDWPError = 90
-	ErrInvalidTag                JDWPError = 100
-	ErrOutOfMemory               JDWPError = 110
-	ErrInvalidAddress            JDWPError = 120
-	ErrInvalidString             JDWPError = 130
-	ErrInvalidLength             JDWPError = 140
-	ErrInvalidGroup              JDWPError = 150
-	ErrInvalidMonitor            JDWPError = 160
-	ErrInvalidCount              JDWPError = 170
-	ErrNotImplemented          JDWPError = 999
+	ErrNone                JDWPError = 0
+	ErrInvalidThread       JDWPError = 10
+	ErrInvalidMethodID     JDWPError = 13
+	ErrInvalidLocation     JDWPError = 20
+	ErrInvalidFieldID      JDWPError = 21
+	ErrInvalidClass        JDWPError = 22
+	ErrClassNotPrepared    JDWPError = 23
+	ErrInvalidObject       JDWPError = 24
+	ErrInvalidFrameID      JDWPError = 25
+	ErrOutOfMemory         JDWPError = 112
+	ErrNotImplemented      JDWPError = 99
+	ErrNullObject          JDWPError = 101
+	ErrInvalidTag          JDWPError = 102
+	ErrAlreadyInvoking     JDWPError = 103
+	ErrInvalidIndex        JDWPError = 104
+	ErrInvalidLength       JDWPError = 105
+	ErrInvalidString       JDWPError = 106
+	ErrInvalidClassLoader  JDWPError = 107
+	ErrInvalidArray        JDWPError = 108
+	ErrTransportLoad       JDWPError = 109
+	ErrTransportStart      JDWPError = 110
+	ErrNativeMethod        JDWPError = 111
+	ErrInvalidCount        JDWPError = 113
+	ErrInvalidMonitor      JDWPError = 50
+	ErrNotSuspended        JDWPError = 51
+	ErrInvalidTypestate    JDWPError = 52
+	ErrHierarchyChange     JDWPError = 53
+	ErrDeletedMethod       JDWPError = 54
+	ErrInvalidSlot         JDWPError = 55
+	ErrDuplicate           JDWPError = 56
+	ErrBusy                JDWPError = 11
+	ErrThreadNotExist      JDWPError = 12
 )
 
 var errorMessages = map[JDWPError]string{
-	ErrNone:                "error-free",
-	ErrInvalidID:           "Invalid ID",
-	ErrInvalidInstance:     "Examples of invalid",
-	ErrInvalidObject:       "null object",
-	ErrInvalidClass:        "void class",
-	ErrClassNotPrepared:    "unprepared",
-	ErrInvalidMethodID:     "Invalid Method ID",
-	ErrInvalidLocation:     "void",
-	ErrInvalidFieldID:      "Invalid Field ID",
-	ErrInvalidFrameID:      "Invalid Frame ID",
-	ErrInvalidThread:       "Invalid threads",
-	ErrInvalidEventRequest: "Invalid event requests",
-	ErrOutOfMemory:         "lack of memory",
-	ErrNotImplemented:      "unrealized",
+	ErrNone:               "成功",
+	ErrInvalidThread:      "无效的线程 ID",
+	ErrInvalidMethodID:    "无效的方法 ID",
+	ErrInvalidLocation:    "无效的位置",
+	ErrInvalidFieldID:     "无效的字段 ID",
+	ErrInvalidClass:       "无效的类",
+	ErrClassNotPrepared:   "类未准备好",
+	ErrInvalidObject:      "无效的对象",
+	ErrInvalidFrameID:     "无效的帧 ID",
+	ErrOutOfMemory:        "内存不足",
+	ErrNotImplemented:     "未实现",
+	ErrNullObject:         "空对象",
+	ErrInvalidTag:         "无效的标签",
+	ErrAlreadyInvoking:    "已在调用中",
+	ErrInvalidIndex:       "无效的索引",
+	ErrInvalidLength:      "无效的长度",
+	ErrInvalidString:      "无效的字符串",
+	ErrInvalidCount:       "无效的计数",
+	ErrNotSuspended:       "线程未挂起",
+	ErrBusy:               "VM 忙",
+	ErrThreadNotExist:     "线程不存在",
 }
 
 // Error Returns an error message

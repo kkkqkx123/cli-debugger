@@ -11,14 +11,7 @@ import (
 )
 
 // EventRequest Command Set Implementation
-
-// EventRequest command constants
-const (
-	eventRequestCommandSet byte = 9
-	eventRequestCommand byte = 1
-	eventRequestCommandClear byte = 2
-	eventRequestCommandClearAllBreakpoints byte = 3
-)
+// EventRequest command constants are already defined in protocol.go
 
 // SuspendPolicy Hang up policy
 const (
