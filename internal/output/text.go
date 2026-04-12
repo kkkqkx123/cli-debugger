@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"cli-debugger/pkg/errors"
 	"cli-debugger/pkg/types"
 )
 
@@ -366,6 +367,30 @@ func (f *TextFormatter) FormatError(err error) error {
 		fmt.Fprintf(f.writer, "%s: %v\n", errorColor("incorrect"), err)
 	} else {
 		fmt.Fprintf(f.writer, "Error: %v\n", err)
+	}
+	return nil
+}
+
+// FormatVerboseError Formatting verbose error
+func (f *TextFormatter) FormatVerboseError(err error) error {
+	if f.color {
+		errorColor := color.New(color.FgRed, color.Bold).SprintFunc()
+		fmt.Fprintf(f.writer, "\n")
+		fmt.Fprintf(f.writer, "%s: %s:%d\n", errorColor("Error Type"), err.(*errors.APIError).Type, err.(*errors.APIError).Code)
+		fmt.Fprintf(f.writer, "%s: %s\n", errorColor("Message"), err.(*errors.APIError).Message)
+		if err.(*errors.APIError).Cause != nil {
+			fmt.Fprintf(f.writer, "%s: %v\n", errorColor("Cause"), err.(*errors.APIError).Cause)
+		}
+		fmt.Fprintf(f.writer, "\n")
+	} else {
+		fmt.Fprintf(f.writer, "\n")
+		fmt.Fprintf(f.writer, "Error Type: %s\n", err.(*errors.APIError).Type)
+		fmt.Fprintf(f.writer, "Error Code: %d\n", err.(*errors.APIError).Code)
+		fmt.Fprintf(f.writer, "Message: %s\n", err.(*errors.APIError).Message)
+		if err.(*errors.APIError).Cause != nil {
+			fmt.Fprintf(f.writer, "Cause: %v\n", err.(*errors.APIError).Cause)
+		}
+		fmt.Fprintf(f.writer, "\n")
 	}
 	return nil
 }

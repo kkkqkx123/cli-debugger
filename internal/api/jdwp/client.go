@@ -511,9 +511,9 @@ func (c *Client) GetLocalVariablesFromFrame(ctx context.Context, threadID string
 
 // GetFields Get object fields
 func (c *Client) GetFields(ctx context.Context, objectID string) ([]*types.Variable, error) {
-	tag := byte('L')
+	_ = byte('L')
 	if len(objectID) > 0 && objectID[0] == '[' {
-		tag = byte('[')
+		_ = byte('[')
 	}
 
 	refTypeID := objectID[2:]

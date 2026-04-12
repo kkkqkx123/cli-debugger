@@ -1,10 +1,9 @@
 package jdwp
 
 import (
-	"context"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // ModuleReference Command Set Implementation
@@ -16,38 +15,23 @@ func (c *Client) ModuleName(moduleID string) (string, error) {
 
 	packet := createCommandPacketWithData(18, 1, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get module name",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get module name")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get module name",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get module name")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get module name failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get module name failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
 	moduleName, err := reader.readString()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Message: "Failed to read module name",
-			Cause:   err,
-		}
+		return "", errors.WrapProtocolError(err, errors.ErrInvalidResponse, "Failed to read module name")
 	}
 
 	return moduleName, nil
@@ -59,28 +43,17 @@ func (c *Client) ModuleClassLoader(moduleID string) (string, error) {
 
 	packet := createCommandPacketWithData(18, 2, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get module class loader",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get module class loader")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get module class loader",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get module class loader")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get module class loader failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get module class loader failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)

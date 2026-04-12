@@ -1,10 +1,9 @@
 package jdwp
 
 import (
-	"context"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // Method Command Set Implementation
@@ -33,28 +32,17 @@ func (c *Client) LineTable(refTypeID string, methodID string) ([]*LineLocation, 
 
 	packet := createCommandPacketWithData(methodCommandSet, methodCommandLineTable, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get method line table",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get method line table")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get method line table",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get method line table")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get method line table failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get method line table failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -88,28 +76,17 @@ func (c *Client) VariableTable(refTypeID string, methodID string) ([]*VariableIn
 
 	packet := createCommandPacketWithData(methodCommandSet, methodCommandVariableTable, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get method variable table",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get method variable table")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get method variable table",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get method variable table")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get method variable table failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get method variable table failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -119,8 +96,8 @@ func (c *Client) VariableTable(refTypeID string, methodID string) ([]*VariableIn
 	variableInfos := make([]*VariableInfo, 0, slots)
 	for i := 0; i < slots; i++ {
 		codeIndex := reader.readInt64()
-		name := reader.readString()
-		signature := reader.readString()
+		name, _ := reader.readString()
+		signature, _ := reader.readString()
 		slot := reader.readInt()
 		length := reader.readInt()
 
@@ -148,28 +125,17 @@ func (c *Client) Bytecodes(refTypeID string, methodID string) ([]byte, error) {
 
 	packet := createCommandPacketWithData(methodCommandSet, methodCommandBytecodes, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get method bytecodes",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get method bytecodes")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get method bytecodes",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get method bytecodes")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get method bytecodes failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get method bytecodes failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -187,28 +153,17 @@ func (c *Client) IsObsolete(refTypeID string, methodID string) (bool, error) {
 
 	packet := createCommandPacketWithData(methodCommandSet, methodCommandIsObsolete, data)
 	if err := c.sendPacket(packet); err != nil {
-		return false, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to check if method is obsolete",
-			Cause:   err,
-		}
+		return false, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to check if method is obsolete")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return false, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to check if method is obsolete",
-			Cause:   err,
-		}
+		return false, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to check if method is obsolete")
 	}
 
 	if reply.ErrorCode != 0 {
-		return false, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Check if method is obsolete failed: %s", reply.Message),
-		}
+		return false, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Check if method is obsolete failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -226,28 +181,17 @@ func (c *Client) VariableTableWithGeneric(refTypeID string, methodID string) ([]
 
 	packet := createCommandPacketWithData(methodCommandSet, methodCommandVariableTableWithGeneric, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get method variable table with generic",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get method variable table with generic")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get method variable table with generic",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get method variable table with generic")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get method variable table with generic failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get method variable table with generic failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -257,9 +201,9 @@ func (c *Client) VariableTableWithGeneric(refTypeID string, methodID string) ([]
 	variableInfos := make([]*VariableInfo, 0, slots)
 	for i := 0; i < slots; i++ {
 		codeIndex := reader.readInt64()
-		name := reader.readString()
-		signature := reader.readString()
-		genericSignature := reader.readString()
+		name, _ := reader.readString()
+		signature, _ := reader.readString()
+		genericSignature, _ := reader.readString()
 		slot := reader.readInt()
 		length := reader.readInt()
 

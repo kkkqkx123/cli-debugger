@@ -1,11 +1,10 @@
 package jdwp
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // ClassType Command Set Implementation
@@ -23,28 +22,17 @@ func (c *Client) Superclass(classID string) (string, error) {
 
 	packet := createCommandPacketWithData(classTypeCommandSet, classTypeCommandSuperclass, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get superclass",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get superclass")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get superclass",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get superclass")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get superclass failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get superclass failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -108,28 +96,17 @@ func (c *Client) SetValues(classID string, fieldValues map[string]interface{}) e
 
 	packet := createCommandPacketWithData(classTypeCommandSet, classTypeCommandSetValues, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to set static field values",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to set static field values")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to set static field values",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to set static field values")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Set static field values failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Set static field values failed: %s", reply.Message))
 	}
 
 	return nil
@@ -194,32 +171,22 @@ func (c *Client) InvokeMethod(classID string, threadID string, methodID string, 
 
 	packet := createCommandPacketWithData(classTypeCommandSet, classTypeCommandInvokeMethod, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to invoke static method",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to invoke static method")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to invoke static method",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to invoke static method")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Invoke static method failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Invoke static method failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
-	returnValue := reader.readValue(reader.readByte())
+	tag := reader.readByte()
+	returnValue, _ := reader.readValue(tag)
 	exception := reader.readID(c.idsizes.ObjectIDSize)
 
 	return &InvokeResult{
@@ -287,28 +254,17 @@ func (c *Client) NewInstance(classID string, threadID string, methodID string, a
 
 	packet := createCommandPacketWithData(classTypeCommandSet, classTypeCommandNewInstance, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to create new instance",
-			Cause:   err,
-		}
+		return "", "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to create new instance")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to create new instance",
-			Cause:   err,
-		}
+		return "", "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to create new instance")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Create new instance failed: %s", reply.Message),
-		}
+		return "", "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Create new instance failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)

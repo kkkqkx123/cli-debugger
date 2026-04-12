@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 	"cli-debugger/pkg/types"
 )
 
@@ -80,11 +80,8 @@ func (c *Client) SetBreakpointRequest(ctx context.Context, classID string, metho
 	}
 
 	if reply.ErrorCode != 0 {
-		return 0, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Failed to set breakpoint: %s", reply.Message),
-		}
+		return 0, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Failed to set breakpoint: %s", reply.Message))
 	}
 
 	// Read Request ID
@@ -115,11 +112,8 @@ func (c *Client) ClearBreakpointRequest(ctx context.Context, requestID uint32) e
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Failed to clear breakpoint: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Failed to clear breakpoint: %s", reply.Message))
 	}
 
 	return nil
@@ -138,11 +132,8 @@ func (c *Client) ClearAllBreakpoints(ctx context.Context) error {
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Failed to clear all breakpoints: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Failed to clear all breakpoints: %s", reply.Message))
 	}
 
 	return nil
@@ -185,11 +176,8 @@ func (c *Client) SetStepRequest(ctx context.Context, threadID string, stepKind b
 	}
 
 	if reply.ErrorCode != 0 {
-		return 0, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Setting single-step request failed: %s", reply.Message),
-		}
+		return 0, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Setting single-step request failed: %s", reply.Message))
 	}
 
 	// Read Request ID

@@ -1,10 +1,9 @@
 package jdwp
 
 import (
-	"context"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // ClassObjectReference Command Set Implementation
@@ -16,28 +15,17 @@ func (c *Client) ReflectedType(classObjectID string) (string, error) {
 
 	packet := createCommandPacketWithData(classObjectCommandSet, classObjectCommandReflectedType, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get reflected type",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get reflected type")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get reflected type",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get reflected type")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get reflected type failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get reflected type failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)

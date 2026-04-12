@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 	"cli-debugger/pkg/types"
 )
 
@@ -43,11 +43,8 @@ func (c *Client) GetStackFrames(ctx context.Context, threadID string, startFrame
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Failed to get stack frame: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Failed to get stack frame: %s", reply.Message))
 	}
 
 	// parse the response
@@ -104,11 +101,8 @@ func (c *Client) GetLocalVariables(ctx context.Context, threadID string, frameIn
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Failed to get local variables: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Failed to get local variables: %s", reply.Message))
 	}
 
 	// parse the response
@@ -164,11 +158,8 @@ func (c *Client) GetThisObject(ctx context.Context, threadID string, frameID str
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Failed to get this object: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Failed to get this object: %s", reply.Message))
 	}
 
 	// parse the response
@@ -204,11 +195,8 @@ func (c *Client) PopFrames(ctx context.Context, threadID string, frameID string)
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Failed to pop stack frame: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Failed to pop stack frame: %s", reply.Message))
 	}
 
 	return nil
@@ -283,28 +271,17 @@ func (c *Client) SetValues(threadID string, frameID string, slotValues map[int]i
 
 	packet := createCommandPacketWithData(stackFrameCommandSet, stackFrameCommandSetValues, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to set local variable values",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to set local variable values")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to set local variable values",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to set local variable values")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Set local variable values failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Set local variable values failed: %s", reply.Message))
 	}
 
 	return nil

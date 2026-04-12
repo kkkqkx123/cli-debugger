@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"cli-debugger/pkg/errors"
 )
 
 func TestNewDefaultConfig(t *testing.T) {
@@ -162,17 +164,17 @@ func TestMergeConfig(t *testing.T) {
 		t.Errorf("The port should be set to 6000; the actual value is: %d", result.Port)
 	}
 	if result.Color != false {
-		t.Errorf("The value of "Color" should be overridden to "false"; the actual value is: %v.", result.Color)
+		t.Errorf(`The value of "Color" should be overridden to "false"; the actual value is: %v.`, result.Color)
 	}
 }
 
 func TestValidationError(t *testing.T) {
-	err := NewValidationError("port", "The port number must be in the range 1-65535")
+	err := errors.NewInputError(errors.ErrOutOfRange, "The port number must be in the range 1-65535")
 	if err == nil {
 		t.Fatal("ValidationError should not be nil")
 	}
 
-	expectedMsg := "Configuration authentication failed [port]: Port number must be in the range 1-65535"
+	expectedMsg := "[input:103] The port number must be in the range 1-65535"
 	if err.Error() != expectedMsg {
 		t.Errorf("Error message should be %q, actual: %q", expectedMsg, err.Error())
 	}

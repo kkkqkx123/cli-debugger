@@ -1,10 +1,9 @@
 package jdwp
 
 import (
-	"context"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // ThreadGroupReference Command Set Implementation
@@ -16,38 +15,23 @@ func (c *Client) ThreadGroupName(threadGroupID string) (string, error) {
 
 	packet := createCommandPacketWithData(threadGroupCommandSet, threadGroupCommandName, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread group name",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread group name")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread group name",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread group name")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get thread group name failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get thread group name failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
 	name, err := reader.readString()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Message: "Failed to read thread group name",
-			Cause:   err,
-		}
+		return "", errors.WrapProtocolError(err, errors.ErrInvalidResponse, "Failed to read thread group name")
 	}
 
 	return name, nil
@@ -59,28 +43,17 @@ func (c *Client) Parent(threadGroupID string) (string, error) {
 
 	packet := createCommandPacketWithData(threadGroupCommandSet, threadGroupCommandParent, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get parent thread group",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get parent thread group")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get parent thread group",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get parent thread group")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get parent thread group failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get parent thread group failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -95,28 +68,17 @@ func (c *Client) Children(threadGroupID string) ([]string, []string, error) {
 
 	packet := createCommandPacketWithData(threadGroupCommandSet, threadGroupCommandChildren, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get children thread groups",
-			Cause:   err,
-		}
+		return nil, nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get children thread groups")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get children thread groups",
-			Cause:   err,
-		}
+		return nil, nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get children thread groups")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get children thread groups failed: %s", reply.Message),
-		}
+		return nil, nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get children thread groups failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)

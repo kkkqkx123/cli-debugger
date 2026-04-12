@@ -1,10 +1,9 @@
 package jdwp
 
 import (
-	"context"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // ReferenceType Command Set Implementation
@@ -32,38 +31,23 @@ func (c *Client) Signature(refTypeID string) (string, error) {
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, referenceTypeCommandSignature, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class signature",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class signature")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class signature",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class signature")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get class signature failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get class signature failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
 	signature, err := reader.readString()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Message: "Failed to read class signature",
-			Cause:   err,
-		}
+		return "", errors.WrapProtocolError(err, errors.ErrInvalidResponse, "Failed to read class signature")
 	}
 
 	return signature, nil
@@ -75,28 +59,17 @@ func (c *Client) Fields(refTypeID string) ([]*FieldInfo, error) {
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, referenceTypeCommandFields, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class fields",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class fields")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class fields",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class fields")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get class fields failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get class fields failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -126,28 +99,17 @@ func (c *Client) Methods(refTypeID string) ([]*MethodInfo, error) {
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, referenceTypeCommandMethods, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class methods",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class methods")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class methods",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class methods")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get class methods failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get class methods failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -177,38 +139,23 @@ func (c *Client) SourceFile(refTypeID string) (string, error) {
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, referenceTypeCommandSourceFile, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get source file",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get source file")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get source file",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get source file")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get source file failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get source file failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
 	sourceFile, err := reader.readString()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Message: "Failed to read source file",
-			Cause:   err,
-		}
+		return "", errors.WrapProtocolError(err, errors.ErrInvalidResponse, "Failed to read source file")
 	}
 
 	return sourceFile, nil
@@ -227,28 +174,17 @@ func (c *Client) GetValues(refTypeID string, fieldIDs []string) ([]interface{}, 
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, 6, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get static field values",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get static field values")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get static field values",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get static field values")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get static field values failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get static field values failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -275,28 +211,17 @@ func (c *Client) GetValuesWithTags(refTypeID string, fieldIDs []string) ([]byte,
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, 6, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get static field values",
-			Cause:   err,
-		}
+		return nil, nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get static field values")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get static field values",
-			Cause:   err,
-		}
+		return nil, nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get static field values")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get static field values failed: %s", reply.Message),
-		}
+		return nil, nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get static field values failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -318,28 +243,17 @@ func (c *Client) ClassFileVersion(refTypeID string) (int, int, error) {
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, 17, data)
 	if err := c.sendPacket(packet); err != nil {
-		return 0, 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class file version",
-			Cause:   err,
-		}
+		return 0, 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class file version")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return 0, 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class file version",
-			Cause:   err,
-		}
+		return 0, 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class file version")
 	}
 
 	if reply.ErrorCode != 0 {
-		return 0, 0, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get class file version failed: %s", reply.Message),
-		}
+		return 0, 0, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get class file version failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -355,28 +269,17 @@ func (c *Client) ConstantPool(refTypeID string) ([]byte, error) {
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, 18, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class constant pool",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class constant pool")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class constant pool",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class constant pool")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get class constant pool failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get class constant pool failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -407,28 +310,17 @@ func (c *Client) Instances(refTypeID string, maxInstances int) ([]string, error)
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, 16, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class instances",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class instances")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class instances",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class instances")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get class instances failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get class instances failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -448,28 +340,17 @@ func (c *Client) ClassLoader(refTypeID string) (string, error) {
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, 19, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class loader",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class loader")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class loader",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class loader")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get class loader failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get class loader failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -484,28 +365,17 @@ func (c *Client) Module(refTypeID string) (string, error) {
 
 	packet := createCommandPacketWithData(referenceTypeCommandSet, 20, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get module",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get module")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get module",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get module")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get module failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get module failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)

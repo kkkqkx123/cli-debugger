@@ -10,6 +10,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
+	"cli-debugger/pkg/errors"
 	"cli-debugger/pkg/types"
 )
 
@@ -193,6 +194,25 @@ func (f *TableFormatter) FormatError(err error) error {
 	} else {
 		fmt.Fprintf(f.writer, "Error: %v\n", err)
 	}
+	return nil
+}
+
+// FormatVerboseError Formatting verbose error
+func (f *TableFormatter) FormatVerboseError(err error) error {
+	table := tablewriter.NewTable(f.writer,
+		tablewriter.WithHeader([]string{"causality", "value"}),
+		tablewriter.WithRendition(tw.Rendition{Borders: tw.Border{Top: tw.State(1), Bottom: tw.State(1)}}),
+		tablewriter.WithRowAlignment(tw.AlignLeft),
+	)
+
+	table.Append([]string{"Error Type", fmt.Sprintf("%v", err.(*errors.APIError).Type)})
+	table.Append([]string{"Error Code", fmt.Sprintf("%d", err.(*errors.APIError).Code)})
+	table.Append([]string{"Message", err.(*errors.APIError).Message})
+	if err.(*errors.APIError).Cause != nil {
+		table.Append([]string{"Cause", fmt.Sprintf("%v", err.(*errors.APIError).Cause)})
+	}
+
+	table.Render()
 	return nil
 }
 

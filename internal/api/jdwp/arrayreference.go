@@ -1,11 +1,10 @@
 package jdwp
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // ArrayReference Command Set Implementation
@@ -17,28 +16,17 @@ func (c *Client) Length(arrayID string) (int, error) {
 
 	packet := createCommandPacketWithData(arrayReferenceCommandSet, arrayReferenceCommandLength, data)
 	if err := c.sendPacket(packet); err != nil {
-		return 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get array length",
-			Cause:   err,
-		}
+		return 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get array length")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get array length",
-			Cause:   err,
-		}
+		return 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get array length")
 	}
 
 	if reply.ErrorCode != 0 {
-		return 0, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get array length failed: %s", reply.Message),
-		}
+		return 0, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get array length failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -63,28 +51,17 @@ func (c *Client) GetValues(arrayID string, startIndex int, length int) ([]interf
 
 	packet := createCommandPacketWithData(arrayReferenceCommandSet, arrayReferenceCommandGetValues, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get array values",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get array values")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get array values",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get array values")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get array values failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get array values failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -154,28 +131,17 @@ func (c *Client) SetValues(arrayID string, startIndex int, values []interface{})
 
 	packet := createCommandPacketWithData(arrayReferenceCommandSet, arrayReferenceCommandSetValues, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to set array values",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to set array values")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to set array values",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to set array values")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Set array values failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Set array values failed: %s", reply.Message))
 	}
 
 	return nil

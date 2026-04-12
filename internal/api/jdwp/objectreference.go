@@ -1,11 +1,10 @@
 package jdwp
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // ObjectReference Command Set Implementation
@@ -25,28 +24,17 @@ func (c *Client) ReferenceType(objectID string) (string, error) {
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandReferenceType, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get object type",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get object type")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get object type",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get object type")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get object type failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get object type failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -69,28 +57,17 @@ func (c *Client) GetValues(objectID string, fieldIDs []string) ([]interface{}, e
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandGetValues, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get instance field values",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get instance field values")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get instance field values",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get instance field values")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get instance field values failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get instance field values failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -159,28 +136,17 @@ func (c *Client) SetValues(objectID string, fieldValues map[string]interface{}) 
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandSetValues, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to set instance field values",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to set instance field values")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to set instance field values",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to set instance field values")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Set instance field values failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Set instance field values failed: %s", reply.Message))
 	}
 
 	return nil
@@ -192,28 +158,17 @@ func (c *Client) MonitorInfo(objectID string) (*MonitorInfo, error) {
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandMonitorInfo, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get object monitor info",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get object monitor info")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get object monitor info",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get object monitor info")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get object monitor info failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get object monitor info failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -294,32 +249,22 @@ func (c *Client) InvokeMethod(objectID string, threadID string, methodID string,
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandInvokeMethod, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to invoke instance method",
-			Cause:   err,
-		}
+		return nil, "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to invoke instance method")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to invoke instance method",
-			Cause:   err,
-		}
+		return nil, "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to invoke instance method")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Invoke instance method failed: %s", reply.Message),
-		}
+		return nil, "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Invoke instance method failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
-	returnValue := reader.readValue(reader.readByte())
+	tag := reader.readByte()
+	returnValue, _ := reader.readValue(tag)
 	exception := reader.readID(c.idsizes.ObjectIDSize)
 
 	return returnValue, exception, nil
@@ -331,28 +276,17 @@ func (c *Client) DisableCollection(objectID string) error {
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandDisableCollection, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to disable object garbage collection",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to disable object garbage collection")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to disable object garbage collection",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to disable object garbage collection")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Disable object garbage collection failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Disable object garbage collection failed: %s", reply.Message))
 	}
 
 	return nil
@@ -364,28 +298,17 @@ func (c *Client) EnableCollection(objectID string) error {
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandEnableCollection, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to enable object garbage collection",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to enable object garbage collection")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to enable object garbage collection",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to enable object garbage collection")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Enable object garbage collection failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Enable object garbage collection failed: %s", reply.Message))
 	}
 
 	return nil
@@ -397,28 +320,17 @@ func (c *Client) IsCollected(objectID string) (bool, error) {
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandIsCollected, data)
 	if err := c.sendPacket(packet); err != nil {
-		return false, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to check if object is collected",
-			Cause:   err,
-		}
+		return false, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to check if object is collected")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return false, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to check if object is collected",
-			Cause:   err,
-		}
+		return false, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to check if object is collected")
 	}
 
 	if reply.ErrorCode != 0 {
-		return false, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Check if object is collected failed: %s", reply.Message),
-		}
+		return false, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Check if object is collected failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -439,28 +351,17 @@ func (c *Client) ReferringObjects(objectID string, maxReferrers int) ([]string, 
 
 	packet := createCommandPacketWithData(objectReferenceCommandSet, objectReferenceCommandReferringObjects, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get referring objects",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get referring objects")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get referring objects",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get referring objects")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get referring objects failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get referring objects failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)

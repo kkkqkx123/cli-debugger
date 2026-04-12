@@ -2,10 +2,11 @@ package jdwp
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"time"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 	"cli-debugger/pkg/types"
 )
 
@@ -75,29 +76,18 @@ func (c *Client) GetAllThreads(ctx context.Context) ([]string, error) {
 func (c *Client) SuspendVM(ctx context.Context) error {
 	packet := createCommandPacket(vmCommandSet, vmCommandSuspend)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to hang VM",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to hang VM")
 	}
 	
 	// Read reply to ensure command success
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to hang VM",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to hang VM")
 	}
 	
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Suspend VM failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Suspend VM failed: %s", reply.Message))
 	}
 	
 	return nil
@@ -107,29 +97,18 @@ func (c *Client) SuspendVM(ctx context.Context) error {
 func (c *Client) ResumeVM(ctx context.Context) error {
 	packet := createCommandPacket(vmCommandSet, vmCommandResume)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Recovery VM Failed",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Recovery VM Failed")
 	}
 	
 	// Read reply to ensure command success
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Recovery VM Failed",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Recovery VM Failed")
 	}
 	
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Resume VM failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Resume VM failed: %s", reply.Message))
 	}
 	
 	return nil
@@ -149,11 +128,8 @@ func (c *Client) ClassByName(ctx context.Context, className string) (*ClassInfo,
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Failed to find class: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Failed to find class: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -230,36 +206,22 @@ func (c *Client) GetIDSizes(ctx context.Context) (*IDSizes, error) {
 func (c *Client) getIDSizesInternal(ctx context.Context) error {
 	packet := createCommandPacket(vmCommandSet, vmCommandIDSizes)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get ID sizes",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get ID sizes")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get ID sizes",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get ID sizes")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get ID sizes failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get ID sizes failed: %s", reply.Message))
 	}
 
 	// Parse ID sizes from response
 	if len(reply.Data) < 40 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Message: "IDSizes response too short",
-		}
+		return errors.NewProtocolError(errors.ErrInvalidResponse, "IDSizes response too short")
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -278,28 +240,17 @@ func (c *Client) getIDSizesInternal(ctx context.Context) error {
 func (c *Client) Version(ctx context.Context) (*types.VersionInfo, error) {
 	packet := createCommandPacket(vmCommandSet, vmCommandVersion)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get version",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get version")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get version",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get version")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get version failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get version failed: %s", reply.Message))
 	}
 
 	// Parsing version information
@@ -329,28 +280,17 @@ func (c *Client) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
 
 	packet := createCommandPacket(vmCommandSet, vmCommandAllThreads)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get threads",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get threads")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get threads",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get threads")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get threads failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get threads failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -383,28 +323,17 @@ func (c *Client) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
 func (c *Client) Capabilities(ctx context.Context) (*CapabilitiesInfo, error) {
 	packet := createCommandPacket(vmCommandSet, vmCommandCapabilities)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get VM capabilities",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get VM capabilities")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get VM capabilities",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get VM capabilities")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get VM capabilities failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get VM capabilities failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -439,28 +368,17 @@ func (c *Client) Capabilities(ctx context.Context) (*CapabilitiesInfo, error) {
 func (c *Client) ClassPaths(ctx context.Context) (*ClassPathsInfo, error) {
 	packet := createCommandPacket(vmCommandSet, vmCommandClassPaths)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class paths",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class paths")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get class paths",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get class paths")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get class paths failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get class paths failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -492,28 +410,17 @@ func (c *Client) Exit(ctx context.Context, exitCode int) error {
 
 	packet := createCommandPacketWithData(vmCommandSet, vmCommandExit, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to exit VM",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to exit VM")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to exit VM",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to exit VM")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Exit VM failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Exit VM failed: %s", reply.Message))
 	}
 
 	return nil
@@ -525,28 +432,17 @@ func (c *Client) CreateString(ctx context.Context, str string) (string, error) {
 
 	packet := createCommandPacketWithData(vmCommandSet, vmCommandCreateString, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to create string",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to create string")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to create string",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to create string")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Create string failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Create string failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -560,28 +456,17 @@ func (c *Client) CreateString(ctx context.Context, str string) (string, error) {
 func (c *Client) HoldEvents(ctx context.Context) error {
 	packet := createCommandPacket(vmCommandSet, vmCommandHoldEvents)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to hold events",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to hold events")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to hold events",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to hold events")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Hold events failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Hold events failed: %s", reply.Message))
 	}
 
 	return nil
@@ -591,28 +476,17 @@ func (c *Client) HoldEvents(ctx context.Context) error {
 func (c *Client) ReleaseEvents(ctx context.Context) error {
 	packet := createCommandPacket(vmCommandSet, vmCommandReleaseEvents)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to release events",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to release events")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to release events",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to release events")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Release events failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Release events failed: %s", reply.Message))
 	}
 
 	return nil
@@ -632,28 +506,17 @@ func (c *Client) RedefineClasses(ctx context.Context, classes []*ClassDef) error
 
 	packet := createCommandPacketWithData(vmCommandSet, vmCommandRedefineClasses, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to redefine classes",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to redefine classes")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to redefine classes",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to redefine classes")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Redefine classes failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Redefine classes failed: %s", reply.Message))
 	}
 
 	return nil
@@ -663,20 +526,12 @@ func (c *Client) RedefineClasses(ctx context.Context, classes []*ClassDef) error
 func (c *Client) AllClassesWithGeneric(ctx context.Context) ([]*ClassInfo, error) {
 	packet := createCommandPacket(vmCommandSet, vmCommandAllClassesWithGeneric)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get all classes with generic",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get all classes with generic")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get all classes with generic",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get all classes with generic")
 	}
 
 	reader := newPacketReader(reply.Data)

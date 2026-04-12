@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"cli-debugger/pkg/errors"
 )
 
 // Config Global Configuration Structure
@@ -63,40 +63,25 @@ func NewDefaultConfig() Config {
 
 // Validate Validates the configuration
 func (c *Config) Validate() error {
-	if c.Protocol == "" {
-		return NewValidationError("protocol", "The protocol name cannot be null")
+	if err := errors.ValidateRequired("protocol", c.Protocol); err != nil {
+		return err
 	}
-	if c.Host == "" {
-		return NewValidationError("host", "The host address cannot be empty")
+	if err := errors.ValidateRequired("host", c.Host); err != nil {
+		return err
 	}
-	if c.Port <= 0 || c.Port > 65535 {
-		return NewValidationError("port", "The port number must be in the range 1-65535")
+	if err := errors.ValidateRange("port", c.Port, 1, 65535); err != nil {
+		return err
 	}
-	if c.Timeout <= 0 {
-		return NewValidationError("timeout", "The timeout must be greater than 0")
+	if err := errors.ValidatePositive("timeout", c.Timeout); err != nil {
+		return err
 	}
-	if c.Output != "text" && c.Output != "json" && c.Output != "table" {
-		return NewValidationError("output", "The output format must be text, json or table.")
+	if c.Output != "" && c.Output != "text" && c.Output != "json" && c.Output != "table" {
+		return errors.NewInputError(errors.ErrInvalidFormat, "The output format must be text, json or table.")
 	}
-	if c.Interval <= 0 {
-		return NewValidationError("interval", "The monitoring interval must be greater than 0")
+	if c.Interval != 0 {
+		if err := errors.ValidatePositive("interval", c.Interval); err != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-// ValidationError Configuration validation error
-type ValidationError struct {
-	Field   string
-	Message string
-}
-
-func (e *ValidationError) Error() string {
-	return fmt.Sprintf("Configuration validation failed [%s]: %s", e.Field, e.Message)
-}
-
-func NewValidationError(field, message string) *ValidationError {
-	return &ValidationError{
-		Field:   field,
-		Message: message,
-	}
 }

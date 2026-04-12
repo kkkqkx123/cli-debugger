@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"cli-debugger/pkg/errors"
 	"cli-debugger/pkg/types"
 )
 
@@ -82,7 +83,23 @@ func (f *jsonFormatter) FormatError(err error) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type": "error",
 		"error": map[string]interface{}{
-			"message": err.Error(),
+			"type":    err.(*errors.APIError).Type,
+			"code":    err.(*errors.APIError).Code,
+			"message": err.(*errors.APIError).Message,
+			"cause":   err.(*errors.APIError).Cause,
+		},
+	})
+}
+
+// FormatVerboseError Formatting verbose error
+func (f *jsonFormatter) FormatVerboseError(err error) error {
+	return f.encodeJSON(map[string]interface{}{
+		"type": "error",
+		"error": map[string]interface{}{
+			"type":    err.(*errors.APIError).Type,
+			"code":    err.(*errors.APIError).Code,
+			"message": err.(*errors.APIError).Message,
+			"cause":   err.(*errors.APIError).Cause,
 		},
 	})
 }

@@ -1,10 +1,9 @@
 package jdwp
 
 import (
-	"context"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // StringReference Command Set Implementation
@@ -16,38 +15,23 @@ func (c *Client) Value(stringID string) (string, error) {
 
 	packet := createCommandPacketWithData(stringReferenceCommandSet, stringReferenceCommandValue, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get string value",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get string value")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get string value",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get string value")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get string value failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get string value failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
 	value, err := reader.readString()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Message: "Failed to read string value",
-			Cause:   err,
-		}
+		return "", errors.WrapProtocolError(err, errors.ErrInvalidResponse, "Failed to read string value")
 	}
 
 	return value, nil

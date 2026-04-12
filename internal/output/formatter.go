@@ -22,6 +22,8 @@ type Formatter interface {
 	FormatEvent(event *types.DebugEvent) error
 	// formatting error
 	FormatError(err error) error
+	// formatting verbose error
+	FormatVerboseError(err error) error
 	// Setting the Output Writer
 	SetWriter(writer io.Writer)
 }

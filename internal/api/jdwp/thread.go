@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"cli-debugger/internal/api"
+	"cli-debugger/pkg/errors"
 )
 
 // ThreadReference Command Set Implementation
@@ -19,39 +19,24 @@ func (c *Client) GetThreadName(ctx context.Context, threadID string) (string, er
 	// Send the ThreadReference.Name command (Command Set = 10, Command = 1)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandName, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread name",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread name")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread name",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread name")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get thread name failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get thread name failed: %s", reply.Message))
 	}
 
 	// Parsing thread name
 	reader := newPacketReader(reply.Data)
 	name, err := reader.readString()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Message: "Failed to read thread name",
-			Cause:   err,
-		}
+		return "", errors.WrapProtocolError(err, errors.ErrInvalidResponse, "Failed to read thread name")
 	}
 
 	return name, nil
@@ -65,28 +50,17 @@ func (c *Client) GetThreadStatus(ctx context.Context, threadID string) (string, 
 	// 发送 ThreadReference.Status 命令 (Command Set = 10, Command = 4)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandStatus, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread status",
-			Cause:   err,
-		}
+		return "", 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread status")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread status",
-			Cause:   err,
-		}
+		return "", 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread status")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", 0, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get thread status failed: %s", reply.Message),
-		}
+		return "", 0, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get thread status failed: %s", reply.Message))
 	}
 
 	// Parsing thread state
@@ -113,28 +87,17 @@ func (c *Client) suspendThreadInternal(ctx context.Context, threadID string) err
 	// Send the ThreadReference.Suspend command (Command Set = 10, Command = 2)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandSuspend, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to suspend thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to suspend thread")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to suspend thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to suspend thread")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Suspend thread failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Suspend thread failed: %s", reply.Message))
 	}
 
 	return nil
@@ -153,28 +116,17 @@ func (c *Client) resumeThreadInternal(ctx context.Context, threadID string) erro
 	// 发送 ThreadReference.Resume 命令 (Command Set = 10, Command = 3)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandResume, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to resume thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to resume thread")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to resume thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to resume thread")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Resume thread failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Resume thread failed: %s", reply.Message))
 	}
 
 	return nil
@@ -202,28 +154,17 @@ func (c *Client) GetThreadFrames(ctx context.Context, threadID string, startFram
 	// 发送 ThreadReference.Frames 命令 (Command Set = 10, Command = 6)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandFrames, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread frames",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread frames")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread frames",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread frames")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get thread frames failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get thread frames failed: %s", reply.Message))
 	}
 
 	// parse the response
@@ -258,28 +199,17 @@ func (c *Client) GetThreadFrameCount(ctx context.Context, threadID string) (int,
 	// Send the ThreadReference.FrameCount command (Command Set = 10, Command = 7)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandFrameCount, data)
 	if err := c.sendPacket(packet); err != nil {
-		return 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread frame count",
-			Cause:   err,
-		}
+		return 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread frame count")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread frame count",
-			Cause:   err,
-		}
+		return 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread frame count")
 	}
 
 	if reply.ErrorCode != 0 {
-		return 0, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get thread frame count failed: %s", reply.Message),
-		}
+		return 0, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get thread frame count failed: %s", reply.Message))
 	}
 
 	// parse the response
@@ -297,28 +227,17 @@ func (c *Client) GetThreadMonitors(ctx context.Context, threadID string) ([]stri
 	// 发送 ThreadReference.OwnedMonitors 命令 (Command Set = 10, Command = 8)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandOwnedMonitors, data)
 	if err := c.sendPacket(packet); err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread monitors",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread monitors")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return nil, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get thread monitors",
-			Cause:   err,
-		}
+		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread monitors")
 	}
 
 	if reply.ErrorCode != 0 {
-		return nil, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get thread monitors failed: %s", reply.Message),
-		}
+		return nil, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get thread monitors failed: %s", reply.Message))
 	}
 
 	// parse the response
@@ -342,28 +261,17 @@ func (c *Client) GetCurrentContendedMonitor(ctx context.Context, threadID string
 	// Send the ThreadReference.CurrentContendedMonitor command (Command Set = 10, Command = 9)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandCurrentContendedMonitor, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get current contended monitor",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get current contended monitor")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get current contended monitor",
-			Cause:   err,
-		}
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get current contended monitor")
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get current contended monitor failed: %s", reply.Message),
-		}
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get current contended monitor failed: %s", reply.Message))
 	}
 
 	// parse the response
@@ -382,28 +290,17 @@ func (c *Client) Stop(ctx context.Context, threadID string, exceptionID string) 
 
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandStop, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to stop thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to stop thread")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to stop thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to stop thread")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Stop thread failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Stop thread failed: %s", reply.Message))
 	}
 
 	return nil
@@ -415,28 +312,17 @@ func (c *Client) Breakpoint(ctx context.Context, threadID string) error {
 
 	packet := createCommandPacketWithData(threadCommandSet, 13, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to interrupt thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to interrupt thread")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to interrupt thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to interrupt thread")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Interrupt thread failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Interrupt thread failed: %s", reply.Message))
 	}
 
 	return nil
@@ -448,28 +334,17 @@ func (c *Client) Interrupt(threadID string) error {
 
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandInterrupt, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to interrupt thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to interrupt thread")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to interrupt thread",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to interrupt thread")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Interrupt thread failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Interrupt thread failed: %s", reply.Message))
 	}
 
 	return nil
@@ -481,28 +356,17 @@ func (c *Client) SuspendCount(threadID string) (int, error) {
 
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandSuspendCount, data)
 	if err := c.sendPacket(packet); err != nil {
-		return 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get suspend count",
-			Cause:   err,
-		}
+		return 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get suspend count")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return 0, &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to get suspend count",
-			Cause:   err,
-		}
+		return 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get suspend count")
 	}
 
 	if reply.ErrorCode != 0 {
-		return 0, &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Get suspend count failed: %s", reply.Message),
-		}
+		return 0, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get suspend count failed: %s", reply.Message))
 	}
 
 	reader := newPacketReader(reply.Data)
@@ -553,28 +417,17 @@ func (c *Client) ForceEarlyReturn(threadID string, frameID string, value interfa
 
 	packet := createCommandPacketWithData(threadCommandSet, 14, data)
 	if err := c.sendPacket(packet); err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to force early return",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to force early return")
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return &api.APIError{
-			Type:    api.CommandError,
-			Message: "Failed to force early return",
-			Cause:   err,
-		}
+		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to force early return")
 	}
 
 	if reply.ErrorCode != 0 {
-		return &api.APIError{
-			Type:    api.ProtocolError,
-			Code:    int(reply.ErrorCode),
-			Message: fmt.Sprintf("Force early return failed: %s", reply.Message),
-		}
+		return errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Force early return failed: %s", reply.Message))
 	}
 
 	return nil
