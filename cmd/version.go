@@ -9,7 +9,7 @@ import (
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Display version information",
-	Long:  `显示调试器的版本信息`,
+	Long:  `Display the version information of the debugger`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Multi-language debugging CLI")
 		fmt.Println("Version: 0.1.0-dev")

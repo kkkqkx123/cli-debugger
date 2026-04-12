@@ -26,10 +26,9 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "debugger",
 	Short: "Multilingual Debugging CLI Client",
-	Long: `多语言调试 CLI 客户端 - 支持多种调试协议的轻量级调试工具
-
-支持插件化架构，可通过 --protocol 标志选择不同的调试协议。
-默认支持 JDWP (Java 调试协议)，未来可扩展支持其他语言。`,
+	Long: `Multi language Debugging CLI Client - A lightweight debugging tool that supports multiple debugging protocols
+Support plugin architecture, different debugging protocols can be selected through the -- protocol flag.
+By default, it supports JDWP (Java Debugging Protocol) and can be extended to support other languages in the future.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Initialization Configuration
 		return initConfig()

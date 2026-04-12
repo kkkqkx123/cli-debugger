@@ -87,6 +87,11 @@ const (
 	stackFrameCommandThisObject byte = 3
 	stackFrameCommandPopFrames byte = 4
 
+	// EventRequest Commands (Command Set = 14)
+	eventRequestCommand byte = 1
+	eventRequestCommandClear byte = 2
+	eventRequestCommandClearAllBreakpoints byte = 3
+
 	// Event Type
 	eventTypeSingleStep byte = 1
 	eventTypeBreakpoint byte = 2
@@ -160,27 +165,27 @@ const (
 )
 
 var errorMessages = map[JDWPError]string{
-	ErrNone:               "成功",
-	ErrInvalidThread:      "无效的线程 ID",
-	ErrInvalidMethodID:    "无效的方法 ID",
-	ErrInvalidLocation:    "无效的位置",
-	ErrInvalidFieldID:     "无效的字段 ID",
-	ErrInvalidClass:       "无效的类",
-	ErrClassNotPrepared:   "类未准备好",
-	ErrInvalidObject:      "无效的对象",
-	ErrInvalidFrameID:     "无效的帧 ID",
-	ErrOutOfMemory:        "内存不足",
-	ErrNotImplemented:     "未实现",
-	ErrNullObject:         "空对象",
-	ErrInvalidTag:         "无效的标签",
-	ErrAlreadyInvoking:    "已在调用中",
-	ErrInvalidIndex:       "无效的索引",
-	ErrInvalidLength:      "无效的长度",
-	ErrInvalidString:      "无效的字符串",
-	ErrInvalidCount:       "无效的计数",
-	ErrNotSuspended:       "线程未挂起",
-	ErrBusy:               "VM 忙",
-	ErrThreadNotExist:     "线程不存在",
+	ErrNone:               "successes",
+	ErrInvalidThread:      "Invalid thread ID",
+	ErrInvalidMethodID:    "Invalid Method ID",
+	ErrInvalidLocation:    "void",
+	ErrInvalidFieldID:     "Invalid Field ID",
+	ErrInvalidClass:       "void class",
+	ErrClassNotPrepared:   "Class not ready",
+	ErrInvalidObject:      "null object",
+	ErrInvalidFrameID:     "Invalid Frame ID",
+	ErrOutOfMemory:        "lack of memory",
+	ErrNotImplemented:     "unrealized",
+	ErrNullObject:         "empty object",
+	ErrInvalidTag:         "Invalid labels",
+	ErrAlreadyInvoking:    "Already in call",
+	ErrInvalidIndex:       "Invalid Index",
+	ErrInvalidLength:      "Invalid length",
+	ErrInvalidString:      "Invalid String",
+	ErrInvalidCount:       "invalid count",
+	ErrNotSuspended:       "Thread not hung",
+	ErrBusy:               "VM is busy.",
+	ErrThreadNotExist:     "Thread does not exist",
 }
 
 // Error Returns an error message
@@ -307,6 +312,15 @@ func (r *PacketReader) readUint32() uint32 {
 	}
 	val := binary.BigEndian.Uint32(r.data[r.pos : r.pos+4])
 	r.pos += 4
+	return val
+}
+
+func (r *PacketReader) readUint64() uint64 {
+	if r.pos+8 > len(r.data) {
+		return 0
+	}
+	val := binary.BigEndian.Uint64(r.data[r.pos : r.pos+8])
+	r.pos += 8
 	return val
 }
 

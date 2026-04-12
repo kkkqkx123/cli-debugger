@@ -10,59 +10,59 @@ import (
 )
 
 const (
-	// jdwpHandshakeString JDWP 握手字符串
+	// jdwpHandshakeString: JDWP Handshake String
 	jdwpHandshakeString = "JDWP-Handshake"
 )
 
-// performHandshake 执行 JDWP 握手协议
-// JDWP 握手流程:
-// 1. JVM 发送 "JDWP-Handshake\x00" 给调试器
-// 2. 调试器验证并回写相同的字符串
+// performHandshake Performs the JDWP handshake protocol.
+// JDWP handshake process:
+// 1. JVM sends "JDWP-Handshake\x00" to the debugger.
+// 2. The debugger verifies and writes back the same string
 func (c *Client) performHandshake(ctx context.Context) error {
-	// 设置读取超时
+	// Setting the read timeout
 	if err := c.conn.SetReadDeadline(getDeadline(c.timeout)); err != nil {
 		return &api.APIError{
 			Type:    api.ProtocolError,
-			Message: "握手失败: 无法设置读取超时",
+			Message: "Handshake failed: Unable to set the read timeout.",
 			Cause:   err,
 		}
 	}
 
-	// 读取 JVM 发送的握手字符串
+	// Read the handshake string sent by the JVM
 	buf := make([]byte, len(jdwpHandshakeString))
 	n, err := c.conn.Read(buf)
 	if err != nil {
 		return &api.APIError{
 			Type:    api.ProtocolError,
-			Message: "握手失败: 无法读取 JVM 响应",
+			Message: "Handshake failed: Unable to read the JVM response.",
 			Cause:   err,
 		}
 	}
 
-	// 验证握手字符串 (可能包含或不包含 null 终止符)
+	// Verify handshake string (may or may not contain null terminator)
 	received := bytes.TrimRight(buf[:n], "\x00")
 	if string(received) != jdwpHandshakeString {
 		return &api.APIError{
 			Type:    api.ProtocolError,
-			Message: fmt.Sprintf("握手失败: 无效的 JVM 响应, 期望 '%s', 收到 '%s'", jdwpHandshakeString, string(received)),
+			Message: fmt.Sprintf("Handshake failed: Invalid JVM response. The expected response was '%s', but '%s' was received.", jdwpHandshakeString, string(received)),
 		}
 	}
 
-	// 清除读取超时
+	// Clear read timeout
 	if err := c.conn.SetReadDeadline(getDeadline(c.timeout)); err != nil {
 		return &api.APIError{
 			Type:    api.ProtocolError,
-			Message: "握手失败: 无法设置读取超时",
+			Message: "Handshake failed: Unable to set the read timeout.",
 			Cause:   err,
 		}
 	}
 
-	// 回写握手字符串 (包含 null 终止符)
+	// Write-back handshake string (with null terminator)
 	handshakeResponse := append([]byte(jdwpHandshakeString), 0x00)
 	if _, err := c.conn.Write(handshakeResponse); err != nil {
 		return &api.APIError{
 			Type:    api.ProtocolError,
-			Message: "握手失败: 无法发送响应",
+			Message: "Handshake failed: Unable to send a response.",
 			Cause:   err,
 		}
 	}
@@ -70,7 +70,7 @@ func (c *Client) performHandshake(ctx context.Context) error {
 	return nil
 }
 
-// getDeadline 获取超时时间点
+// getDeadline Get the timeout point
 func getDeadline(timeout time.Duration) time.Time {
 	return time.Now().Add(timeout)
 }

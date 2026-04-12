@@ -13,10 +13,10 @@ import (
 
 // GetThreadName Get the thread name.
 func (c *Client) GetThreadName(ctx context.Context, threadID string) (string, error) {
-	// 编码线程ID
+	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
-	// 发送 ThreadReference.Name 命令 (Command Set = 10, Command = 1)
+	// Send the ThreadReference.Name command (Command Set = 10, Command = 1)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandName, data)
 	if err := c.sendPacket(packet); err != nil {
 		return "", &api.APIError{
@@ -43,7 +43,7 @@ func (c *Client) GetThreadName(ctx context.Context, threadID string) (string, er
 		}
 	}
 
-	// 解析线程名称
+	// Parsing thread name
 	reader := newPacketReader(reply.Data)
 	name, err := reader.readString()
 	if err != nil {
@@ -59,7 +59,7 @@ func (c *Client) GetThreadName(ctx context.Context, threadID string) (string, er
 
 // GetThreadStatus Get Thread Status
 func (c *Client) GetThreadStatus(ctx context.Context, threadID string) (string, int, error) {
-	// 编码线程ID
+	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
 	// 发送 ThreadReference.Status 命令 (Command Set = 10, Command = 4)
@@ -89,12 +89,12 @@ func (c *Client) GetThreadStatus(ctx context.Context, threadID string) (string, 
 		}
 	}
 
-	// 解析线程状态
+	// Parsing thread state
 	reader := newPacketReader(reply.Data)
 	threadStatus := reader.readInt()
 	suspendStatus := reader.readInt()
 
-	// 将状态转换为字符串
+	// Converting states to strings
 	stateStr := GetThreadStateString(threadStatus)
 
 	return stateStr, suspendStatus, nil
@@ -105,12 +105,12 @@ func (c *Client) SuspendThread(ctx context.Context, threadID string) error {
 	return c.suspendThreadInternal(ctx, threadID)
 }
 
-// suspendThreadInternal 内部方法
+// suspendThreadInternal Internal method
 func (c *Client) suspendThreadInternal(ctx context.Context, threadID string) error {
-	// 编码线程ID
+	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
-	// 发送 ThreadReference.Suspend 命令 (Command Set = 10, Command = 2)
+	// Send the ThreadReference.Suspend command (Command Set = 10, Command = 2)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandSuspend, data)
 	if err := c.sendPacket(packet); err != nil {
 		return &api.APIError{
@@ -145,9 +145,9 @@ func (c *Client) ResumeThread(ctx context.Context, threadID string) error {
 	return c.resumeThreadInternal(ctx, threadID)
 }
 
-// resumeThreadInternal 内部方法
+// resumeThreadInternal internal method
 func (c *Client) resumeThreadInternal(ctx context.Context, threadID string) error {
-	// 编码线程ID
+	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
 	// 发送 ThreadReference.Resume 命令 (Command Set = 10, Command = 3)
@@ -182,10 +182,10 @@ func (c *Client) resumeThreadInternal(ctx context.Context, threadID string) erro
 
 // GetThreadFrames Get Thread Call Stack Frames
 func (c *Client) GetThreadFrames(ctx context.Context, threadID string, startFrame int, length int) ([]*StackFrameInfo, error) {
-	// 构造请求数据
+	// Constructing request data
 	data := make([]byte, 0)
 
-	// Thread ID (根据 IDSizes)
+	// Thread ID (based on IDSizes)
 	threadIDBytes := encodeID(threadID, c.idsizes.ObjectIDSize)
 	data = append(data, threadIDBytes...)
 
@@ -226,7 +226,7 @@ func (c *Client) GetThreadFrames(ctx context.Context, threadID string, startFram
 		}
 	}
 
-	// 解析响应
+	// parse the response
 	reader := newPacketReader(reply.Data)
 	frameCount := reader.readInt()
 
@@ -234,11 +234,11 @@ func (c *Client) GetThreadFrames(ctx context.Context, threadID string, startFram
 	for i := 0; i < frameCount; i++ {
 		frameID := reader.readID(c.idsizes.FrameIDSize)
 
-		// 读取位置信息
-		tag := reader.readByte() // 类类型标签
+		// Retrieve location information
+		_ = reader.readByte() // Class Type Label
 		classID := reader.readID(c.idsizes.ReferenceTypeIDSize)
 		methodID := reader.readID(c.idsizes.MethodIDSize)
-		codeIndex := reader.readUint64()
+		_ = reader.readUint64()
 
 		frames = append(frames, &StackFrameInfo{
 			FrameID:  frameID,
@@ -252,10 +252,10 @@ func (c *Client) GetThreadFrames(ctx context.Context, threadID string, startFram
 
 // GetThreadFrameCount Get the number of stack frames for a thread
 func (c *Client) GetThreadFrameCount(ctx context.Context, threadID string) (int, error) {
-	// 编码线程ID
+	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
-	// 发送 ThreadReference.FrameCount 命令 (Command Set = 10, Command = 7)
+	// Send the ThreadReference.FrameCount command (Command Set = 10, Command = 7)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandFrameCount, data)
 	if err := c.sendPacket(packet); err != nil {
 		return 0, &api.APIError{
@@ -282,7 +282,7 @@ func (c *Client) GetThreadFrameCount(ctx context.Context, threadID string) (int,
 		}
 	}
 
-	// 解析响应
+	// parse the response
 	reader := newPacketReader(reply.Data)
 	frameCount := reader.readInt()
 
@@ -291,7 +291,7 @@ func (c *Client) GetThreadFrameCount(ctx context.Context, threadID string) (int,
 
 // GetThreadMonitors Get the monitors held by a thread.
 func (c *Client) GetThreadMonitors(ctx context.Context, threadID string) ([]string, error) {
-	// 编码线程ID
+	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
 	// 发送 ThreadReference.OwnedMonitors 命令 (Command Set = 10, Command = 8)
@@ -321,7 +321,7 @@ func (c *Client) GetThreadMonitors(ctx context.Context, threadID string) ([]stri
 		}
 	}
 
-	// 解析响应
+	// parse the response
 	reader := newPacketReader(reply.Data)
 	monitorCount := reader.readInt()
 
@@ -336,10 +336,10 @@ func (c *Client) GetThreadMonitors(ctx context.Context, threadID string) ([]stri
 
 // GetCurrentContendedMonitor Get the current contended monitor
 func (c *Client) GetCurrentContendedMonitor(ctx context.Context, threadID string) (string, error) {
-	// 编码线程ID
+	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
-	// 发送 ThreadReference.CurrentContendedMonitor 命令 (Command Set = 10, Command = 9)
+	// Send the ThreadReference.CurrentContendedMonitor command (Command Set = 10, Command = 9)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandCurrentContendedMonitor, data)
 	if err := c.sendPacket(packet); err != nil {
 		return "", &api.APIError{
@@ -366,7 +366,7 @@ func (c *Client) GetCurrentContendedMonitor(ctx context.Context, threadID string
 		}
 	}
 
-	// 解析响应
+	// parse the response
 	reader := newPacketReader(reply.Data)
 	objectID := reader.readID(c.idsizes.ObjectIDSize)
 

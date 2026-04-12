@@ -195,7 +195,7 @@ func (c *Client) GetIDSizes(ctx context.Context) (*IDSizes, error) {
 	return c.idsizes, nil
 }
 
-// getIDSizesInternal 获取 ID 大小 (内部方法,在连接时调用)
+// getIDSizesInternal: Gets the ID sizes (an internal method, called during the connection process)
 func (c *Client) getIDSizesInternal(ctx context.Context) error {
 	packet := createCommandPacket(vmCommandSet, vmCommandIDSizes)
 	if err := c.sendPacket(packet); err != nil {
@@ -243,7 +243,7 @@ func (c *Client) getIDSizesInternal(ctx context.Context) error {
 	return nil
 }
 
-// Version 获取版本信息 (实现 DebugProtocol 接口)
+// Get version information (implementing the DebugProtocol interface)
 func (c *Client) Version(ctx context.Context) (*types.VersionInfo, error) {
 	packet := createCommandPacket(vmCommandSet, vmCommandVersion)
 	if err := c.sendPacket(packet); err != nil {
@@ -288,13 +288,13 @@ func (c *Client) Version(ctx context.Context) (*types.VersionInfo, error) {
 	}, nil
 }
 
-// GetThreads 获取所有线程 (实现 DebugProtocol 接口)
+// GetThreads: Retrieves all threads (implementing the DebugProtocol interface)
 func (c *Client) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
-	// 首先挂起 VM 以获取一致的线程信息
+	// First, suspend the VM to obtain consistent thread information.
 	if err := c.SuspendVM(ctx); err != nil {
 		return nil, err
 	}
-	defer c.ResumeVM(ctx) // 确保恢复 VM
+	defer c.ResumeVM(ctx) // Ensure the VM is restored.
 
 	packet := createCommandPacket(vmCommandSet, vmCommandAllThreads)
 	if err := c.sendPacket(packet); err != nil {
@@ -329,17 +329,17 @@ func (c *Client) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
 	for i := 0; i < threadCount; i++ {
 		threadID := reader.readID(c.idsizes.ObjectIDSize)
 		
-		// 获取线程名称 (需要发送 ThreadReference.Name 命令)
+		// Get the thread name (the ThreadReference.Name command needs to be sent)
 		name, _ := c.GetThreadName(ctx, threadID)
 		
-		// 获取线程状态
+		// Get thread status
 		state, _, _ := c.GetThreadStatus(ctx, threadID)
 
 		threads = append(threads, &types.ThreadInfo{
 			ID:          threadID,
 			Name:        name,
 			State:       state,
-			Priority:    5, // 默认优先级
+			Priority:    5, // Default priority
 			IsDaemon:    false,
 			CreatedAt:   time.Now(),
 		})
