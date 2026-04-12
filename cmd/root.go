@@ -22,40 +22,40 @@ var (
 	noColor bool
 )
 
-// rootCmd 表示基础命令
+// rootCmd Indicates the base command
 var rootCmd = &cobra.Command{
 	Use:   "debugger",
-	Short: "多语言调试 CLI 客户端",
+	Short: "Multilingual Debugging CLI Client",
 	Long: `多语言调试 CLI 客户端 - 支持多种调试协议的轻量级调试工具
 
 支持插件化架构，可通过 --protocol 标志选择不同的调试协议。
 默认支持 JDWP (Java 调试协议)，未来可扩展支持其他语言。`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// 初始化配置
+		// Initialization Configuration
 		return initConfig()
 	},
 }
 
-// Execute 执行根命令
+// Execute Executes the root command.
 func Execute() error {
 	return rootCmd.Execute()
 }
 
 func init() {
-	// 全局标志
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "配置文件路径")
-	rootCmd.PersistentFlags().StringVar(&protocol, "protocol", "", "调试协议名称 (jdwp, dap, 等)")
-	rootCmd.PersistentFlags().StringVar(&host, "host", "127.0.0.1", "目标主机地址")
-	rootCmd.PersistentFlags().IntVar(&port, "port", 5005, "目标调试端口")
-	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "请求超时时间（秒）")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "text", "输出格式 (text/json/table)")
-	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "JSON 格式输出（快捷标志）")
-	rootCmd.PersistentFlags().BoolVarP(&watchMode, "watch", "w", false, "启用监控模式")
-	rootCmd.PersistentFlags().IntVarP(&interval, "interval", "i", 1, "监控刷新间隔（秒）")
-	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "显示协议级详细信息")
-	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "禁用彩色输出")
+	// global symbol
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "Configuration file path")
+	rootCmd.PersistentFlags().StringVar(&protocol, "protocol", "", "Debugging protocol name (jdwp, dap, etc.)")
+	rootCmd.PersistentFlags().StringVar(&host, "host", "127.0.0.1", "target host address")
+	rootCmd.PersistentFlags().IntVar(&port, "port", 5005, "target debug port")
+	rootCmd.PersistentFlags().IntVar(&timeout, "timeout", 30, "Request timeout in seconds")
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text/json/table)")
+	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "JSON format output (shortcut flag)")
+	rootCmd.PersistentFlags().BoolVarP(&watchMode, "watch", "w", false, "Enable Monitor Mode")
+	rootCmd.PersistentFlags().IntVarP(&interval, "interval", "i", 1, "Monitor Refresh Interval (sec)")
+	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Display protocol level details")
+	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable color output")
 
-	// 如果设置了 --json，则覆盖 output 格式
+	// If --json is set, the output format is overridden.
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if jsonOutput {
 			outputFormat = "json"
@@ -64,22 +64,22 @@ func init() {
 	}
 }
 
-// initConfig 初始化配置
+// initConfig Initialization Configuration
 func initConfig() error {
 	if cfgFile != "" {
-		// 使用指定的配置文件
+		// Use the specified configuration file
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// 查找配置文件
+		// Find Configuration File
 		viper.AddConfigPath(".")
 		viper.SetConfigName(".debugger")
 	}
 
-	// 设置环境变量前缀
+	// Setting the environment variable prefix
 	viper.SetEnvPrefix("DEBUGGER")
 	viper.AutomaticEnv()
 
-	// 设置默认值
+	// Setting default values
 	viper.SetDefault("protocol", "jdwp")
 	viper.SetDefault("host", "127.0.0.1")
 	viper.SetDefault("port", 5005)
@@ -87,16 +87,16 @@ func initConfig() error {
 	viper.SetDefault("output", "text")
 	viper.SetDefault("color", true)
 
-	// 读取配置文件
+	// Read configuration file
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// 配置文件不存在，使用默认值
+			// Configuration file does not exist, use default
 		} else {
-			return fmt.Errorf("读取配置文件失败: %v", err)
+			return fmt.Errorf("Failed to read configuration file: %v", err)
 		}
 	}
 
-	// 绑定命令行参数到 viper
+	// Bind command line arguments to viper
 	viper.BindPFlag("protocol", rootCmd.PersistentFlags().Lookup("protocol"))
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
 	viper.BindPFlag("port", rootCmd.PersistentFlags().Lookup("port"))

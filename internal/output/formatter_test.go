@@ -11,24 +11,24 @@ import (
 func TestNewTextFormatter(t *testing.T) {
 	f := NewTextFormatter(true)
 	if f == nil {
-		t.Error("TextFormatter 不应为 nil")
+		t.Error("TextFormatter should not be nil")
 	}
 	if !f.color {
-		t.Error("color 应该为 true")
+		t.Error("color should be true")
 	}
 }
 
 func TestNewJSONFormatter(t *testing.T) {
 	f := NewJSONFormatter()
 	if f == nil {
-		t.Error("JSONFormatter 不应为 nil")
+		t.Error("JSONFormatter should not be nil.")
 	}
 }
 
 func TestNewTableFormatter(t *testing.T) {
 	f := NewTableFormatter(true)
 	if f == nil {
-		t.Error("TableFormatter 不应为 nil")
+		t.Error("TableFormatter should not be nil")
 	}
 }
 
@@ -40,8 +40,8 @@ func TestGetFormatterType(t *testing.T) {
 		{"text", TextFormatter},
 		{"json", JSONFormatter},
 		{"table", TableFormatter},
-		{"invalid", TextFormatter}, // 默认值
-		{"", TextFormatter},        // 空字符串默认值
+		{"invalid", TextFormatter}, // default value
+		{"", TextFormatter},        // Empty String Default Value
 	}
 
 	for _, tt := range tests {
@@ -84,12 +84,12 @@ func TestTextFormatter_FormatVersion(t *testing.T) {
 
 	err := f.FormatVersion(info)
 	if err != nil {
-		t.Errorf("FormatVersion 失败：%v", err)
+		t.Errorf("FormatVersion failed: %v", err)
 	}
 
 	output := buf.String()
 	if len(output) == 0 {
-		t.Error("输出不应为空")
+		t.Error("Output should not be null")
 	}
 }
 
@@ -105,12 +105,12 @@ func TestTextFormatter_FormatThreads(t *testing.T) {
 
 	err := f.FormatThreads(threads)
 	if err != nil {
-		t.Errorf("FormatThreads 失败：%v", err)
+		t.Errorf("FormatThreads failed: %v", err)
 	}
 
 	output := buf.String()
 	if len(output) == 0 {
-		t.Error("输出不应为空")
+		t.Error("Output should not be null")
 	}
 }
 
@@ -126,12 +126,12 @@ func TestTextFormatter_FormatStack(t *testing.T) {
 
 	err := f.FormatStack(frames)
 	if err != nil {
-		t.Errorf("FormatStack 失败：%v", err)
+		t.Errorf("FormatStack failed: %v", err)
 	}
 
 	output := buf.String()
 	if len(output) == 0 {
-		t.Error("输出不应为空")
+		t.Error("Output should not be null")
 	}
 }
 
@@ -148,12 +148,12 @@ func TestTextFormatter_FormatVariables(t *testing.T) {
 
 	err := f.FormatVariables(variables)
 	if err != nil {
-		t.Errorf("FormatVariables 失败：%v", err)
+		t.Errorf("FormatVariables failed: %v", err)
 	}
 
 	output := buf.String()
 	if len(output) == 0 {
-		t.Error("输出不应为空")
+		t.Error("Output should not be null")
 	}
 }
 
@@ -169,12 +169,12 @@ func TestTextFormatter_FormatBreakpoints(t *testing.T) {
 
 	err := f.FormatBreakpoints(breakpoints)
 	if err != nil {
-		t.Errorf("FormatBreakpoints 失败：%v", err)
+		t.Errorf("FormatBreakpoints failed: %v", err)
 	}
 
 	output := buf.String()
 	if len(output) == 0 {
-		t.Error("输出不应为空")
+		t.Error("Output should not be null")
 	}
 }
 
@@ -193,12 +193,12 @@ func TestTextFormatter_FormatEvent(t *testing.T) {
 
 	err := f.FormatEvent(event)
 	if err != nil {
-		t.Errorf("FormatEvent 失败：%v", err)
+		t.Errorf("FormatEvent failed: %v", err)
 	}
 
 	output := buf.String()
 	if len(output) == 0 {
-		t.Error("输出不应为空")
+		t.Error("Output should not be null")
 	}
 }
 
@@ -215,11 +215,11 @@ func TestJSONFormatter_FormatVersion(t *testing.T) {
 
 	err := f.FormatVersion(info)
 	if err != nil {
-		t.Errorf("FormatVersion 失败：%v", err)
+		t.Errorf("FormatVersion failed: %v", err)
 	}
 
 	output := buf.String()
 	if len(output) == 0 {
-		t.Error("输出不应为空")
+		t.Error("Output should not be null")
 	}
 }

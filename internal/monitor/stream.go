@@ -1,10 +1,10 @@
 package monitor
 
-// 监控模式流式客户端
-// 将在后续阶段实现
+// Monitor Mode Streaming Client
+// To be realized in subsequent phases
 
 type StreamClient struct {
-	// 将在后续实现
+	// To be realized subsequently
 }
 
 func NewStreamClient() *StreamClient {

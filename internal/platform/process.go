@@ -1,7 +1,7 @@
 package platform
 
-// 进程发现接口
-// 将在后续阶段实现
+// Process Discovery Interface
+// To be realized in subsequent phases
 
 type ProcessInfo struct {
 	PID  int
@@ -16,6 +16,6 @@ type ProcessDiscoverer interface {
 }
 
 func NewProcessDiscoverer() ProcessDiscoverer {
-	// 将在后续实现平台特定版本
+	// Platform-specific versions will be realized later
 	return nil
 }

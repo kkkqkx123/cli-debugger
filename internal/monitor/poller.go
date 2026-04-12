@@ -1,10 +1,10 @@
 package monitor
 
-// 轮询监控器
-// 将在后续阶段实现
+// polling monitor
+// To be realized in subsequent phases
 
 type Poller struct {
-	// 将在后续实现
+	// To be realized subsequently
 }
 
 func NewPoller() *Poller {

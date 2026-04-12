@@ -7,52 +7,52 @@ import (
 	"cli-debugger/pkg/types"
 )
 
-// DebugProtocol 统一调试协议接口
-// 所有语言插件必须实现此接口
+// DebugProtocol Unified debugging protocol interface
+// All language plug-ins must implement this interface
 type DebugProtocol interface {
-	// 生命周期管理
+	// lifecycle management
 	Connect(ctx context.Context) error
 	Close() error
 	IsConnected() bool
 
-	// 基础查询
+	// underlying query
 	Version(ctx context.Context) (*types.VersionInfo, error)
 	Capabilities(ctx context.Context) (*types.Capabilities, error)
 
-	// 线程管理
+	// thread management
 	GetThreads(ctx context.Context) ([]*types.ThreadInfo, error)
 	GetThreadStack(ctx context.Context, threadID string) ([]*types.StackFrame, error)
 	GetThreadState(ctx context.Context, threadID string) (string, error)
 
-	// 执行控制
+	// execution control
 	Suspend(ctx context.Context, threadID string) error
 	Resume(ctx context.Context, threadID string) error
 	StepInto(ctx context.Context, threadID string) error
 	StepOver(ctx context.Context, threadID string) error
 	StepOut(ctx context.Context, threadID string) error
 
-	// 断点管理
+	// breakpoint management
 	SetBreakpoint(ctx context.Context, location string, condition string) (string, error)
 	RemoveBreakpoint(ctx context.Context, breakpointID string) error
 	ClearBreakpoints(ctx context.Context) error
 	GetBreakpoints(ctx context.Context) ([]*types.BreakpointInfo, error)
 
-	// 变量检查
+	// variable check
 	GetLocalVariables(ctx context.Context, threadID string, frameIndex int) ([]*types.Variable, error)
 	GetFields(ctx context.Context, objectID string) ([]*types.Variable, error)
 
-	// 事件处理
+	// event processing
 	WaitForEvent(ctx context.Context, timeout time.Duration) (*types.DebugEvent, error)
 
-	// 元数据
+	// metadata
 	ProtocolName() string
 	SupportedLanguages() []string
 }
 
-// PluginFactory 插件工厂函数类型
+// PluginFactory Plug-in Factory Function Type
 type PluginFactory func() DebugProtocol
 
-// APIError 统一API错误类型
+// APIError Unified API error types
 type APIError struct {
 	Type    ErrorType
 	Code    int
@@ -67,7 +67,7 @@ func (e *APIError) Error() string {
 	return e.Message
 }
 
-// ErrorType 错误类型
+// ErrorType Error type
 type ErrorType int
 
 const (

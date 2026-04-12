@@ -6,42 +6,42 @@ import (
 	"cli-debugger/pkg/types"
 )
 
-// Formatter 输出格式化接口
+// Formatter output formatting interface
 type Formatter interface {
-	// 格式化版本信息
+	// Formatting version information
 	FormatVersion(info *types.VersionInfo) error
-	// 格式化线程列表
+	// Formatting the thread list
 	FormatThreads(threads []*types.ThreadInfo) error
-	// 格式化调用栈
+	// Formatting the call stack
 	FormatStack(frames []*types.StackFrame) error
-	// 格式化变量列表
+	// Formatting a list of variables
 	FormatVariables(variables []*types.Variable) error
-	// 格式化断点列表
+	// Formatting the Breakpoint List
 	FormatBreakpoints(breakpoints []*types.BreakpointInfo) error
-	// 格式化调试事件
+	// Formatting debug events
 	FormatEvent(event *types.DebugEvent) error
-	// 格式化错误
+	// formatting error
 	FormatError(err error) error
-	// 设置输出写入器
+	// Setting the Output Writer
 	SetWriter(writer io.Writer)
 }
 
-// FormatterType 格式化器类型
+// FormatterType Formatter type
 type FormatterType string
 
 const (
-	// TextFormatter 文本格式化器
+	// TextFormatter Text Formatter
 	TextFormatter FormatterType = "text"
-	// JSONFormatter JSON格式化器
+	// JSONFormatter JSON Formatter
 	JSONFormatter FormatterType = "json"
-	// TableFormatter 表格格式化器
+	// TableFormatter Table Formatter
 	TableFormatter FormatterType = "table"
 )
 
-// FormatterFactory 格式化器工厂函数
+// FormatterFactory Formatter factory function
 type FormatterFactory func(color bool) Formatter
 
-// NewFormatter 创建格式化器
+// NewFormatter Creates a formatter
 func NewFormatter(formatterType FormatterType, color bool) Formatter {
 	switch formatterType {
 	case JSONFormatter:
@@ -53,7 +53,7 @@ func NewFormatter(formatterType FormatterType, color bool) Formatter {
 	}
 }
 
-// GetFormatterType 获取格式化器类型
+// GetFormatterType Get Formatter Type
 func GetFormatterType(outputFormat string) FormatterType {
 	switch outputFormat {
 	case "json":

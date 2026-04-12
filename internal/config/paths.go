@@ -7,11 +7,11 @@ import (
 	"runtime"
 )
 
-// GetGlobalConfigPath 获取全局配置文件路径
+// GetGlobalConfigPath Get global configuration path
 func GetGlobalConfigPath() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("获取用户主目录失败: %v", err)
+		return "", fmt.Errorf("Failed to get user home directory: %v", err)
 	}
 
 	var configDir string
@@ -34,12 +34,12 @@ func GetGlobalConfigPath() (string, error) {
 	return filepath.Join(configDir, "config.yaml"), nil
 }
 
-// GetProjectConfigPath 获取项目配置文件路径
+// GetProjectConfigPath Get the path to the project configuration file.
 func GetProjectConfigPath() string {
 	return ".debugger.yaml"
 }
 
-// GetConfigSearchPaths 获取配置文件搜索路径
+// GetConfigSearchPaths Get Config Search Paths
 func GetConfigSearchPaths() []string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -48,10 +48,10 @@ func GetConfigSearchPaths() []string {
 
 	var paths []string
 
-	// 1. 当前目录
+	// 1. Current catalog
 	paths = append(paths, ".")
 
-	// 2. 用户配置目录
+	// 2. User configuration directory
 	if homeDir != "" {
 		switch runtime.GOOS {
 		case "windows":
@@ -67,7 +67,7 @@ func GetConfigSearchPaths() []string {
 		}
 	}
 
-	// 3. 系统配置目录
+	// 3. System configuration directory
 	switch runtime.GOOS {
 	case "windows":
 		programData := os.Getenv("PROGRAMDATA")
@@ -83,7 +83,7 @@ func GetConfigSearchPaths() []string {
 	return paths
 }
 
-// EnsureConfigDir 确保配置目录存在
+// EnsureConfigDir Ensure that the configuration directory exists
 func EnsureConfigDir() (string, error) {
 	configPath, err := GetGlobalConfigPath()
 	if err != nil {
@@ -92,13 +92,13 @@ func EnsureConfigDir() (string, error) {
 
 	configDir := filepath.Dir(configPath)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return "", fmt.Errorf("创建配置目录失败: %v", err)
+		return "", fmt.Errorf("Failed to create configuration directory: %v", err)
 	}
 
 	return configDir, nil
 }
 
-// GetPluginConfigPath 获取插件配置文件路径
+// GetPluginConfigPath Get Plugin Config Path
 func GetPluginConfigPath(pluginName string) (string, error) {
 	configDir, err := EnsureConfigDir()
 	if err != nil {
@@ -108,7 +108,7 @@ func GetPluginConfigPath(pluginName string) (string, error) {
 	return filepath.Join(configDir, fmt.Sprintf("plugin-%s.yaml", pluginName)), nil
 }
 
-// GetCacheDir 获取缓存目录
+// GetCacheDir Get cache directory
 func GetCacheDir() (string, error) {
 	var cacheDir string
 	switch runtime.GOOS {
@@ -136,13 +136,13 @@ func GetCacheDir() (string, error) {
 	}
 
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return "", fmt.Errorf("创建缓存目录失败: %v", err)
+		return "", fmt.Errorf("Failed to create cache directory: %v", err)
 	}
 
 	return cacheDir, nil
 }
 
-// GetLogDir 获取日志目录
+// GetLogDir Get Log Directory
 func GetLogDir() (string, error) {
 	var logDir string
 	switch runtime.GOOS {
@@ -170,7 +170,7 @@ func GetLogDir() (string, error) {
 	}
 
 	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return "", fmt.Errorf("创建日志目录失败: %v", err)
+		return "", fmt.Errorf("Failed to create log directory: %v", err)
 	}
 
 	return logDir, nil

@@ -9,39 +9,39 @@ import (
 )
 
 var (
-	// registry 插件注册表
+	// registry plugin registry
 	registry = make(map[string]PluginFactory)
-	// registryMutex 保护注册表的互斥锁
+	// registryMutex Mutual exclusion lock that protects the registry.
 	registryMutex sync.RWMutex
 )
 
-// RegisterPlugin 注册插件
+// RegisterPlugin RegisterPlugin
 func RegisterPlugin(name string, factory PluginFactory) error {
 	if name == "" {
-		return errors.New("插件名称不能为空")
+		return errors.New("Plugin name cannot be null")
 	}
 	if factory == nil {
-		return errors.New("插件工厂函数不能为空")
+		return errors.New("The plugin factory function cannot be null")
 	}
 
 	registryMutex.Lock()
 	defer registryMutex.Unlock()
 
 	if _, exists := registry[name]; exists {
-		return fmt.Errorf("插件 '%s' 已注册", name)
+		return fmt.Errorf("Plug-in '%s' is registered", name)
 	}
 
 	registry[name] = factory
 	return nil
 }
 
-// CreateClient 创建调试客户端
+// CreateClient Creates a debugging client
 func CreateClient(protocolName string) (DebugProtocol, error) {
 	if protocolName == "" {
-		// 尝试自动检测
+		// Trying to auto-detect
 		protocolName = AutoDetect()
 		if protocolName == "" {
-			return nil, errors.New("未指定协议且无法自动检测")
+			return nil, errors.New("Protocol not specified and not automatically detected")
 		}
 	}
 
@@ -50,34 +50,34 @@ func CreateClient(protocolName string) (DebugProtocol, error) {
 	registryMutex.RUnlock()
 
 	if !exists {
-		return nil, fmt.Errorf("协议 '%s' 未注册", protocolName)
+		return nil, fmt.Errorf("Agreement '%s' is not registered", protocolName)
 	}
 
 	return factory(), nil
 }
 
-// AutoDetect 自动检测协议
+// AutoDetect Automatically detects protocols
 func AutoDetect() string {
-	// 从配置获取主机和端口
+	// Get host and port from configuration
 	host := viper.GetString("host")
 	port := viper.GetInt("port")
 
-	// 简单的端口检测策略
-	// 5005 是 Java JDWP 常用端口
+	// Simple Port Inspection Policy
+	// 5005 is a common port for Java JDWP
 	if port == 5005 {
 		return "jdwp"
 	}
 
-	// 未来可以添加更多检测逻辑：
-	// 1. 连接到端口并尝试握手
-	// 2. 检查进程名称
-	// 3. 检查服务响应特征
+	// More detection logic can be added in the future:
+	// 1. Connect to the port and attempt a handshake
+	// 2. Checking process names
+	// 3. Examining service response characteristics
 
-	// 默认返回空字符串，表示无法检测
+	// The default return is the empty string, which means it cannot be detected
 	return ""
 }
 
-// GetRegisteredProtocols 获取已注册的协议列表
+// GetRegisteredProtocols Get the list of registered protocols
 func GetRegisteredProtocols() []string {
 	registryMutex.RLock()
 	defer registryMutex.RUnlock()
@@ -89,114 +89,10 @@ func GetRegisteredProtocols() []string {
 	return protocols
 }
 
-// HasProtocol 检查协议是否已注册
+// HasProtocol Checks if the protocol is registered
 func HasProtocol(protocolName string) bool {
 	registryMutex.RLock()
 	_, exists := registry[protocolName]
 	registryMutex.RUnlock()
 	return exists
-}
-
-// init 初始化默认插件
-func init() {
-	// 注册 JDWP 插件（将在后续实现）
-	// 这里先注册一个空工厂，后续在 jdwp 包中实现
-	RegisterPlugin("jdwp", func() DebugProtocol {
-		// 返回一个占位实现，后续会被真正的 JDWP 插件替换
-		return &placeholderProtocol{name: "jdwp"}
-	})
-}
-
-// placeholderProtocol 占位协议实现
-// 用于在 JDWP 插件实现前提供基本的协议支持
-type placeholderProtocol struct {
-	name string
-}
-
-func (p *placeholderProtocol) Connect(ctx context.Context) error {
-	return errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) Close() error {
-	return nil
-}
-
-func (p *placeholderProtocol) IsConnected() bool {
-	return false
-}
-
-func (p *placeholderProtocol) Version(ctx context.Context) (*types.VersionInfo, error) {
-	return nil, errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) Capabilities(ctx context.Context) (*types.Capabilities, error) {
-	return nil, errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
-	return nil, errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) GetThreadStack(ctx context.Context, threadID string) ([]*types.StackFrame, error) {
-	return nil, errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) GetThreadState(ctx context.Context, threadID string) (string, error) {
-	return "", errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) Suspend(ctx context.Context, threadID string) error {
-	return errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) Resume(ctx context.Context, threadID string) error {
-	return errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) StepInto(ctx context.Context, threadID string) error {
-	return errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) StepOver(ctx context.Context, threadID string) error {
-	return errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) StepOut(ctx context.Context, threadID string) error {
-	return errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) SetBreakpoint(ctx context.Context, location string, condition string) (string, error) {
-	return "", errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) RemoveBreakpoint(ctx context.Context, breakpointID string) error {
-	return errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) ClearBreakpoints(ctx context.Context) error {
-	return errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) GetBreakpoints(ctx context.Context) ([]*types.BreakpointInfo, error) {
-	return nil, errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) GetLocalVariables(ctx context.Context, threadID string, frameIndex int) ([]*types.Variable, error) {
-	return nil, errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) GetFields(ctx context.Context, objectID string) ([]*types.Variable, error) {
-	return nil, errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) WaitForEvent(ctx context.Context, timeout time.Duration) (*types.DebugEvent, error) {
-	return nil, errors.New("JDWP 插件尚未实现")
-}
-
-func (p *placeholderProtocol) ProtocolName() string {
-	return p.name
-}
-
-func (p *placeholderProtocol) SupportedLanguages() []string {
-	return []string{"java"}
 }

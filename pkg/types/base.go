@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// ThreadInfo 线程信息
+// ThreadInfo ThreadInfo
 type ThreadInfo struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
@@ -16,7 +16,7 @@ type ThreadInfo struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// StackFrame 调用栈帧
+// StackFrame Call StackFrame
 type StackFrame struct {
 	ID        string `json:"id"`
 	Location  string `json:"location"`
@@ -25,7 +25,7 @@ type StackFrame struct {
 	IsNative  bool   `json:"is_native"`
 }
 
-// BreakpointInfo 断点信息
+// BreakpointInfo Breakpoint Information
 type BreakpointInfo struct {
 	ID       string `json:"id"`
 	Location string `json:"location"`
@@ -34,7 +34,7 @@ type BreakpointInfo struct {
 	Condition string `json:"condition,omitempty"`
 }
 
-// Variable 变量信息
+// Variable Variable information
 type Variable struct {
 	Name      string      `json:"name"`
 	Type      string      `json:"type"`
@@ -43,7 +43,7 @@ type Variable struct {
 	IsNull    bool        `json:"is_null"`
 }
 
-// DebugEvent 调试事件
+// DebugEvent Debug event
 type DebugEvent struct {
 	Type      string      `json:"type"`
 	ThreadID  string      `json:"thread_id"`
@@ -52,7 +52,7 @@ type DebugEvent struct {
 	Data      interface{} `json:"data,omitempty"`
 }
 
-// VersionInfo 版本信息
+// VersionInfo Version Information
 type VersionInfo struct {
 	ProtocolVersion string `json:"protocol_version"`
 	RuntimeVersion  string `json:"runtime_version"`
@@ -60,7 +60,7 @@ type VersionInfo struct {
 	Description     string `json:"description"`
 }
 
-// Capabilities 插件能力声明
+// Capabilities Plug-in Capabilities Statement
 type Capabilities struct {
 	SupportsVersion      bool `json:"supports_version"`
 	SupportsThreads      bool `json:"supports_threads"`

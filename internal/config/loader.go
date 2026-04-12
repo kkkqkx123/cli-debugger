@@ -9,20 +9,20 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Loader 配置加载器
+// Loader Configuration Loader
 type Loader struct {
 	viper *viper.Viper
 }
 
-// NewLoader 创建新的配置加载器
+// NewLoader Creates a new configuration loader.
 func NewLoader() *Loader {
 	v := viper.New()
 	return &Loader{viper: v}
 }
 
-// Load 加载配置
+// Load Load Configuration
 func (l *Loader) Load(configFile string, profileName string) (*Config, error) {
-	// 设置默认值
+	// Setting default values
 	defaultConfig := NewDefaultConfig()
 	l.viper.SetDefault("protocol", defaultConfig.Protocol)
 	l.viper.SetDefault("host", defaultConfig.Host)
@@ -34,11 +34,11 @@ func (l *Loader) Load(configFile string, profileName string) (*Config, error) {
 	l.viper.SetDefault("interval", defaultConfig.Interval)
 	l.viper.SetDefault("verbose", defaultConfig.Verbose)
 
-	// 设置环境变量
+	// Setting environment variables
 	l.viper.SetEnvPrefix("DEBUGGER")
 	l.viper.AutomaticEnv()
 
-	// 绑定环境变量到配置键
+	// Bind environment variables to configuration keys
 	l.viper.BindEnv("protocol", "DEBUGGER_PROTOCOL")
 	l.viper.BindEnv("host", "DEBUGGER_HOST")
 	l.viper.BindEnv("port", "DEBUGGER_PORT")
@@ -49,37 +49,37 @@ func (l *Loader) Load(configFile string, profileName string) (*Config, error) {
 	l.viper.BindEnv("interval", "DEBUGGER_INTERVAL")
 	l.viper.BindEnv("verbose", "DEBUGGER_VERBOSE")
 
-	// 加载配置文件
+	// Load Configuration File
 	if configFile != "" {
-		// 使用指定的配置文件
+		// Use the specified configuration file
 		l.viper.SetConfigFile(configFile)
 	} else {
-		// 查找配置文件
+		// Find Configuration File
 		l.viper.SetConfigName(".debugger")
 		l.viper.AddConfigPath(".")
 		l.viper.AddConfigPath("$HOME/.config/debugger")
 		l.viper.AddConfigPath("/etc/debugger")
 	}
 
-	// 读取配置文件
+	// Read configuration file
 	if err := l.viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			// 配置文件存在但读取失败
-			return nil, fmt.Errorf("读取配置文件失败: %v", err)
+			// Configuration file exists but reading failed
+			return nil, fmt.Errorf("Failed to read configuration file: %v", err)
 		}
-		// 配置文件不存在，继续使用默认值
+		// Configuration file does not exist, continue to use the default
 	}
 
-	// 加载全局配置文件
+	// Loading the global configuration file
 	globalConfig, err := l.loadGlobalConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	// 合并配置
+	// Merge Configuration
 	config := l.mergeConfigs(globalConfig, profileName)
 
-	// 验证配置
+	// Verify Configuration
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (l *Loader) Load(configFile string, profileName string) (*Config, error) {
 	return config, nil
 }
 
-// loadGlobalConfig 加载全局配置文件
+// loadGlobalConfig Load Global Configuration File
 func (l *Loader) loadGlobalConfig() (*GlobalConfig, error) {
 	globalViper := viper.New()
 	globalViper.SetConfigName("config")
@@ -97,47 +97,47 @@ func (l *Loader) loadGlobalConfig() (*GlobalConfig, error) {
 
 	if err := globalViper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// 全局配置文件不存在，返回空配置
+			// Global configuration file does not exist, return empty configuration
 			return &GlobalConfig{
 				Defaults: NewDefaultConfig(),
 				Profiles: []Profile{},
 				Plugins:  make(map[string]interface{}),
 			}, nil
 		}
-		return nil, fmt.Errorf("读取全局配置文件失败: %v", err)
+		return nil, fmt.Errorf("Failed to read global configuration file: %v", err)
 	}
 
 	var globalConfig GlobalConfig
 	if err := globalViper.Unmarshal(&globalConfig); err != nil {
-		return nil, fmt.Errorf("解析全局配置文件失败: %v", err)
+		return nil, fmt.Errorf("Failed to parse global configuration file: %v", err)
 	}
 
 	return &globalConfig, nil
 }
 
-// mergeConfigs 合并配置
+// mergeConfigs mergeConfigs
 func (l *Loader) mergeConfigs(globalConfig *GlobalConfig, profileName string) *Config {
-	// 从全局配置获取默认值
+	// Getting default values from global configuration
 	config := globalConfig.Defaults
 
-	// 如果指定了配置文件，则应用该配置
+	// If a configuration file is specified, the configuration is applied
 	if profileName != "" {
 		for _, profile := range globalConfig.Profiles {
 			if profile.Name == profileName {
-				// 合并配置
+				// Merge Configuration
 				config = mergeConfig(config, profile.Config)
 				break
 			}
 		}
 	}
 
-	// 应用当前配置文件的配置
+	// Apply the configuration of the current profile
 	currentConfig := Config{}
 	if err := l.viper.Unmarshal(&currentConfig); err == nil {
 		config = mergeConfig(config, currentConfig)
 	}
 
-	// 应用插件配置
+	// Application Plugin Configuration
 	if globalConfig.Plugins != nil {
 		config.Plugins = globalConfig.Plugins
 	}
@@ -145,7 +145,7 @@ func (l *Loader) mergeConfigs(globalConfig *GlobalConfig, profileName string) *C
 	return &config
 }
 
-// mergeConfig 合并两个配置
+// mergeConfig merges two configurations
 func mergeConfig(base, override Config) Config {
 	result := base
 
@@ -164,7 +164,7 @@ func mergeConfig(base, override Config) Config {
 	if override.Output != "" {
 		result.Output = override.Output
 	}
-	// Color 是布尔值，需要特殊处理
+	// Color is a boolean value and requires special handling
 	if override.Color != base.Color {
 		result.Color = override.Color
 	}
@@ -178,7 +178,7 @@ func mergeConfig(base, override Config) Config {
 		result.Verbose = override.Verbose
 	}
 
-	// 合并插件配置
+	// Merge Plugin Configuration
 	if override.Plugins != nil {
 		if result.Plugins == nil {
 			result.Plugins = make(map[string]interface{})
@@ -191,22 +191,22 @@ func mergeConfig(base, override Config) Config {
 	return result
 }
 
-// SaveGlobalConfig 保存全局配置
+// SaveGlobalConfig Saves the global configuration.
 func (l *Loader) SaveGlobalConfig(config *GlobalConfig) error {
 	globalPath, err := GetGlobalConfigPath()
 	if err != nil {
 		return err
 	}
 
-	// 确保目录存在
+	// Make sure the catalog exists
 	if err := os.MkdirAll(filepath.Dir(globalPath), 0755); err != nil {
-		return fmt.Errorf("创建配置目录失败: %v", err)
+		return fmt.Errorf("Failed to create configuration directory: %v", err)
 	}
 
 	globalViper := viper.New()
 	globalViper.SetConfigFile(globalPath)
 
-	// 将配置转换为 map
+	// Converting a configuration to a map
 	configMap := make(map[string]interface{})
 	configMap["defaults"] = config.Defaults
 	configMap["profiles"] = config.Profiles
@@ -217,30 +217,30 @@ func (l *Loader) SaveGlobalConfig(config *GlobalConfig) error {
 	globalViper.Set("plugins", config.Plugins)
 
 	if err := globalViper.WriteConfig(); err != nil {
-		return fmt.Errorf("保存全局配置失败: %v", err)
+		return fmt.Errorf("Failed to save global configuration: %v", err)
 	}
 
 	return nil
 }
 
-// GetConfigValue 获取配置值
+// GetConfigValue Get Configuration Value
 func (l *Loader) GetConfigValue(key string) interface{} {
 	return l.viper.Get(key)
 }
 
-// SetConfigValue 设置配置值
+// SetConfigValue Sets the configuration value.
 func (l *Loader) SetConfigValue(key string, value interface{}) {
 	l.viper.Set(key, value)
 }
 
-// SaveConfig 保存当前配置
+// SaveConfig saves the current configuration
 func (l *Loader) SaveConfig() error {
 	if l.viper.ConfigFileUsed() == "" {
-		return errors.New("没有活动的配置文件")
+		return errors.New("No active profiles")
 	}
 
 	if err := l.viper.WriteConfig(); err != nil {
-		return fmt.Errorf("保存配置文件失败: %v", err)
+		return fmt.Errorf("Failed to save configuration file: %v", err)
 	}
 
 	return nil

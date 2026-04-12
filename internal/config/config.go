@@ -4,48 +4,48 @@ import (
 	"fmt"
 )
 
-// Config 全局配置结构
+// Config Global Configuration Structure
 type Config struct {
-	// 连接配置
+	// Connection Configuration
 	Protocol string `mapstructure:"protocol" yaml:"protocol" toml:"protocol"`
 	Host     string `mapstructure:"host" yaml:"host" toml:"host"`
 	Port     int    `mapstructure:"port" yaml:"port" toml:"port"`
 	Timeout  int    `mapstructure:"timeout" yaml:"timeout" toml:"timeout"`
 
-	// 输出配置
+	// Output Configuration
 	Output   string `mapstructure:"output" yaml:"output" toml:"output"`
 	Color    bool   `mapstructure:"color" yaml:"color" toml:"color"`
 
-	// 监控模式配置
+	// Monitor Mode Configuration
 	Watch    bool   `mapstructure:"watch" yaml:"watch" toml:"watch"`
 	Interval int    `mapstructure:"interval" yaml:"interval" toml:"interval"`
 
-	// 调试配置
+	// Debugging Configuration
 	Verbose  bool   `mapstructure:"verbose" yaml:"verbose" toml:"verbose"`
 
-	// 插件特定配置
+	// Plugin Specific Configuration
 	Plugins  map[string]interface{} `mapstructure:"plugins" yaml:"plugins" toml:"plugins"`
 }
 
-// Profile 命名配置文件
+// Profile Naming a profile
 type Profile struct {
 	Name   string `mapstructure:"name" yaml:"name" toml:"name"`
 	Config Config `mapstructure:"config" yaml:"config" toml:"config"`
 }
 
-// GlobalConfig 全局配置文件结构
+// GlobalConfig global configuration file structure
 type GlobalConfig struct {
-	// 默认配置
+	// default configuration
 	Defaults Config `mapstructure:"defaults" yaml:"defaults" toml:"defaults"`
 
-	// 命名配置文件
+	// Naming Configuration Files
 	Profiles []Profile `mapstructure:"profiles" yaml:"profiles" toml:"profiles"`
 
-	// 插件配置
+	// Plug-in Configuration
 	Plugins map[string]interface{} `mapstructure:"plugins" yaml:"plugins" toml:"plugins"`
 }
 
-// NewDefaultConfig 创建默认配置
+// NewDefaultConfig Creating a Default Configuration
 func NewDefaultConfig() Config {
 	return Config{
 		Protocol: "jdwp",
@@ -61,37 +61,37 @@ func NewDefaultConfig() Config {
 	}
 }
 
-// Validate 验证配置
+// Validate Validates the configuration
 func (c *Config) Validate() error {
 	if c.Protocol == "" {
-		return NewValidationError("protocol", "协议名称不能为空")
+		return NewValidationError("protocol", "The protocol name cannot be null")
 	}
 	if c.Host == "" {
-		return NewValidationError("host", "主机地址不能为空")
+		return NewValidationError("host", "The host address cannot be empty")
 	}
 	if c.Port <= 0 || c.Port > 65535 {
-		return NewValidationError("port", "端口号必须在 1-65535 范围内")
+		return NewValidationError("port", "The port number must be in the range 1-65535")
 	}
 	if c.Timeout <= 0 {
-		return NewValidationError("timeout", "超时时间必须大于 0")
+		return NewValidationError("timeout", "The timeout must be greater than 0")
 	}
 	if c.Output != "text" && c.Output != "json" && c.Output != "table" {
-		return NewValidationError("output", "输出格式必须是 text, json 或 table")
+		return NewValidationError("output", "The output format must be text, json or table.")
 	}
 	if c.Interval <= 0 {
-		return NewValidationError("interval", "监控间隔必须大于 0")
+		return NewValidationError("interval", "The monitoring interval must be greater than 0")
 	}
 	return nil
 }
 
-// ValidationError 配置验证错误
+// ValidationError Configuration validation error
 type ValidationError struct {
 	Field   string
 	Message string
 }
 
 func (e *ValidationError) Error() string {
-	return fmt.Sprintf("配置验证失败 [%s]: %s", e.Field, e.Message)
+	return fmt.Sprintf("Configuration validation failed [%s]: %s", e.Field, e.Message)
 }
 
 func NewValidationError(field, message string) *ValidationError {

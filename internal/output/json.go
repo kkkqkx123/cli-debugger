@@ -8,24 +8,24 @@ import (
 	"cli-debugger/pkg/types"
 )
 
-// JSONFormatter JSON格式化器
+// JSONFormatter JSON Formatter
 type JSONFormatter struct {
 	writer io.Writer
 }
 
-// NewJSONFormatter 创建JSON格式化器
+// NewJSONFormatter Creates a JSON formatter.
 func NewJSONFormatter() *JSONFormatter {
 	return &JSONFormatter{
 		writer: os.Stdout,
 	}
 }
 
-// SetWriter 设置输出写入器
+// SetWriter Sets the output writer
 func (f *JSONFormatter) SetWriter(writer io.Writer) {
 	f.writer = writer
 }
 
-// FormatVersion 格式化版本信息
+// FormatVersion Formatting version information
 func (f *JSONFormatter) FormatVersion(info *types.VersionInfo) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":    "version",
@@ -33,7 +33,7 @@ func (f *JSONFormatter) FormatVersion(info *types.VersionInfo) error {
 	})
 }
 
-// FormatThreads 格式化线程列表
+// FormatThreads Format threads list
 func (f *JSONFormatter) FormatThreads(threads []*types.ThreadInfo) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":    "threads",
@@ -42,7 +42,7 @@ func (f *JSONFormatter) FormatThreads(threads []*types.ThreadInfo) error {
 	})
 }
 
-// FormatStack 格式化调用栈
+// FormatStack Format call stack
 func (f *JSONFormatter) FormatStack(frames []*types.StackFrame) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":   "stack",
@@ -51,7 +51,7 @@ func (f *JSONFormatter) FormatStack(frames []*types.StackFrame) error {
 	})
 }
 
-// FormatVariables 格式化变量列表
+// FormatVariables Format variable list
 func (f *JSONFormatter) FormatVariables(variables []*types.Variable) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":      "variables",
@@ -60,7 +60,7 @@ func (f *JSONFormatter) FormatVariables(variables []*types.Variable) error {
 	})
 }
 
-// FormatBreakpoints 格式化断点列表
+// FormatBreakpoints Format the breakpoint list.
 func (f *JSONFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type":        "breakpoints",
@@ -69,7 +69,7 @@ func (f *JSONFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) e
 	})
 }
 
-// FormatEvent 格式化调试事件
+// FormatEvent Format debug event
 func (f *JSONFormatter) FormatEvent(event *types.DebugEvent) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type": "event",
@@ -77,7 +77,7 @@ func (f *JSONFormatter) FormatEvent(event *types.DebugEvent) error {
 	})
 }
 
-// FormatError 格式化错误
+// FormatError Formatting error
 func (f *JSONFormatter) FormatError(err error) error {
 	return f.encodeJSON(map[string]interface{}{
 		"type": "error",
@@ -87,7 +87,7 @@ func (f *JSONFormatter) FormatError(err error) error {
 	})
 }
 
-// encodeJSON 编码JSON
+// encodeJSON Encoding JSON
 func (f *JSONFormatter) encodeJSON(data interface{}) error {
 	encoder := json.NewEncoder(f.writer)
 	encoder.SetIndent("", "  ")

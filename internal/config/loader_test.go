@@ -10,16 +10,16 @@ func TestNewDefaultConfig(t *testing.T) {
 	config := NewDefaultConfig()
 
 	if config.Protocol != "jdwp" {
-		t.Errorf("默认协议应为 jdwp, 实际：%s", config.Protocol)
+		t.Errorf("The default protocol should be jdwp; the actual protocol is: %s", config.Protocol)
 	}
 	if config.Host != "127.0.0.1" {
-		t.Errorf("默认主机应为 127.0.0.1, 实际：%s", config.Host)
+		t.Errorf("The default host should be 127.0.0.1; the actual host is: %s", config.Host)
 	}
 	if config.Port != 5005 {
-		t.Errorf("默认端口应为 5005, 实际：%d", config.Port)
+		t.Errorf("The default port should be 5005; the actual port is: %d", config.Port)
 	}
 	if config.Timeout != 30 {
-		t.Errorf("默认超时应为 30, 实际：%d", config.Timeout)
+		t.Errorf("The default timeout should be 30, but the actual value is: %d", config.Timeout)
 	}
 }
 
@@ -30,7 +30,7 @@ func TestConfigValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "有效配置",
+			name: "Efficient Configuration",
 			config: Config{
 				Protocol: "jdwp",
 				Host:     "127.0.0.1",
@@ -40,7 +40,7 @@ func TestConfigValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "空协议",
+			name: "null hypothesis",
 			config: Config{
 				Protocol: "",
 				Host:     "127.0.0.1",
@@ -50,7 +50,7 @@ func TestConfigValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "无效端口",
+			name: "invalid port (computing)",
 			config: Config{
 				Protocol: "jdwp",
 				Host:     "127.0.0.1",
@@ -60,7 +60,7 @@ func TestConfigValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "无效输出格式",
+			name: "Invalid output format",
 			config: Config{
 				Protocol: "jdwp",
 				Host:     "127.0.0.1",
@@ -85,10 +85,10 @@ func TestConfigValidate(t *testing.T) {
 func TestGetGlobalConfigPath(t *testing.T) {
 	path, err := GetGlobalConfigPath()
 	if err != nil {
-		t.Errorf("GetGlobalConfigPath 失败：%v", err)
+		t.Errorf("GetGlobalConfigPath failed: %v", err)
 	}
 	if path == "" {
-		t.Error("全局配置路径不应为空")
+		t.Error("The global configuration path should not be empty")
 	}
 }
 
@@ -96,32 +96,32 @@ func TestGetProjectConfigPath(t *testing.T) {
 	path := GetProjectConfigPath()
 	expected := ".debugger.yaml"
 	if path != expected {
-		t.Errorf("项目配置路径应为 %s, 实际：%s", expected, path)
+		t.Errorf("The project configuration path should be %s, but the actual path is %s.", expected, path)
 	}
 }
 
 func TestEnsureConfigDir(t *testing.T) {
 	dir, err := EnsureConfigDir()
 	if err != nil {
-		t.Errorf("EnsureConfigDir 失败：%v", err)
+		t.Errorf("EnsureConfigDir failed: %v", err)
 	}
 	if dir == "" {
-		t.Error("配置目录路径不应为空")
+		t.Error("The configuration directory path should not be empty")
 	}
 
-	// 检查目录是否存在
+	// Check if the directory exists
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		t.Errorf("配置目录 %s 不存在", dir)
+		t.Errorf("The configuration directory %s does not exist.", dir)
 	}
 }
 
 func TestGetConfigSearchPaths(t *testing.T) {
 	paths := GetConfigSearchPaths()
 	if len(paths) == 0 {
-		t.Error("配置搜索路径不应为空")
+		t.Error("Configuring the search path should not be empty")
 	}
 
-	// 当前目录应该始终在列表中
+	// The current directory should always be in the list
 	found := false
 	for _, p := range paths {
 		if p == "." {
@@ -130,7 +130,7 @@ func TestGetConfigSearchPaths(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("当前目录应该在配置搜索路径中")
+		t.Error("The current directory should be in the configuration search path")
 	}
 }
 
@@ -153,43 +153,43 @@ func TestMergeConfig(t *testing.T) {
 	result := mergeConfig(base, override)
 
 	if result.Protocol != "jdwp" {
-		t.Errorf("协议应保持为 jdwp, 实际：%s", result.Protocol)
+		t.Errorf("The protocol should remain jdwp; the actual value is: %s", result.Protocol)
 	}
 	if result.Host != "192.168.1.100" {
-		t.Errorf("主机应被覆盖为 192.168.1.100, 实际：%s", result.Host)
+		t.Errorf("The host should be set to 192.168.1.100; the actual value is: %s", result.Host)
 	}
 	if result.Port != 6000 {
-		t.Errorf("端口应被覆盖为 6000, 实际：%d", result.Port)
+		t.Errorf("The port should be set to 6000; the actual value is: %d", result.Port)
 	}
 	if result.Color != false {
-		t.Errorf("Color 应被覆盖为 false, 实际：%v", result.Color)
+		t.Errorf("The value of "Color" should be overridden to "false"; the actual value is: %v.", result.Color)
 	}
 }
 
 func TestValidationError(t *testing.T) {
-	err := NewValidationError("port", "端口号必须在 1-65535 范围内")
+	err := NewValidationError("port", "The port number must be in the range 1-65535")
 	if err == nil {
-		t.Fatal("ValidationError 不应为 nil")
+		t.Fatal("ValidationError should not be nil")
 	}
 
-	expectedMsg := "配置验证失败 [port]: 端口号必须在 1-65535 范围内"
+	expectedMsg := "Configuration authentication failed [port]: Port number must be in the range 1-65535"
 	if err.Error() != expectedMsg {
-		t.Errorf("错误消息应为 %q, 实际：%q", expectedMsg, err.Error())
+		t.Errorf("Error message should be %q, actual: %q", expectedMsg, err.Error())
 	}
 }
 
 func TestLoader_NewLoader(t *testing.T) {
 	loader := NewLoader()
 	if loader == nil {
-		t.Error("Loader 不应为 nil")
+		t.Error("Loader should not be nil")
 	}
 	if loader.viper == nil {
-		t.Error("viper 实例不应为 nil")
+		t.Error("The viper instance should not be nil")
 	}
 }
 
 func TestLoader_LoadWithTempFile(t *testing.T) {
-	// 创建临时配置文件
+	// Creating a Temporary Configuration File
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, ".debugger.yaml")
 
@@ -201,20 +201,20 @@ output: text
 `
 
 	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
-		t.Fatalf("写入临时配置文件失败：%v", err)
+		t.Fatalf("Failed to write to the temporary configuration file: %v", err)
 	}
 
-	// 加载配置
+	// Load Configuration
 	loader := NewLoader()
 	config, err := loader.Load(configFile, "")
 	if err != nil {
-		t.Errorf("加载配置失败：%v", err)
+		t.Errorf("Configuration loading failed: %v", err)
 	}
 
 	if config.Protocol != "jdwp" {
-		t.Errorf("协议应为 jdwp, 实际：%s", config.Protocol)
+		t.Errorf("The protocol should be jdwp, but the actual one is: %s", config.Protocol)
 	}
 	if config.Port != 5005 {
-		t.Errorf("端口应为 5005, 实际：%d", config.Port)
+		t.Errorf("The port should be 5005; the actual value is: %d", config.Port)
 	}
 }

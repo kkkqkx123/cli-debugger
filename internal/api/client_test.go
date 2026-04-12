@@ -9,54 +9,54 @@ import (
 )
 
 func TestRegisterPlugin(t *testing.T) {
-	// 测试插件注册
+	// Test Plug-in Registration
 	factory := func() DebugProtocol { return &testProtocol{} }
 	
 	err := RegisterPlugin("test", factory)
 	if err != nil {
-		t.Errorf("注册插件失败：%v", err)
+		t.Errorf("Failed to register plugin: %v", err)
 	}
 }
 
 func TestCreateClient(t *testing.T) {
-	// 测试客户端创建
+	// Test Client Creation
 	client, err := CreateClient("jdwp")
 	if err != nil {
-		t.Errorf("创建客户端失败：%v", err)
+		t.Errorf("Failed to create client: %v", err)
 	}
 	if client == nil {
-		t.Error("客户端不应为 nil")
+		t.Error("Client should not be nil")
 	}
 }
 
 func TestAutoDetect(t *testing.T) {
-	// 测试自动检测
+	// Test automated detection
 	protocol := AutoDetect()
-	// 默认情况下应该返回 "jdwp"（端口 5005）
+	// "jdwp" should be returned by default (port 5005)
 	if protocol != "jdwp" && protocol != "" {
-		t.Errorf("自动检测协议异常：%s", protocol)
+		t.Errorf("Automatic detection of protocol anomalies: %s", protocol)
 	}
 }
 
 func TestGetRegisteredProtocols(t *testing.T) {
-	// 测试获取已注册协议列表
+	// Test to get the list of registered protocols
 	protocols := GetRegisteredProtocols()
 	if len(protocols) == 0 {
-		t.Error("至少应该有一个已注册的协议")
+		t.Error("There should be at least one registered agreement")
 	}
 }
 
 func TestHasProtocol(t *testing.T) {
-	// 测试检查协议是否存在
+	// The test checks that the protocol exists
 	if !HasProtocol("jdwp") {
-		t.Error("JDWP 协议应该已注册")
+		t.Error("The JDWP agreement should be registered")
 	}
 	if HasProtocol("nonexistent") {
-		t.Error("不存在的协议不应该被找到")
+		t.Error("Protocols that don't exist shouldn't be found")
 	}
 }
 
-// testProtocol 测试用协议实现
+// testProtocol Implementation using protocol
 type testProtocol struct{}
 
 func (p *testProtocol) Connect(ctx context.Context) error { return nil }

@@ -12,13 +12,13 @@ import (
 	"cli-debugger/pkg/types"
 )
 
-// TableFormatter 表格格式化器
+// TableFormatter Table Formatter
 type TableFormatter struct {
 	writer io.Writer
 	color  bool
 }
 
-// NewTableFormatter 创建表格格式化器
+// NewTableFormatter creates a table formatter
 func NewTableFormatter(color bool) *TableFormatter {
 	return &TableFormatter{
 		writer: os.Stdout,
@@ -26,15 +26,15 @@ func NewTableFormatter(color bool) *TableFormatter {
 	}
 }
 
-// SetWriter 设置输出写入器
+// SetWriter Sets the output writer
 func (f *TableFormatter) SetWriter(writer io.Writer) {
 	f.writer = writer
 }
 
-// FormatVersion 格式化版本信息
+// FormatVersion Format version information
 func (f *TableFormatter) FormatVersion(info *types.VersionInfo) error {
 	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"属性", "值"})
+	table.SetHeader([]string{"causality", "value"})
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 
@@ -45,26 +45,26 @@ func (f *TableFormatter) FormatVersion(info *types.VersionInfo) error {
 		)
 	}
 
-	table.Append([]string{"协议版本", info.ProtocolVersion})
-	table.Append([]string{"运行时版本", info.RuntimeVersion})
-	table.Append([]string{"运行时名称", info.RuntimeName})
+	table.Append([]string{"protocol version", info.ProtocolVersion})
+	table.Append([]string{"runtime version", info.RuntimeVersion})
+	table.Append([]string{"Runtime name", info.RuntimeName})
 	if info.Description != "" {
-		table.Append([]string{"描述", info.Description})
+		table.Append([]string{"described", info.Description})
 	}
 
 	table.Render()
 	return nil
 }
 
-// FormatThreads 格式化线程列表
+// FormatThreads Format threads list
 func (f *TableFormatter) FormatThreads(threads []*types.ThreadInfo) error {
 	if len(threads) == 0 {
-		fmt.Fprintln(f.writer, "没有找到线程")
+		fmt.Fprintln(f.writer, "No thread found")
 		return nil
 	}
 
 	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"ID", "名称", "状态", "优先级", "守护线程", "挂起"})
+	table.SetHeader([]string{"ID", "name", "state", "prioritization", "daemon thread", "pending"})
 	table.SetBorder(true)
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(true)
@@ -101,19 +101,19 @@ func (f *TableFormatter) FormatThreads(threads []*types.ThreadInfo) error {
 	}
 
 	table.Render()
-	fmt.Fprintf(f.writer, "\n总计: %d 个线程\n", len(threads))
+	fmt.Fprintf(f.writer, "\nTotal: %d threads\n", len(threads))
 	return nil
 }
 
-// FormatStack 格式化调用栈
+// FormatStack formats the call stack
 func (f *TableFormatter) FormatStack(frames []*types.StackFrame) error {
 	if len(frames) == 0 {
-		fmt.Fprintln(f.writer, "调用栈为空")
+		fmt.Fprintln(f.writer, "Call stack is empty")
 		return nil
 	}
 
 	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"#", "方法", "位置", "行号", "本地方法"})
+	table.SetHeader([]string{"#", "method", "position", "line number", "local method"})
 	table.SetBorder(true)
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(true)
@@ -148,19 +148,19 @@ func (f *TableFormatter) FormatStack(frames []*types.StackFrame) error {
 	}
 
 	table.Render()
-	fmt.Fprintf(f.writer, "\n总计: %d 个栈帧\n", len(frames))
+	fmt.Fprintf(f.writer, "\nTotal: %d stack frames\n", len(frames))
 	return nil
 }
 
-// FormatVariables 格式化变量列表
+// FormatVariables formats a list of variables
 func (f *TableFormatter) FormatVariables(variables []*types.Variable) error {
 	if len(variables) == 0 {
-		fmt.Fprintln(f.writer, "没有变量")
+		fmt.Fprintln(f.writer, "No variables")
 		return nil
 	}
 
 	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"名称", "类型", "值", "原始类型", "空值"})
+	table.SetHeader([]string{"name", "typology", "value", "Original type", "null value"})
 	table.SetBorder(true)
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(true)
@@ -196,19 +196,19 @@ func (f *TableFormatter) FormatVariables(variables []*types.Variable) error {
 	}
 
 	table.Render()
-	fmt.Fprintf(f.writer, "\n总计: %d 个变量\n", len(variables))
+	fmt.Fprintf(f.writer, "\nTotal: %d variables\n", len(variables))
 	return nil
 }
 
-// FormatBreakpoints 格式化断点列表
+// FormatBreakpoints Format the breakpoint list.
 func (f *TableFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) error {
 	if len(breakpoints) == 0 {
-		fmt.Fprintln(f.writer, "没有断点")
+		fmt.Fprintln(f.writer, "No breakpoints")
 		return nil
 	}
 
 	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"ID", "位置", "启用", "命中次数", "条件"})
+	table.SetHeader([]string{"ID", "position", "enabled", "Number of hits", "conditions"})
 	table.SetBorder(true)
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(true)
@@ -243,14 +243,14 @@ func (f *TableFormatter) FormatBreakpoints(breakpoints []*types.BreakpointInfo) 
 	}
 
 	table.Render()
-	fmt.Fprintf(f.writer, "\n总计: %d 个断点\n", len(breakpoints))
+	fmt.Fprintf(f.writer, "\nTotal: %d breakpoints\n", len(breakpoints))
 	return nil
 }
 
-// FormatEvent 格式化调试事件
+// FormatEvent Format debug event
 func (f *TableFormatter) FormatEvent(event *types.DebugEvent) error {
 	table := tablewriter.NewWriter(f.writer)
-	table.SetHeader([]string{"属性", "值"})
+	table.SetHeader([]string{"attribute", "值"})
 	table.SetBorder(false)
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 
@@ -261,46 +261,46 @@ func (f *TableFormatter) FormatEvent(event *types.DebugEvent) error {
 		)
 	}
 
-	table.Append([]string{"事件类型", event.Type})
-	table.Append([]string{"线程ID", event.ThreadID})
-	table.Append([]string{"位置", event.Location})
-	table.Append([]string{"时间戳", event.Timestamp.String()})
+	table.Append([]string{"event type", event.Type})
+	table.Append([]string{"Thread ID", event.ThreadID})
+	table.Append([]string{"position", event.Location})
+	table.Append([]string{"timestamp", event.Timestamp.String()})
 
 	if event.Data != nil {
-		table.Append([]string{"数据", fmt.Sprintf("%v", event.Data)})
+		table.Append([]string{"data", fmt.Sprintf("%v", event.Data)})
 	}
 
 	table.Render()
 	return nil
 }
 
-// FormatError 格式化错误
+// FormatError Formatting error
 func (f *TableFormatter) FormatError(err error) error {
 	if f.color {
 		errorColor := color.New(color.FgRed, color.Bold).SprintFunc()
-		fmt.Fprintf(f.writer, "%s: %v\n", errorColor("错误"), err)
+		fmt.Fprintf(f.writer, "%s: %v\n", errorColor("error"), err)
 	} else {
-		fmt.Fprintf(f.writer, "错误: %v\n", err)
+		fmt.Fprintf(f.writer, "Error: %v\n", err)
 	}
 	return nil
 }
 
-// formatBool 格式化布尔值
+// formatBool Formatting Boolean Values
 func (f *TableFormatter) formatBool(b bool) string {
 	if !f.color {
 		if b {
-			return "是"
+			return "is"
 		}
 		return "否"
 	}
 
 	if b {
-		return color.GreenString("是")
+		return color.GreenString("is")
 	}
 	return color.RedString("否")
 }
 
-// formatValue 格式化值
+// formatValue formatValue
 func (f *TableFormatter) formatValue(value interface{}) string {
 	if value == nil {
 		if f.color {
@@ -345,7 +345,7 @@ func (f *TableFormatter) formatValue(value interface{}) string {
 	}
 }
 
-// formatThreadState 格式化线程状态
+// formatThreadState formatThreadState
 func (f *TableFormatter) formatThreadState(state string) string {
 	if !f.color {
 		return state
