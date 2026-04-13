@@ -41,3 +41,13 @@ export {
   getProtocolFactory,
   clearRegistry,
 } from "./client.js";
+
+// JDWP protocol implementation
+export { JDWPClient } from "./jdwp/client.js";
+export * as jdwp from "./jdwp/index.js";
+
+// Auto-register JDWP protocol
+import { registerProtocol } from "./client.js";
+import { JDWPClient } from "./jdwp/client.js";
+
+registerProtocol("jdwp", (config) => new JDWPClient(config));
