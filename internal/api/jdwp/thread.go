@@ -5,73 +5,111 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"cli-debugger/internal/api"
 	"cli-debugger/pkg/errors"
+	"cli-debugger/pkg/types"
 )
 
-// ThreadReference Command Set Implementation
-// Thread command constants are already defined in protocol.go
-
-// GetThreadName Get the thread name.
-func (c *Client) GetThreadName(ctx context.Context, threadID string) (string, error) {
-	// Encoded Thread ID
-	data := encodeID(threadID, c.idsizes.ObjectIDSize)
-	
-	// Send the ThreadReference.Name command (Command Set = 10, Command = 1)
-	packet := createCommandPacketWithData(threadCommandSet, threadCommandName, data)
-	if err := c.sendPacket(packet); err != nil {
-		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread name")
-	}
-
-	reply, err := c.readReply()
-	if err != nil {
-		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread name")
-	}
-
-	if reply.ErrorCode != 0 {
-		return "", errors.NewProtocolError(errors.ErrProtocolError,
-			fmt.Sprintf("Get thread name failed: %s", reply.Message))
-	}
-
-	// Parsing thread name
-	reader := newPacketReader(reply.Data)
-	name, err := reader.readString()
-	if err != nil {
-		return "", errors.WrapProtocolError(err, errors.ErrInvalidResponse, "Failed to read thread name")
-	}
-
-	return name, nil
+// StackFrameInfo Stack Frame Info
+type StackFrameInfo struct {
+	FrameID     string
+	Location    string
+	Method      string
+	IsObsolete  bool
 }
 
-// GetThreadStatus Get Thread Status
-func (c *Client) GetThreadStatus(ctx context.Context, threadID string) (string, int, error) {
+// ThreadState Thread state constant
+const (
+	ThreadStateZombie      = 1 // zombie thread
+	ThreadStateRunning     = 2 // running
+	ThreadStateSleeping    = 3 // asleep
+	ThreadStateMonitor     = 4 // Waiting for the monitor
+	ThreadStateWait        = 5 // wait for
+	ThreadStateNotStarted  = 6 // inactive
+	ThreadStateStarted     = 7 // activated
+)
+
+// GetThreadStateString Converts the thread state to a string.
+func GetThreadStateString(state int) string {
+	switch state {
+	case ThreadStateZombie:
+		return "zombie"
+	case ThreadStateRunning:
+		return "running"
+	case ThreadStateSleeping:
+		return "sleeping"
+	case ThreadStateMonitor:
+		return "waiting-for-monitor"
+	case ThreadStateWait:
+		return "waiting"
+	case ThreadStateNotStarted:
+		return "not-started"
+	case ThreadStateStarted:
+		return "started"
+	default:
+		return fmt.Sprintf("unknown(%d)", state)
+	}
+}
+
+// getThreadStateInternal Get thread state (internal method)
+func (c *Client) getThreadStateInternal(threadID string) (string, error) {
 	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
-	
-	// 发送 ThreadReference.Status 命令 (Command Set = 10, Command = 4)
+
+	// Send ThreadReference.Status command (Command Set = 10, Command = 4)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandStatus, data)
 	if err := c.sendPacket(packet); err != nil {
-		return "", 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread status")
+		return "running", err
 	}
 
 	reply, err := c.readReply()
 	if err != nil {
-		return "", 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread status")
+		return "running", err
 	}
 
 	if reply.ErrorCode != 0 {
-		return "", 0, errors.NewProtocolError(errors.ErrProtocolError,
-			fmt.Sprintf("Get thread status failed: %s", reply.Message))
+		return "running", &api.APIError{
+			Type:    api.ProtocolError,
+			Code:    int(reply.ErrorCode),
+			Message: fmt.Sprintf("Get thread status failed: %s", reply.Message),
+		}
 	}
 
 	// Parsing thread state
 	reader := newPacketReader(reply.Data)
 	threadStatus := reader.readInt()
-	suspendStatus := reader.readInt()
+	_ = reader.readInt() // suspendStatus, not used
 
 	// Converting states to strings
 	stateStr := GetThreadStateString(threadStatus)
 
-	return stateStr, suspendStatus, nil
+	return stateStr, nil
+}
+
+// GetThreadStack Get Thread Call Stack
+func (c *Client) GetThreadStack(ctx context.Context, threadID string) ([]*types.StackFrame, error) {
+	// Get Frames
+	frameCount, err := c.GetThreadFrameCount(ctx, threadID)
+	if err != nil {
+		return nil, err
+	}
+
+	if frameCount == 0 {
+		return []*types.StackFrame{}, nil
+	}
+
+	// Get all stack frames
+	frames, err := c.GetStackFrames(ctx, threadID, 0, frameCount)
+	if err != nil {
+		return nil, err
+	}
+
+	return frames, nil
+}
+
+// GetThreadState Get Thread State
+func (c *Client) GetThreadState(ctx context.Context, threadID string) (string, error) {
+	return c.getThreadStateInternal(threadID)
 }
 
 // SuspendThread Hangs the specified thread.
@@ -113,7 +151,7 @@ func (c *Client) resumeThreadInternal(ctx context.Context, threadID string) erro
 	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
-	// 发送 ThreadReference.Resume 命令 (Command Set = 10, Command = 3)
+	// Send ThreadReference.Resume command (Command Set = 10, Command = 3)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandResume, data)
 	if err := c.sendPacket(packet); err != nil {
 		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to resume thread")
@@ -151,7 +189,7 @@ func (c *Client) GetThreadFrames(ctx context.Context, threadID string, startFram
 	binary.BigEndian.PutUint32(lengthBytes, uint32(length))
 	data = append(data, lengthBytes...)
 
-	// 发送 ThreadReference.Frames 命令 (Command Set = 10, Command = 6)
+	// Send ThreadReference.Frames command
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandFrames, data)
 	if err := c.sendPacket(packet); err != nil {
 		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread frames")
@@ -196,7 +234,7 @@ func (c *Client) GetThreadFrameCount(ctx context.Context, threadID string) (int,
 	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
-	// Send the ThreadReference.FrameCount command (Command Set = 10, Command = 7)
+	// Send the ThreadReference.FrameCount command
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandFrameCount, data)
 	if err := c.sendPacket(packet); err != nil {
 		return 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread frame count")
@@ -224,7 +262,7 @@ func (c *Client) GetThreadMonitors(ctx context.Context, threadID string) ([]stri
 	// Encoded Thread ID
 	data := encodeID(threadID, c.idsizes.ObjectIDSize)
 	
-	// 发送 ThreadReference.OwnedMonitors 命令 (Command Set = 10, Command = 8)
+	// Send ThreadReference.OwnedMonitors command (Command Set = 10, Command = 8)
 	packet := createCommandPacketWithData(threadCommandSet, threadCommandOwnedMonitors, data)
 	if err := c.sendPacket(packet); err != nil {
 		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread monitors")
@@ -392,13 +430,13 @@ func (c *Client) ForceEarlyReturn(threadID string, frameID string, value interfa
 	case int32:
 		valueBytes = append(valueBytes, byte(val>>24), byte(val>>16), byte(val>>8), byte(val))
 	case int64:
-		valueBytes = append(valueBytes, byte(val>>56), byte(val>>48), byte(val>>40), byte(val>>32), byte(val>>24), byte(val>>16), byte(val>>8), byte(val))
+		valueBytes = append(valueBytes, byte(val>>56), byte(val>>48), byte(val>>40), byte(val>>32), byte(val>>24), byte(val>>8), byte(val))
 	case float32:
 		bits := uint32(val)
 		valueBytes = append(valueBytes, byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
 	case float64:
 		bits := uint64(val)
-		valueBytes = append(valueBytes, byte(bits>>56), byte(bits>>48), byte(bits>>40), byte(bits>>32), byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
+		valueBytes = append(valueBytes, byte(bits>>56), byte(bits>>48), byte(bits>>40), byte(bits>>32), byte(bits>>24), byte(bits>>8), byte(bits))
 	case bool:
 		if val {
 			valueBytes = append(valueBytes, 1)
@@ -433,43 +471,65 @@ func (c *Client) ForceEarlyReturn(threadID string, frameID string, value interfa
 	return nil
 }
 
-// StackFrameInfo Stack Frame Info
-type StackFrameInfo struct {
-	FrameID     string
-	Location    string
-	Method      string
-	IsObsolete  bool
+// GetThreadName Get the thread name.
+func (c *Client) GetThreadName(ctx context.Context, threadID string) (string, error) {
+	// Encoded Thread ID
+	data := encodeID(threadID, c.idsizes.ObjectIDSize)
+	
+	// Send the ThreadReference.Name command (Command Set = 10, Command = 1)
+	packet := createCommandPacketWithData(threadCommandSet, threadCommandName, data)
+	if err := c.sendPacket(packet); err != nil {
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread name")
+	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return "", errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread name")
+	}
+
+	if reply.ErrorCode != 0 {
+		return "", errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get thread name failed: %s", reply.Message))
+	}
+
+	// Parsing thread name
+	reader := newPacketReader(reply.Data)
+	name, err := reader.readString()
+	if err != nil {
+		return "", errors.WrapProtocolError(err, errors.ErrInvalidResponse, "Failed to read thread name")
+	}
+
+	return name, nil
 }
 
-// ThreadState Thread state constant
-const (
-	ThreadStateZombie      = 1 // zombie thread
-	ThreadStateRunning     = 2 // running
-	ThreadStateSleeping    = 3 // asleep
-	ThreadStateMonitor     = 4 // Waiting for the monitor
-	ThreadStateWait        = 5 // wait for
-	ThreadStateNotStarted  = 6 // inactive
-	ThreadStateStarted     = 7 // activated
-)
-
-// GetThreadStateString Converts the thread state to a string.
-func GetThreadStateString(state int) string {
-	switch state {
-	case ThreadStateZombie:
-		return "zombie"
-	case ThreadStateRunning:
-		return "running"
-	case ThreadStateSleeping:
-		return "sleeping"
-	case ThreadStateMonitor:
-		return "waiting-for-monitor"
-	case ThreadStateWait:
-		return "waiting"
-	case ThreadStateNotStarted:
-		return "not-started"
-	case ThreadStateStarted:
-		return "started"
-	default:
-		return fmt.Sprintf("unknown(%d)", state)
+// GetThreadStatus Get Thread Status
+func (c *Client) GetThreadStatus(ctx context.Context, threadID string) (string, int, error) {
+	// Encoded Thread ID
+	data := encodeID(threadID, c.idsizes.ObjectIDSize)
+	
+	// Send ThreadReference.Status command (Command Set = 10, Command = 4)
+	packet := createCommandPacketWithData(threadCommandSet, threadCommandStatus, data)
+	if err := c.sendPacket(packet); err != nil {
+		return "", 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread status")
 	}
+
+	reply, err := c.readReply()
+	if err != nil {
+		return "", 0, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get thread status")
+	}
+
+	if reply.ErrorCode != 0 {
+		return "", 0, errors.NewProtocolError(errors.ErrProtocolError,
+			fmt.Sprintf("Get thread status failed: %s", reply.Message))
+	}
+
+	// Parsing thread state
+	reader := newPacketReader(reply.Data)
+	threadStatus := reader.readInt()
+	suspendStatus := reader.readInt()
+
+	// Converting states to strings
+	stateStr := GetThreadStateString(threadStatus)
+
+	return stateStr, suspendStatus, nil
 }

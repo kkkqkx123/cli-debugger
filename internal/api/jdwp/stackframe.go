@@ -74,8 +74,8 @@ func (c *Client) GetStackFrames(ctx context.Context, threadID string, startFrame
 	return frames, nil
 }
 
-// GetLocalVariables Get the local variables of the stack frame.
-func (c *Client) GetLocalVariables(ctx context.Context, threadID string, frameIndex int) ([]*types.Variable, error) {
+// GetStackFrame Get a list of the thread's stack frames.
+func (c *Client) GetStackFrame(ctx context.Context, threadID string, startFrame int, length int) ([]*types.StackFrame, error) {
 	// Constructing request data
 	data := make([]byte, 0)
 
@@ -83,14 +83,18 @@ func (c *Client) GetLocalVariables(ctx context.Context, threadID string, frameIn
 	threadIDBytes := encodeID(threadID, c.idsizes.ObjectIDSize)
 	data = append(data, threadIDBytes...)
 
-	// Frame ID (need to get frame list first)
-	// TODO: 实现完整的帧 ID 获取逻辑
-	frameID := fmt.Sprintf("frame_%d", frameIndex)
-	frameIDBytes := encodeID(frameID, c.idsizes.FrameIDSize)
-	data = append(data, frameIDBytes...)
+	// Start frame index (4 bytes)
+	startBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(startBytes, uint32(startFrame))
+	data = append(data, startBytes...)
 
-	// Send StackFrame.GetValues command
-	packet := createCommandPacketWithData(stackFrameCommandSet, stackFrameCommandGetValues, data)
+	// Number of frames (4 bytes)
+	lengthBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(lengthBytes, uint32(length))
+	data = append(data, lengthBytes...)
+
+	// Send the ThreadReference.Frames command
+	packet := createCommandPacketWithData(threadCommandSet, threadCommandFrames, data)
 	if err := c.sendPacket(packet); err != nil {
 		return nil, err
 	}
@@ -102,35 +106,34 @@ func (c *Client) GetLocalVariables(ctx context.Context, threadID string, frameIn
 
 	if reply.ErrorCode != 0 {
 		return nil, errors.NewProtocolError(errors.ErrProtocolError,
-			fmt.Sprintf("Failed to get local variables: %s", reply.Message))
+			fmt.Sprintf("Failed to get stack frame: %s", reply.Message))
 	}
 
 	// parse the response
 	reader := newPacketReader(reply.Data)
-	valueCount := reader.readInt()
+	frameCount := reader.readInt()
 
-	variables := make([]*types.Variable, 0, valueCount)
-	for i := 0; i < valueCount; i++ {
-		// Read value tags
-		tag := reader.readByte()
+	frames := make([]*types.StackFrame, 0, frameCount)
+	for i := 0; i < frameCount; i++ {
+		frameID := reader.readID(c.idsizes.FrameIDSize)
 
-		// retrieve value
-		value, err := reader.readValue(tag)
-		if err != nil {
-			// Skip invalid values
-			continue
-		}
+		// Retrieve location information
+		tag := reader.readByte() // Class Type Label
+		classID := reader.readID(c.idsizes.ReferenceTypeIDSize)
+		methodID := reader.readID(c.idsizes.MethodIDSize)
+		codeIndex := reader.readUint64()
 
-		variables = append(variables, &types.Variable{
-			Name:         fmt.Sprintf("var_%d", i),
-			Type:         string(tag),
-			Value:        value,
-			IsPrimitive:  isPrimitiveTag(tag),
-			IsNull:       value == nil,
+		// Constructing stack frame information
+		frames = append(frames, &types.StackFrame{
+			ID:       frameID,
+			Location: fmt.Sprintf("%s", classID),
+			Method:   fmt.Sprintf("method_%s", methodID),
+			Line:     int(codeIndex),
+			IsNative: tag == 'N',
 		})
 	}
 
-	return variables, nil
+	return frames, nil
 }
 
 // GetThisObject Get this object for the stack frame.

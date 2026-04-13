@@ -450,11 +450,6 @@ func (r *PacketReader) readInt64() int64 {
 	return int64(val)
 }
 
-// bytesToUint32 bytes array to uint32
-func bytesToUint32(b []byte) uint32 {
-	return binary.BigEndian.Uint32(b)
-}
-
 // uint32ToBytes uint32 to bytes array
 func uint32ToBytes(v uint32) []byte {
 	buf := make([]byte, 4)

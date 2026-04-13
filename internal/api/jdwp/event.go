@@ -194,6 +194,55 @@ const (
 	StepOut byte = 2 // jump out with a single step
 )
 
+// parseEvent parsing JDWP case
+func (c *Client) parseEvent(reader *PacketReader) (*types.DebugEvent, error) {
+	// Read event set ID
+	_ = reader.readByte()
+
+	// Number of events read
+	eventCount := reader.readInt()
+
+	if eventCount == 0 {
+		return nil, nil
+	}
+
+	// Read hang policy
+	suspendPolicy := reader.readByte()
+
+	// Read first event (simplifies processing)
+	eventKind := reader.readByte()
+	requestID := reader.readUint32()
+	threadID := reader.readID(c.idsizes.ObjectIDSize)
+
+	// Parsing by event type
+	var eventType string
+	switch eventKind {
+	case EventKindBreakpoint:
+		eventType = "breakpoint"
+	case EventKindSingleStep:
+		eventType = "step"
+	case EventKindException:
+		eventType = "exception"
+	case EventKindThreadStart:
+		eventType = "thread_start"
+	case EventKindThreadDeath:
+		eventType = "thread_death"
+	default:
+		eventType = fmt.Sprintf("unknown(%d)", eventKind)
+	}
+
+	return &types.DebugEvent{
+		Type:      eventType,
+		ThreadID:  threadID,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"event_kind":    eventKind,
+			"request_id":    requestID,
+			"suspend_policy": suspendPolicy,
+		},
+	}, nil
+}
+
 // WaitForEvent Wait for an event
 func (c *Client) WaitForEvent(ctx context.Context, timeout time.Duration) (*types.DebugEvent, error) {
 	c.eventMutex.Lock()
@@ -234,17 +283,4 @@ func (c *Client) WaitForEvent(ctx context.Context, timeout time.Duration) (*type
 	}
 
 	return nil, nil
-}
-
-// encodeID Encoding ID
-func encodeID(id string, size int) []byte {
-	var idVal uint64
-	fmt.Sscanf(id, "%d", &idVal)
-
-	buf := make([]byte, size)
-	for i := 0; i < size; i++ {
-		shift := (size - 1 - i) * 8
-		buf[i] = byte((idVal >> uint(shift)) & 0xFF)
-	}
-	return buf
 }

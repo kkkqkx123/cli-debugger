@@ -78,18 +78,18 @@ func (c *Client) SuspendVM(ctx context.Context) error {
 	if err := c.sendPacket(packet); err != nil {
 		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to hang VM")
 	}
-	
+
 	// Read reply to ensure command success
 	reply, err := c.readReply()
 	if err != nil {
 		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to hang VM")
 	}
-	
+
 	if reply.ErrorCode != 0 {
 		return errors.NewProtocolError(errors.ErrProtocolError,
 			fmt.Sprintf("Suspend VM failed: %s", reply.Message))
 	}
-	
+
 	return nil
 }
 
@@ -99,18 +99,18 @@ func (c *Client) ResumeVM(ctx context.Context) error {
 	if err := c.sendPacket(packet); err != nil {
 		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Recovery VM Failed")
 	}
-	
+
 	// Read reply to ensure command success
 	reply, err := c.readReply()
 	if err != nil {
 		return errors.WrapCommandError(err, errors.ErrCommandFailed, "Recovery VM Failed")
 	}
-	
+
 	if reply.ErrorCode != 0 {
 		return errors.NewProtocolError(errors.ErrProtocolError,
 			fmt.Sprintf("Resume VM failed: %s", reply.Message))
 	}
-	
+
 	return nil
 }
 
@@ -138,7 +138,7 @@ func (c *Client) ClassByName(ctx context.Context, className string) (*ClassInfo,
 	if count == 0 {
 		return nil, nil
 	}
-	
+
 	tag := reader.readByte()
 	refID := reader.readID(c.idsizes.ReferenceTypeIDSize)
 	status := reader.readInt()
