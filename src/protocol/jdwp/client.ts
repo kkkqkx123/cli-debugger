@@ -38,7 +38,7 @@ export class JDWPClient implements DebugProtocol {
   private socket: net.Socket | null = null;
   private connected = false;
   private idSizes: IDSizes | null = null;
-  private breakpoints: Map<string, InternalBreakpointInfo> = new Map();
+  private breakpointMap: Map<string, InternalBreakpointInfo> = new Map();
   private packetBuffer: Buffer = Buffer.alloc(0);
 
   constructor(config: DebugConfig) {
@@ -115,8 +115,9 @@ export class JDWPClient implements DebugProtocol {
       return;
     }
 
+    const socket = this.socket;
     return new Promise((resolve) => {
-      this.socket.end(() => {
+      socket.end(() => {
         this.connected = false;
         this.socket = null;
         resolve();
@@ -330,8 +331,8 @@ export class JDWPClient implements DebugProtocol {
       );
 
       // Generate breakpoint ID
-      const bpID = `bp_${this.breakpoints.size + 1}`;
-      this.breakpoints.set(bpID, {
+      const bpID = `bp_${this.breakpointMap.size + 1}`;
+      this.breakpointMap.set(bpID, {
         id: bpID,
         requestID,
         location,
@@ -344,7 +345,7 @@ export class JDWPClient implements DebugProtocol {
   }
 
   async removeBreakpoint(id: string): Promise<void> {
-    const bp = this.breakpoints.get(id);
+    const bp = this.breakpointMap.get(id);
     if (!bp) {
       return;
     }
@@ -353,18 +354,18 @@ export class JDWPClient implements DebugProtocol {
       await event.clearBreakpointRequest(executor, bp.requestID);
     });
 
-    this.breakpoints.delete(id);
+    this.breakpointMap.delete(id);
   }
 
   async clearBreakpoints(): Promise<void> {
     await this.executeCommand((executor) =>
       event.clearAllBreakpoints(executor),
     );
-    this.breakpoints.clear();
+    this.breakpointMap.clear();
   }
 
   async breakpoints(): Promise<BreakpointInfo[]> {
-    return Array.from(this.breakpoints.values()).map((bp) => ({
+    return Array.from(this.breakpointMap.values()).map((bp) => ({
       id: bp.id,
       location: bp.location,
       enabled: bp.enabled,
@@ -398,10 +399,14 @@ export class JDWPClient implements DebugProtocol {
       }
 
       // Get frame values (simplified - would need variable table for proper names)
+      const firstFrame = frames[0];
+      if (!firstFrame) {
+        return [];
+      }
       return stackFrame.getStackFrameValues(
         executor,
         threadId,
-        frames[0].frameID,
+        firstFrame.frameID,
         10, // Assume max 10 local variables
       );
     });
@@ -420,6 +425,13 @@ export class JDWPClient implements DebugProtocol {
       }
 
       const refTypeID = parts[1];
+      if (!refTypeID) {
+        throw new APIError(
+          ErrorType.InputError,
+          ErrorCodes.InvalidInput,
+          `Invalid object ID: ${objectId}`,
+        );
+      }
 
       // Get fields
       const fields = await referenceType.getFields(executor, refTypeID);
@@ -435,13 +447,17 @@ export class JDWPClient implements DebugProtocol {
         fieldIDs,
       );
 
-      return fields.map((field, i) => ({
-        name: field.name,
-        type: field.signature,
-        value: values[i],
-        isPrimitive: this.isPrimitiveTag(tags[i]),
-        isNull: values[i] === null || values[i] === undefined,
-      }));
+      return fields.map((field, i) => {
+        const tag = tags[i] ?? 0;
+        const value = values[i];
+        return {
+          name: field.name,
+          type: field.signature,
+          value,
+          isPrimitive: this.isPrimitiveTag(tag),
+          isNull: value === null || value === undefined,
+        };
+      });
     });
   }
 
@@ -483,8 +499,9 @@ export class JDWPClient implements DebugProtocol {
         "Socket not available",
       );
     }
+    const socket = this.socket;
     return new Promise((resolve, reject) => {
-      this.socket.write(packet, (err) => {
+      socket.write(packet, (err) => {
         if (err) {
           reject(
             new APIError(
@@ -513,6 +530,7 @@ export class JDWPClient implements DebugProtocol {
         "Socket not available",
       );
     }
+    const socket = this.socket;
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         reject(
@@ -537,9 +555,9 @@ export class JDWPClient implements DebugProtocol {
         // Check if we have complete packet
         if (this.packetBuffer.length >= length) {
           clearTimeout(timeoutId);
-          this.socket.removeListener("data", onData);
-          this.socket.removeListener("error", onError);
-          this.socket.removeListener("close", onClose);
+          socket.removeListener("data", onData);
+          socket.removeListener("error", onError);
+          socket.removeListener("close", onClose);
 
           const packetData = this.packetBuffer.subarray(4, length);
           this.packetBuffer = this.packetBuffer.subarray(length);
@@ -580,9 +598,9 @@ export class JDWPClient implements DebugProtocol {
         );
       };
 
-      this.socket.on("data", onData);
-      this.socket.on("error", onError);
-      this.socket.on("close", onClose);
+      socket.on("data", onData);
+      socket.on("error", onError);
+      socket.on("close", onClose);
 
       // Process existing buffer
       if (this.packetBuffer.length > 0) {
@@ -592,7 +610,7 @@ export class JDWPClient implements DebugProtocol {
   }
 
   private async waitForEventInternal(
-    executor: vm.JDWPCommandExecutor,
+    _executor: vm.JDWPCommandExecutor,
     timeout: number,
   ): Promise<DebugEvent | null> {
     if (!this.idSizes) {

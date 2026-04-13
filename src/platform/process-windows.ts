@@ -75,7 +75,7 @@ export class WindowsProcessDiscoverer implements ProcessDiscoverer {
 
       // Format: "ImageName","PID","SessionName","Session#","MemUsage"
       const match = line.match(/"([^"]+)","(\d+)"/);
-      if (match) {
+      if (match && match[1] && match[2]) {
         processes.push({
           name: match[1],
           pid: Number.parseInt(match[2], 10),

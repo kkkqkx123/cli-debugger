@@ -43,7 +43,7 @@ export class PacketReader {
     if (this.pos >= this.data.length) {
       return 0;
     }
-    const b = this.data[this.pos];
+    const b = this.data[this.pos] ?? 0;
     this.pos++;
     return b;
   }
@@ -113,7 +113,8 @@ export class PacketReader {
       // Generic handling for other sizes
       id = BigInt(0);
       for (let i = 0; i < size; i++) {
-        id = (id << BigInt(8)) | BigInt(this.data[this.pos + i]);
+        const byte = this.data[this.pos + i] ?? 0;
+        id = (id << BigInt(8)) | BigInt(byte);
       }
     }
 
