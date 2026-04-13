@@ -1,6 +1,6 @@
-import type { Writable } from 'node:stream';
-import process from 'node:process';
-import type { Formatter } from './interface.js';
+import type { Writable } from "node:stream";
+import process from "node:process";
+import type { Formatter } from "./interface.js";
 import type {
   VersionInfo,
   ThreadInfo,
@@ -8,7 +8,7 @@ import type {
   Variable,
   BreakpointInfo,
   DebugEvent,
-} from '../types/index.js';
+} from "../types/index.js";
 
 /**
  * Simple color functions (fallback when chalk is not available)
@@ -35,18 +35,18 @@ export class TableFormatter implements Formatter {
 
   async formatVersion(info: VersionInfo): Promise<void> {
     this.writeTable(
-      ['Property', 'Value'],
+      ["Property", "Value"],
       [
-        ['Protocol', info.protocolVersion],
-        ['Runtime', `${info.runtimeName} ${info.runtimeVersion}`],
-        ['Description', info.description],
-      ]
+        ["Protocol", info.protocolVersion],
+        ["Runtime", `${info.runtimeName} ${info.runtimeVersion}`],
+        ["Description", info.description],
+      ],
     );
   }
 
   async formatThreads(threads: ThreadInfo[]): Promise<void> {
     if (threads.length === 0) {
-      this.write('No threads found\n');
+      this.write("No threads found\n");
       return;
     }
 
@@ -54,16 +54,16 @@ export class TableFormatter implements Formatter {
       String(t.id),
       t.name,
       t.state,
-      t.isSuspended ? 'Yes' : 'No',
+      t.isSuspended ? "Yes" : "No",
       String(t.priority),
     ]);
 
-    this.writeTable(['ID', 'Name', 'State', 'Suspended', 'Priority'], rows);
+    this.writeTable(["ID", "Name", "State", "Suspended", "Priority"], rows);
   }
 
   async formatStack(frames: StackFrame[]): Promise<void> {
     if (frames.length === 0) {
-      this.write('No stack frames\n');
+      this.write("No stack frames\n");
       return;
     }
 
@@ -72,77 +72,77 @@ export class TableFormatter implements Formatter {
       f.method,
       f.location,
       String(f.line),
-      f.isNative ? 'Yes' : 'No',
+      f.isNative ? "Yes" : "No",
     ]);
 
-    this.writeTable(['#', 'Method', 'Location', 'Line', 'Native'], rows);
+    this.writeTable(["#", "Method", "Location", "Line", "Native"], rows);
   }
 
   async formatVariables(variables: Variable[]): Promise<void> {
     if (variables.length === 0) {
-      this.write('No variables\n');
+      this.write("No variables\n");
       return;
     }
 
     const rows = variables.map((v) => [
       v.name,
       v.type,
-      v.isNull ? 'null' : String(v.value),
-      v.isPrimitive ? 'Yes' : 'No',
+      v.isNull ? "null" : String(v.value),
+      v.isPrimitive ? "Yes" : "No",
     ]);
 
-    this.writeTable(['Name', 'Type', 'Value', 'Primitive'], rows);
+    this.writeTable(["Name", "Type", "Value", "Primitive"], rows);
   }
 
   async formatBreakpoints(breakpoints: BreakpointInfo[]): Promise<void> {
     if (breakpoints.length === 0) {
-      this.write('No breakpoints\n');
+      this.write("No breakpoints\n");
       return;
     }
 
     const rows = breakpoints.map((bp) => [
       String(bp.id),
       bp.location,
-      bp.enabled ? 'Yes' : 'No',
+      bp.enabled ? "Yes" : "No",
       String(bp.hitCount),
-      bp.condition || '-',
+      bp.condition || "-",
     ]);
 
-    this.writeTable(['ID', 'Location', 'Enabled', 'Hits', 'Condition'], rows);
+    this.writeTable(["ID", "Location", "Enabled", "Hits", "Condition"], rows);
   }
 
   async formatEvent(event: DebugEvent): Promise<void> {
     this.writeTable(
-      ['Property', 'Value'],
+      ["Property", "Value"],
       [
-        ['Type', event.type],
-        ['Location', event.location],
-        ['Thread ID', String(event.threadId)],
-      ]
+        ["Type", event.type],
+        ["Location", event.location],
+        ["Thread ID", String(event.threadId)],
+      ],
     );
   }
 
   async formatError(error: Error): Promise<void> {
     this.writeTable(
-      ['Property', 'Value'],
+      ["Property", "Value"],
       [
-        ['Name', error.name],
-        ['Message', error.message],
-      ]
+        ["Name", error.name],
+        ["Message", error.message],
+      ],
     );
   }
 
   async formatVerboseError(error: Error): Promise<void> {
     const rows: string[][] = [
-      ['Name', error.name],
-      ['Message', error.message],
+      ["Name", error.name],
+      ["Message", error.message],
     ];
 
     if (error.stack) {
-      rows.push(['Stack', error.stack]);
+      rows.push(["Stack", error.stack]);
     }
 
-    this.writeTable(['Property', 'Value'], rows);
+    this.writeTable(["Property", "Value"], rows);
   }
 
   private write(text: string): void {
@@ -151,26 +151,26 @@ export class TableFormatter implements Formatter {
 
   private writeTable(headers: string[], rows: string[][]): void {
     // Calculate column widths
-    const widths = headers.map(
-      (h, i) => Math.max(h.length, ...rows.map((r) => r[i]?.length ?? 0))
+    const widths = headers.map((h, i) =>
+      Math.max(h.length, ...rows.map((r) => r[i]?.length ?? 0)),
     );
 
     // Write header
     const headerLine = headers
       .map((h, i) => h.padEnd(widths[i] ?? 0))
-      .join(' | ');
-    this.write(this.colorize(colors.bold, headerLine) + '\n');
+      .join(" | ");
+    this.write(this.colorize(colors.bold, headerLine) + "\n");
 
     // Write separator
-    const separator = widths.map((w) => '-'.repeat(w ?? 0)).join('-+-');
-    this.write(separator + '\n');
+    const separator = widths.map((w) => "-".repeat(w ?? 0)).join("-+-");
+    this.write(separator + "\n");
 
     // Write rows
     for (const row of rows) {
       const line = row
         .map((cell, i) => cell.padEnd(widths[i] ?? 0))
-        .join(' | ');
-      this.write(line + '\n');
+        .join(" | ");
+      this.write(line + "\n");
     }
   }
 

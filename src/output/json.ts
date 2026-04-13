@@ -1,6 +1,6 @@
-import type { Writable } from 'node:stream';
-import process from 'node:process';
-import type { Formatter } from './interface.js';
+import type { Writable } from "node:stream";
+import process from "node:process";
+import type { Formatter } from "./interface.js";
 import type {
   VersionInfo,
   ThreadInfo,
@@ -8,7 +8,7 @@ import type {
   Variable,
   BreakpointInfo,
   DebugEvent,
-} from '../types/index.js';
+} from "../types/index.js";
 
 /**
  * JSON output wrapper type
@@ -30,32 +30,32 @@ export class JsonFormatter implements Formatter {
   }
 
   async formatVersion(info: VersionInfo): Promise<void> {
-    this.write({ type: 'version', data: info });
+    this.write({ type: "version", data: info });
   }
 
   async formatThreads(threads: ThreadInfo[]): Promise<void> {
-    this.write({ type: 'threads', data: threads });
+    this.write({ type: "threads", data: threads });
   }
 
   async formatStack(frames: StackFrame[]): Promise<void> {
-    this.write({ type: 'stack', data: frames });
+    this.write({ type: "stack", data: frames });
   }
 
   async formatVariables(variables: Variable[]): Promise<void> {
-    this.write({ type: 'variables', data: variables });
+    this.write({ type: "variables", data: variables });
   }
 
   async formatBreakpoints(breakpoints: BreakpointInfo[]): Promise<void> {
-    this.write({ type: 'breakpoints', data: breakpoints });
+    this.write({ type: "breakpoints", data: breakpoints });
   }
 
   async formatEvent(event: DebugEvent): Promise<void> {
-    this.write({ type: 'event', data: event });
+    this.write({ type: "event", data: event });
   }
 
   async formatError(error: Error): Promise<void> {
     this.write({
-      type: 'error',
+      type: "error",
       data: {
         name: error.name,
         message: error.message,
@@ -65,7 +65,7 @@ export class JsonFormatter implements Formatter {
 
   async formatVerboseError(error: Error): Promise<void> {
     this.write({
-      type: 'error',
+      type: "error",
       data: {
         name: error.name,
         message: error.message,
@@ -75,6 +75,6 @@ export class JsonFormatter implements Formatter {
   }
 
   private write(output: JsonOutput): void {
-    this.writer.write(JSON.stringify(output, null, 2) + '\n');
+    this.writer.write(JSON.stringify(output, null, 2) + "\n");
   }
 }

@@ -60,16 +60,16 @@ func GetCachePath() string {
 **TypeScript 实现**:
 
 ```typescript
-import os from 'node:os';
-import path from 'node:path';
-import process from 'node:process';
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
 
 export function getConfigPath(): string {
   const envPath = process.env.DEBUGGER_CONFIG_PATH;
   if (envPath) return envPath;
 
   const homeDir = os.homedir();
-  return path.join(homeDir, '.config', 'debugger');
+  return path.join(homeDir, ".config", "debugger");
 }
 
 export function getCachePath(): string {
@@ -77,14 +77,14 @@ export function getCachePath(): string {
   if (envPath) return envPath;
 
   const homeDir = os.homedir();
-  return path.join(homeDir, '.cache', 'debugger');
+  return path.join(homeDir, ".cache", "debugger");
 }
 
 export function getLogPath(): string {
   const envPath = process.env.DEBUGGER_LOG_PATH;
   if (envPath) return envPath;
 
-  return path.join(getCachePath(), 'logs');
+  return path.join(getCachePath(), "logs");
 }
 ```
 
@@ -99,27 +99,24 @@ export function getLogPath(): string {
 **实现**:
 
 ```typescript
-import { ZodError } from 'zod';
-import type { AppConfig, GlobalConfig } from '../types/config.js';
-import {
-  AppConfigSchema,
-  GlobalConfigSchema,
-} from '../types/config.js';
-import { APIError, ErrorType, ErrorCodes } from '../protocol/errors.js';
+import { ZodError } from "zod";
+import type { AppConfig, GlobalConfig } from "../types/config.js";
+import { AppConfigSchema, GlobalConfigSchema } from "../types/config.js";
+import { APIError, ErrorType, ErrorCodes } from "../protocol/errors.js";
 
 export function validateAppConfig(config: unknown): AppConfig {
   try {
     return AppConfigSchema.parse(config);
   } catch (error) {
     if (error instanceof ZodError) {
-      const messages = error.errors.map(e =>
-        `${e.path.join('.')}: ${e.message}`
+      const messages = error.errors.map(
+        (e) => `${e.path.join(".")}: ${e.message}`,
       );
       throw new APIError(
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
-        `Configuration validation failed:\n${messages.join('\n')}`,
-        error
+        `Configuration validation failed:\n${messages.join("\n")}`,
+        error,
       );
     }
     throw error;
@@ -131,14 +128,14 @@ export function validateGlobalConfig(config: unknown): GlobalConfig {
     return GlobalConfigSchema.parse(config);
   } catch (error) {
     if (error instanceof ZodError) {
-      const messages = error.errors.map(e =>
-        `${e.path.join('.')}: ${e.message}`
+      const messages = error.errors.map(
+        (e) => `${e.path.join(".")}: ${e.message}`,
       );
       throw new APIError(
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
-        `Global configuration validation failed:\n${messages.join('\n')}`,
-        error
+        `Global configuration validation failed:\n${messages.join("\n")}`,
+        error,
       );
     }
     throw error;
@@ -184,14 +181,14 @@ func (l *Loader) Load() (*Config, error) {
 **TypeScript 实现**:
 
 ```typescript
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import process from 'node:process';
-import toml from '@iarna/toml'; // 需要添加依赖
-import type { AppConfig, GlobalConfig, Profile } from '../types/config.js';
-import { createDefaultConfig } from '../types/config.js';
-import { validateAppConfig, validateGlobalConfig } from './validator.js';
-import { getConfigPath } from './paths.js';
+import fs from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import toml from "@iarna/toml"; // 需要添加依赖
+import type { AppConfig, GlobalConfig, Profile } from "../types/config.js";
+import { createDefaultConfig } from "../types/config.js";
+import { validateAppConfig, validateGlobalConfig } from "./validator.js";
+import { getConfigPath } from "./paths.js";
 
 export class ConfigLoader {
   private config: AppConfig;
@@ -224,9 +221,9 @@ export class ConfigLoader {
   }
 
   private async loadGlobalConfig(): Promise<void> {
-    const configPath = path.join(getConfigPath(), 'config.toml');
+    const configPath = path.join(getConfigPath(), "config.toml");
     try {
-      const content = await fs.readFile(configPath, 'utf-8');
+      const content = await fs.readFile(configPath, "utf-8");
       const globalConfig = validateGlobalConfig(toml.load(content));
       this.mergeConfig(globalConfig.defaults);
     } catch {
@@ -235,9 +232,9 @@ export class ConfigLoader {
   }
 
   private async loadProjectConfig(): Promise<void> {
-    const configPath = path.join(process.cwd(), '.debugger.toml');
+    const configPath = path.join(process.cwd(), ".debugger.toml");
     try {
-      const content = await fs.readFile(configPath, 'utf-8');
+      const content = await fs.readFile(configPath, "utf-8");
       const config = toml.load(content);
       this.mergeConfig(config);
     } catch {
@@ -247,15 +244,15 @@ export class ConfigLoader {
 
   private loadFromEnv(): void {
     const envMapping = {
-      DEBUGGER_PROTOCOL: 'connection.protocol',
-      DEBUGGER_HOST: 'connection.host',
-      DEBUGGER_PORT: 'connection.port',
-      DEBUGGER_TIMEOUT: 'connection.timeout',
-      DEBUGGER_OUTPUT: 'output.format',
-      DEBUGGER_COLOR: 'output.color',
-      DEBUGGER_WATCH: 'monitor.enabled',
-      DEBUGGER_INTERVAL: 'monitor.interval',
-      DEBUGGER_VERBOSE: 'verbose',
+      DEBUGGER_PROTOCOL: "connection.protocol",
+      DEBUGGER_HOST: "connection.host",
+      DEBUGGER_PORT: "connection.port",
+      DEBUGGER_TIMEOUT: "connection.timeout",
+      DEBUGGER_OUTPUT: "output.format",
+      DEBUGGER_COLOR: "output.color",
+      DEBUGGER_WATCH: "monitor.enabled",
+      DEBUGGER_INTERVAL: "monitor.interval",
+      DEBUGGER_VERBOSE: "verbose",
     };
 
     for (const [envKey, configPath] of Object.entries(envMapping)) {
@@ -284,10 +281,10 @@ export interface LoadOptions {
 ### 4. index.ts - 模块导出
 
 ```typescript
-export { ConfigLoader } from './loader.js';
-export type { LoadOptions } from './loader.js';
-export { validateAppConfig, validateGlobalConfig } from './validator.js';
-export { getConfigPath, getCachePath, getLogPath } from './paths.js';
+export { ConfigLoader } from "./loader.js";
+export type { LoadOptions } from "./loader.js";
+export { validateAppConfig, validateGlobalConfig } from "./validator.js";
+export { getConfigPath, getCachePath, getLogPath } from "./paths.js";
 ```
 
 ## 依赖添加

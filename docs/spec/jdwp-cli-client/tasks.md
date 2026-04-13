@@ -7,6 +7,7 @@
 ## 1. 项目初始化与协议层基础
 
 ### 1.1 初始化 Go 项目结构
+
 - 创建 `go.mod` 文件，定义模块名为 `jdwp-cli`
 - 创建目录结构：`cmd/jdwp-cli/`, `internal/protocol/`, `internal/client/`, `internal/cli/`
 - 创建空的 `main.go` 入口文件，仅输出 "JDWP CLI Client"
@@ -14,6 +15,7 @@
 - 参考: Design Document - Architecture 章节
 
 ### 1.2 实现 JDWP 数据类型定义
+
 - 创建 `internal/protocol/types.go`
 - 定义 JDWP ID 类型：`ObjectID`, `ThreadID`, `ReferenceTypeID`, `MethodID`, `FieldID`, `FrameID`, `RequestID`, `StringID`（均为 uint64）
 - 定义值标签常量：`TagByte`, `TagChar`, `TagInt`, `TagObject` 等
@@ -22,6 +24,7 @@
 - 参考: Design Document - Data Models 章节
 
 ### 1.3 实现 JDWP 包编解码
+
 - 创建 `internal/protocol/packet.go`
 - 实现 `CommandPacket` 结构体及其 `Encode()` 方法
   - 格式：[4字节长度][4字节ID][1字节标志][1字节命令集][1字节命令][数据]
@@ -37,6 +40,7 @@
 - 参考: Design Document - Data Models 章节, Requirements 1.2, 1.3, 1.4
 
 ### 1.4 实现 JDWP 握手协议
+
 - 创建 `internal/protocol/handshake.go`
 - 实现 `PerformHandshake(conn net.Conn) error` 函数
   - 读取 VM 发送的 "JDWP-Handshake" (14字节)
@@ -54,6 +58,7 @@
 ## 2. 客户端核心与基础命令
 
 ### 2.1 实现 JDWP 客户端核心
+
 - 创建 `internal/client/client.go`
 - 定义 `Client` 结构体：包含 `conn`, `idSizes`, `packetID` 字段
 - 实现 `NewClient(host string, port int) (*Client, error)` 函数
@@ -75,6 +80,7 @@
 - 参考: Design Document - Client Layer 章节, Requirements 1.5, 1.6
 
 ### 2.2 定义 CLI 命令接口与注册表
+
 - 创建 `internal/cli/command.go`
 - 定义 `Command` 接口：
   ```go
@@ -94,6 +100,7 @@
 - 参考: Design Document - CLI Layer 章节, Requirements 2.1, 2.2
 
 ### 2.3 实现 CLI 入口与命令路由
+
 - 创建 `cmd/jdwp-cli/main.go`
 - 实现主函数：
   - 检查命令行参数
@@ -105,6 +112,7 @@
 - 参考: Requirements 2.3, 2.4, 2.5
 
 ### 2.4 实现 version 命令
+
 - 创建 `internal/cli/version.go`
 - 实现 `VersionCommand` 结构体，包含 `--host`, `--port`, `--json` 标志
 - 在 `internal/client/vm.go` 实现 `Version() (*VersionInfo, error)` 方法
@@ -119,6 +127,7 @@
 - 参考: Requirements 3.1
 
 ### 2.5 实现输出格式化器
+
 - 创建 `internal/cli/output.go`
 - 定义 `OutputFormatter` 接口：`Format(data interface{}) error`
 - 实现 `TextFormatter`：输出人类可读的文本
@@ -132,6 +141,7 @@
 ## 3. 虚拟机信息查询命令
 
 ### 3.1 实现 threads 命令
+
 - 创建 `internal/cli/threads.go`
 - 在 `internal/client/vm.go` 实现 `AllThreads() ([]ThreadInfo, error)` 方法
   - 发送 VirtualMachine/4 命令（cmdSet=1, cmd=4）
@@ -149,6 +159,7 @@
 - 参考: Requirements 3.2
 
 ### 3.2 实现 classes 命令
+
 - 在 `internal/client/vm.go` 实现 `AllClasses() ([]ClassInfo, error)` 方法
   - 发送 VirtualMachine/3 命令（cmdSet=1, cmd=3）
   - 解析类信息：referenceTypeID, refTypeTag, signature, status
@@ -163,6 +174,7 @@
 - 参考: Requirements 3.3
 
 ### 3.3 实现 capabilities 命令
+
 - 在 `internal/client/vm.go` 实现 `Capabilities() (*Capabilities, error)` 方法
   - 发送 VirtualMachine/12 命令（cmdSet=1, cmd=12）
   - 解析能力标志位（是否可以重新定义类、是否支持字段监控等）
@@ -172,6 +184,7 @@
 - 参考: Requirements 3.4
 
 ### 3.4 实现 classpath 命令
+
 - 在 `internal/client/vm.go` 实现 `ClassPaths() (*ClassPaths, error)` 方法
   - 发送 VirtualMachine/13 命令（cmdSet=1, cmd=13）
   - 解析 classpath 和 bootclasspath 字符串
@@ -185,6 +198,7 @@
 ## 4. 断点管理功能
 
 ### 4.1 实现断点设置核心逻辑
+
 - 创建 `internal/client/event.go`
 - 实现 `SetBreakpoint(classSignature string, line int, suspendPolicy byte) (RequestID, error)` 方法
   - 步骤 1: 调用 `ClassesBySignature()` 获取类的 referenceTypeID
@@ -203,6 +217,7 @@
 - 参考: Requirements 4.1, 4.5, 4.6
 
 ### 4.2 实现 breakpoint add 命令
+
 - 创建 `internal/cli/breakpoint.go`
 - 实现 `BreakpointAddCommand` 结构体
   - 支持 `--class` 标志指定类名
@@ -218,6 +233,7 @@
 - 参考: Requirements 4.1, 4.2, 4.5
 
 ### 4.3 实现断点清除功能
+
 - 在 `internal/client/event.go` 实现 `ClearBreakpoint(requestID RequestID) error` 方法
   - 发送 EventRequest/Clear 命令（cmdSet=15, cmd=2）
 - 在 `internal/client/event.go` 实现 `ClearAllBreakpoints() error` 方法
@@ -232,6 +248,7 @@
 ## 5. 执行控制功能
 
 ### 5.1 实现 suspend/resume 命令
+
 - 在 `internal/client/vm.go` 实现 `Suspend() error` 方法
   - 发送 VirtualMachine/8 命令（cmdSet=1, cmd=8）
 - 在 `internal/client/vm.go` 实现 `Resume() error` 方法
@@ -242,6 +259,7 @@
 - 参考: Requirements 5.1, 5.2
 
 ### 5.2 实现事件等待机制
+
 - 在 `internal/client/event.go` 实现 `WaitForEvent(timeout time.Duration) (*CompositeEvent, error)` 方法
   - 设置 socket 读取超时
   - 等待 Event/Composite 事件（cmdSet=64）
@@ -254,6 +272,7 @@
 - 参考: Requirements 5.7, 5.8, 8.1, 8.2, 8.3
 
 ### 5.3 实现 cont 命令
+
 - 创建 `internal/cli/execution.go` 实现 `ContCommand`
 - 实现逻辑：
   - 调用 `client.Resume()` 恢复执行
@@ -267,6 +286,7 @@
 - 参考: Requirements 5.3
 
 ### 5.4 实现 step/next/finish 命令
+
 - 在 `internal/client/event.go` 实现单步执行相关方法：
   - `StepInto(threadID ThreadID) error`
     - 发送 EventRequest/Set 设置 STEP 事件（eventKind=STEP）
@@ -289,6 +309,7 @@
 ## 6. 栈帧与变量查看
 
 ### 6.1 实现栈帧查看功能
+
 - 在 `internal/client/thread.go` 实现 `ThreadFrameCount(threadID ThreadID) (int, error)` 方法
   - 发送 ThreadReference/7 命令（cmdSet=11, cmd=7）
 - 在 `internal/client/thread.go` 实现 `ThreadFrames(threadID ThreadID, startFrame int, length int) ([]FrameInfo, error)` 方法
@@ -303,6 +324,7 @@
 - 参考: Requirements 6.1, 6.2, 6.6
 
 ### 6.2 实现局部变量查看功能
+
 - 在 `internal/client/stackframe.go` 实现 `GetLocalVariables(threadID ThreadID, frameID FrameID) ([]LocalVariable, error)` 方法
   - 步骤 1: 获取方法的 VariableTable（Method/2）
   - 步骤 2: 发送 StackFrame/GetValues 命令（cmdSet=16, cmd=1）
@@ -315,6 +337,7 @@
 - 参考: Requirements 6.3, 6.4, 6.5
 
 ### 6.3 实现字段值查看功能
+
 - 在 `internal/client/reference_type.go` 实现 `GetFields(refTypeID ReferenceTypeID) ([]FieldInfo, error)` 方法
   - 发送 ReferenceType/4 命令（cmdSet=2, cmd=4）
 - 在 `internal/client/reference_type.go` 实现 `GetStaticValues(refTypeID ReferenceTypeID, fieldIDs []FieldID) ([]Value, error)` 方法
@@ -332,6 +355,7 @@
 ## 7. 流式监控模式
 
 ### 7.1 实现流式监控器核心
+
 - 创建 `internal/client/monitor.go`
 - 定义 `MonitorConfig` 结构体：`Interval`, `Timeout`, `Command`
 - 定义 `StreamMonitor` 结构体：包含 `client`, `config`, `done` 字段
@@ -350,6 +374,7 @@
 - 参考: Design Document - Key Design Decisions 第6点
 
 ### 7.2 实现 monitor 命令
+
 - 创建 `internal/cli/monitor.go`
 - 实现 `MonitorCommand` 作为子命令路由器
   - `monitor threads`：持续监控线程列表
@@ -371,6 +396,7 @@
 ## 8. 错误处理与完善
 
 ### 8.1 完善错误处理与退出码
+
 - 创建 `internal/errors/errors.go`
 - 定义错误类型：
   ```go
@@ -388,6 +414,7 @@
 - 参考: Requirements 10.1, 10.4, 10.5
 
 ### 8.2 实现跨平台兼容处理
+
 - 创建 `internal/platform/` 目录
 - 定义 `PlatformOps` 接口
 - 创建 `internal/platform/platform_unix.go`（使用 `//go:build linux || darwin` 标签）
@@ -402,6 +429,7 @@
 - 参考: Requirements 11.1, 11.2, 11.3, 11.4, Design Document - Key Design Decisions 第5点
 
 ### 8.3 完善帮助文档与命令说明
+
 - 为每个命令实现详细的 `--help` 输出
 - 在主帮助信息中列出所有可用命令及简短描述
 - 添加 README.md 包含：
@@ -412,6 +440,7 @@
 - 参考: Requirements 2.4, NFR5
 
 ### 8.4 编写集成测试
+
 - 创建 `tests/integration/` 目录
 - 创建测试辅助文件 `testutil/jvm_helper.go`
   - 实现 `StartTestJVM()` 启动测试 JVM
@@ -429,22 +458,26 @@
 ## 9. 构建与分发
 
 ### 9.1 配置交叉编译脚本
+
 - 创建 `build.sh` (Unix) 和 `build.bat` (Windows)
 - 实现多平台构建：
+
   ```bash
   # Linux AMD64
   GOOS=linux GOARCH=amd64 go build -o dist/jdwp-cli-linux-amd64 ./cmd/jdwp-cli
-  
+
   # Windows AMD64
   GOOS=windows GOARCH=amd64 go build -o dist/jdwp-cli-windows-amd64.exe ./cmd/jdwp-cli
-  
+
   # macOS AMD64
   GOOS=darwin GOARCH=amd64 go build -o dist/jdwp-cli-macos-amd64 ./cmd/jdwp-cli
   ```
+
 - 验证生成的二进制文件可以正常运行
 - 参考: Requirements 11.4, Design Document - Implementation Notes
 
 ### 9.2 最终验证与文档完善
+
 - 运行所有单元测试：`go test ./...`
 - 运行集成测试（需要 JDK 环境）
 - 检查代码格式：`gofmt -l .`

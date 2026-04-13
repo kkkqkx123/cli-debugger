@@ -2,10 +2,10 @@
  * Client factory and protocol registry
  */
 
-import type { DebugProtocol, ProtocolFactory } from './base.js';
-import type { DebugConfig } from '../types/config.js';
-import { DebugConfigSchema } from '../types/config.js';
-import { APIError, ErrorType, ErrorCodes } from './errors.js';
+import type { DebugProtocol, ProtocolFactory } from "./base.js";
+import type { DebugConfig } from "../types/config.js";
+import { DebugConfigSchema } from "../types/config.js";
+import { APIError, ErrorType, ErrorCodes } from "./errors.js";
 
 /** Protocol registry */
 const registry = new Map<string, ProtocolFactory>();
@@ -17,11 +17,11 @@ const registry = new Map<string, ProtocolFactory>();
  * @throws APIError if protocol is already registered
  */
 export function registerProtocol(name: string, factory: ProtocolFactory): void {
-  if (!name || name.trim() === '') {
+  if (!name || name.trim() === "") {
     throw new APIError(
       ErrorType.InputError,
       ErrorCodes.InvalidInput,
-      'Protocol name cannot be empty'
+      "Protocol name cannot be empty",
     );
   }
 
@@ -29,7 +29,7 @@ export function registerProtocol(name: string, factory: ProtocolFactory): void {
     throw new APIError(
       ErrorType.InputError,
       ErrorCodes.InvalidInput,
-      'Protocol factory cannot be null'
+      "Protocol factory cannot be null",
     );
   }
 
@@ -37,7 +37,7 @@ export function registerProtocol(name: string, factory: ProtocolFactory): void {
     throw new APIError(
       ErrorType.InputError,
       ErrorCodes.InvalidInput,
-      `Protocol '${name}' is already registered`
+      `Protocol '${name}' is already registered`,
     );
   }
 
@@ -59,7 +59,9 @@ export function unregisterProtocol(name: string): boolean {
  * @returns Connected debug protocol client
  * @throws APIError if protocol is not registered or connection fails
  */
-export async function createClient(config: DebugConfig): Promise<DebugProtocol> {
+export async function createClient(
+  config: DebugConfig,
+): Promise<DebugProtocol> {
   // Validate configuration
   const validatedConfig = DebugConfigSchema.parse(config);
 
@@ -69,7 +71,7 @@ export async function createClient(config: DebugConfig): Promise<DebugProtocol> 
     throw new APIError(
       ErrorType.InputError,
       ErrorCodes.UnsupportedCommand,
-      `Protocol '${validatedConfig.protocol}' is not registered. Available protocols: ${getRegisteredProtocols().join(', ')}`
+      `Protocol '${validatedConfig.protocol}' is not registered. Available protocols: ${getRegisteredProtocols().join(", ")}`,
     );
   }
 
@@ -84,9 +86,7 @@ export async function createClient(config: DebugConfig): Promise<DebugProtocol> 
  * @returns Unconnected debug protocol client
  * @throws APIError if protocol is not registered
  */
-export function createClientWithoutConnect(
-  config: DebugConfig
-): DebugProtocol {
+export function createClientWithoutConnect(config: DebugConfig): DebugProtocol {
   // Validate configuration
   const validatedConfig = DebugConfigSchema.parse(config);
 
@@ -96,7 +96,7 @@ export function createClientWithoutConnect(
     throw new APIError(
       ErrorType.InputError,
       ErrorCodes.UnsupportedCommand,
-      `Protocol '${validatedConfig.protocol}' is not registered. Available protocols: ${getRegisteredProtocols().join(', ')}`
+      `Protocol '${validatedConfig.protocol}' is not registered. Available protocols: ${getRegisteredProtocols().join(", ")}`,
     );
   }
 

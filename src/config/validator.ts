@@ -2,13 +2,10 @@
  * Configuration validation utilities
  */
 
-import { ZodError } from 'zod';
-import type { AppConfig, GlobalConfig } from '../types/config.js';
-import {
-  AppConfigSchema,
-  GlobalConfigSchema,
-} from '../types/config.js';
-import { APIError, ErrorType, ErrorCodes } from '../protocol/errors.js';
+import { ZodError } from "zod";
+import type { AppConfig, GlobalConfig } from "../types/config.js";
+import { AppConfigSchema, GlobalConfigSchema } from "../types/config.js";
+import { APIError, ErrorType, ErrorCodes } from "../protocol/errors.js";
 
 /**
  * Validate application configuration
@@ -19,12 +16,14 @@ export function validateAppConfig(config: unknown): AppConfig {
     return AppConfigSchema.parse(config);
   } catch (error) {
     if (error instanceof ZodError) {
-      const messages = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`);
+      const messages = error.issues.map(
+        (e) => `${e.path.join(".")}: ${e.message}`,
+      );
       throw new APIError(
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
-        `Configuration validation failed:\n${messages.join('\n')}`,
-        error as Error
+        `Configuration validation failed:\n${messages.join("\n")}`,
+        error as Error,
       );
     }
     throw error;
@@ -40,12 +39,14 @@ export function validateGlobalConfig(config: unknown): GlobalConfig {
     return GlobalConfigSchema.parse(config);
   } catch (error) {
     if (error instanceof ZodError) {
-      const messages = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`);
+      const messages = error.issues.map(
+        (e) => `${e.path.join(".")}: ${e.message}`,
+      );
       throw new APIError(
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
-        `Global configuration validation failed:\n${messages.join('\n')}`,
-        error as Error
+        `Global configuration validation failed:\n${messages.join("\n")}`,
+        error as Error,
       );
     }
     throw error;

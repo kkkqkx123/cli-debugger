@@ -3,14 +3,14 @@
  * Priority: CLI > Env > Project > Global > Defaults
  */
 
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import process from 'node:process';
-import TOML from '@iarna/toml';
-import type { AppConfig } from '../types/config.js';
-import { createDefaultConfig } from '../types/config.js';
-import { validateAppConfig } from './validator.js';
-import { getConfigPath } from './paths.js';
+import fs from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import TOML from "@iarna/toml";
+import type { AppConfig } from "../types/config.js";
+import { createDefaultConfig } from "../types/config.js";
+import { validateAppConfig } from "./validator.js";
+import { getConfigPath } from "./paths.js";
 
 /** Options for configuration loading */
 export interface LoadOptions {
@@ -59,11 +59,11 @@ export class ConfigLoader {
    * Load global configuration from ~/.config/debugger/config.toml
    */
   private async loadGlobalConfig(): Promise<void> {
-    const configPath = path.join(getConfigPath(), 'config.toml');
+    const configPath = path.join(getConfigPath(), "config.toml");
     try {
-      const content = await fs.readFile(configPath, 'utf-8');
+      const content = await fs.readFile(configPath, "utf-8");
       const parsed = TOML.parse(content);
-      if (parsed && typeof parsed === 'object' && 'defaults' in parsed) {
+      if (parsed && typeof parsed === "object" && "defaults" in parsed) {
         const globalConfig = parsed as { defaults: Partial<AppConfig> };
         this.mergeConfig(globalConfig.defaults);
       }
@@ -76,9 +76,9 @@ export class ConfigLoader {
    * Load project configuration from .debugger.toml in current working directory
    */
   private async loadProjectConfig(): Promise<void> {
-    const configPath = path.join(process.cwd(), '.debugger.toml');
+    const configPath = path.join(process.cwd(), ".debugger.toml");
     try {
-      const content = await fs.readFile(configPath, 'utf-8');
+      const content = await fs.readFile(configPath, "utf-8");
       const parsed = TOML.parse(content);
       this.mergeConfig(parsed as Partial<AppConfig>);
     } catch {
@@ -91,15 +91,15 @@ export class ConfigLoader {
    */
   private loadFromEnv(): void {
     const envMapping: Record<string, string> = {
-      DEBUGGER_PROTOCOL: 'connection.protocol',
-      DEBUGGER_HOST: 'connection.host',
-      DEBUGGER_PORT: 'connection.port',
-      DEBUGGER_TIMEOUT: 'connection.timeout',
-      DEBUGGER_OUTPUT: 'output.format',
-      DEBUGGER_COLOR: 'output.color',
-      DEBUGGER_WATCH: 'monitor.enabled',
-      DEBUGGER_INTERVAL: 'monitor.interval',
-      DEBUGGER_VERBOSE: 'verbose',
+      DEBUGGER_PROTOCOL: "connection.protocol",
+      DEBUGGER_HOST: "connection.host",
+      DEBUGGER_PORT: "connection.port",
+      DEBUGGER_TIMEOUT: "connection.timeout",
+      DEBUGGER_OUTPUT: "output.format",
+      DEBUGGER_COLOR: "output.color",
+      DEBUGGER_WATCH: "monitor.enabled",
+      DEBUGGER_INTERVAL: "monitor.interval",
+      DEBUGGER_VERBOSE: "verbose",
     };
 
     for (const [envKey, configPath] of Object.entries(envMapping)) {
@@ -163,12 +163,15 @@ export class ConfigLoader {
    * Set a nested configuration value by dot-separated path
    */
   private setConfigValue(pathStr: string, value: string): void {
-    const keys = pathStr.split('.');
-    let current: Record<string, unknown> = this.config as unknown as Record<string, unknown>;
+    const keys = pathStr.split(".");
+    let current: Record<string, unknown> = this.config as unknown as Record<
+      string,
+      unknown
+    >;
 
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
-      if (!key || !(key in current) || typeof current[key] !== 'object') {
+      if (!key || !(key in current) || typeof current[key] !== "object") {
         return;
       }
       current = current[key] as Record<string, unknown>;
@@ -181,13 +184,13 @@ export class ConfigLoader {
 
     // Convert string value to appropriate type
     const existingValue = current[lastKey];
-    if (typeof existingValue === 'number') {
+    if (typeof existingValue === "number") {
       const num = Number(value);
       if (!isNaN(num)) {
         current[lastKey] = num;
       }
-    } else if (typeof existingValue === 'boolean') {
-      current[lastKey] = value.toLowerCase() === 'true' || value === '1';
+    } else if (typeof existingValue === "boolean") {
+      current[lastKey] = value.toLowerCase() === "true" || value === "1";
     } else {
       current[lastKey] = value;
     }

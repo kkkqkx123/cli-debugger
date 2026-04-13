@@ -30,10 +30,12 @@ src/platform/
 ### 1. interface.ts - ProcessDiscoverer 接口
 
 **功能**:
+
 - 定义进程发现接口
 - 支持按端口、名称查找进程
 
 **参考实现** (`ref/internal/platform/process.go`):
+
 ```go
 type ProcessInfo struct {
     PID  int    `json:"pid"`
@@ -48,6 +50,7 @@ type ProcessDiscoverer interface {
 ```
 
 **TypeScript 实现**:
+
 ```typescript
 /**
  * Process information
@@ -88,14 +91,16 @@ export interface ProcessDiscoverer {
 ### 2. process.ts - 通用实现
 
 **功能**:
+
 - 提供平台检测
 - 导出平台特定实现
 - 通用辅助函数
 
 **TypeScript 实现**:
+
 ```typescript
-import process from 'node:process';
-import type { ProcessDiscoverer, ProcessInfo } from './interface.js';
+import process from "node:process";
+import type { ProcessDiscoverer, ProcessInfo } from "./interface.js";
 
 let discoverer: ProcessDiscoverer | null = null;
 
@@ -107,15 +112,17 @@ export function getProcessDiscoverer(): ProcessDiscoverer {
     const platform = process.platform;
 
     switch (platform) {
-      case 'win32':
-        discoverer = new (require('./process-windows.js').WindowsProcessDiscoverer)();
+      case "win32":
+        discoverer =
+          new (require("./process-windows.js").WindowsProcessDiscoverer)();
         break;
-      case 'darwin':
-      case 'linux':
-        discoverer = new (require('./process-unix.js').UnixProcessDiscoverer)();
+      case "darwin":
+      case "linux":
+        discoverer = new (require("./process-unix.js").UnixProcessDiscoverer)();
         break;
       default:
-        discoverer = new (require('./process-other.js').OtherProcessDiscoverer)();
+        discoverer =
+          new (require("./process-other.js").OtherProcessDiscoverer)();
         break;
     }
   }
@@ -142,10 +149,12 @@ export function parsePid(s: string): number | null {
 ### 3. process-windows.ts - Windows 实现
 
 **功能**:
+
 - 使用 Windows 命令查找进程
 - 支持 netstat、tasklist、wmic
 
 **参考实现** (`ref/internal/platform/process_windows.go`):
+
 ```go
 func (d *WindowsProcessDiscoverer) FindProcessByPort(port int) (*ProcessInfo, error) {
     // Use netstat to find PID
@@ -173,24 +182,25 @@ func (d *WindowsProcessDiscoverer) FindProcessByPort(port int) (*ProcessInfo, er
 ```
 
 **TypeScript 实现**:
+
 ```typescript
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
-import type { ProcessDiscoverer, ProcessInfo } from './interface.js';
-import { containsCaseInsensitive, parsePid } from './process.js';
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import type { ProcessDiscoverer, ProcessInfo } from "./interface.js";
+import { containsCaseInsensitive, parsePid } from "./process.js";
 
 const execAsync = promisify(exec);
 
 export class WindowsProcessDiscoverer implements ProcessDiscoverer {
   async findProcesses(): Promise<ProcessInfo[]> {
-    const { stdout } = await execAsync('tasklist /FO CSV /NH');
+    const { stdout } = await execAsync("tasklist /FO CSV /NH");
     return this.parseTasklist(stdout);
   }
 
   async findProcessByPort(port: number): Promise<ProcessInfo | null> {
     try {
-      const { stdout } = await execAsync('netstat -ano');
-      const lines = stdout.split('\n');
+      const { stdout } = await execAsync("netstat -ano");
+      const lines = stdout.split("\n");
 
       for (const line of lines) {
         if (line.includes(`:${port}`)) {
@@ -212,12 +222,12 @@ export class WindowsProcessDiscoverer implements ProcessDiscoverer {
 
   async findProcessByName(name: string): Promise<ProcessInfo[]> {
     const processes = await this.findProcesses();
-    return processes.filter(p => containsCaseInsensitive(p.name, name));
+    return processes.filter((p) => containsCaseInsensitive(p.name, name));
   }
 
   async isPortInUse(port: number): Promise<boolean> {
     try {
-      const { stdout } = await execAsync('netstat -ano');
+      const { stdout } = await execAsync("netstat -ano");
       return stdout.includes(`:${port}`);
     } catch {
       return false;
@@ -226,7 +236,9 @@ export class WindowsProcessDiscoverer implements ProcessDiscoverer {
 
   private async findProcessByPid(pid: number): Promise<ProcessInfo | null> {
     try {
-      const { stdout } = await execAsync(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`);
+      const { stdout } = await execAsync(
+        `tasklist /FI "PID eq ${pid}" /FO CSV /NH`,
+      );
       const processes = this.parseTasklist(stdout);
       return processes[0] ?? null;
     } catch {
@@ -236,7 +248,7 @@ export class WindowsProcessDiscoverer implements ProcessDiscoverer {
 
   private parseTasklist(output: string): ProcessInfo[] {
     const processes: ProcessInfo[] = [];
-    const lines = output.split('\n');
+    const lines = output.split("\n");
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -259,10 +271,12 @@ export class WindowsProcessDiscoverer implements ProcessDiscoverer {
 ### 4. process-unix.ts - Unix 实现
 
 **功能**:
+
 - 使用 Unix 命令查找进程
 - 支持 ps、lsof、netstat
 
 **参考实现** (`ref/internal/platform/process_unix.go`):
+
 ```go
 func (d *UnixProcessDiscoverer) FindProcessByPort(port int) (*ProcessInfo, error) {
     // Try lsof first
@@ -286,17 +300,18 @@ func (d *UnixProcessDiscoverer) FindProcessByPort(port int) (*ProcessInfo, error
 ```
 
 **TypeScript 实现**:
+
 ```typescript
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
-import type { ProcessDiscoverer, ProcessInfo } from './interface.js';
-import { containsCaseInsensitive, parsePid } from './process.js';
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import type { ProcessDiscoverer, ProcessInfo } from "./interface.js";
+import { containsCaseInsensitive, parsePid } from "./process.js";
 
 const execAsync = promisify(exec);
 
 export class UnixProcessDiscoverer implements ProcessDiscoverer {
   async findProcesses(): Promise<ProcessInfo[]> {
-    const { stdout } = await execAsync('ps -e -o pid,comm');
+    const { stdout } = await execAsync("ps -e -o pid,comm");
     return this.parsePs(stdout);
   }
 
@@ -315,8 +330,10 @@ export class UnixProcessDiscoverer implements ProcessDiscoverer {
 
     try {
       // Fallback to netstat
-      const { stdout } = await execAsync('netstat -tlnp 2>/dev/null || ss -tlnp');
-      const lines = stdout.split('\n');
+      const { stdout } = await execAsync(
+        "netstat -tlnp 2>/dev/null || ss -tlnp",
+      );
+      const lines = stdout.split("\n");
 
       for (const line of lines) {
         if (line.includes(`:${port}`)) {
@@ -337,7 +354,7 @@ export class UnixProcessDiscoverer implements ProcessDiscoverer {
 
   async findProcessByName(name: string): Promise<ProcessInfo[]> {
     const processes = await this.findProcesses();
-    return processes.filter(p => containsCaseInsensitive(p.name, name));
+    return processes.filter((p) => containsCaseInsensitive(p.name, name));
   }
 
   async isPortInUse(port: number): Promise<boolean> {
@@ -361,7 +378,7 @@ export class UnixProcessDiscoverer implements ProcessDiscoverer {
 
   private parsePs(output: string): ProcessInfo[] {
     const processes: ProcessInfo[] = [];
-    const lines = output.split('\n').slice(1); // Skip header
+    const lines = output.split("\n").slice(1); // Skip header
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -386,12 +403,14 @@ export class UnixProcessDiscoverer implements ProcessDiscoverer {
 ### 5. process-other.ts - 其他平台实现
 
 **功能**:
+
 - 提供基本的进程发现功能
 - 适用于不支持的平台
 
 **TypeScript 实现**:
+
 ```typescript
-import type { ProcessDiscoverer, ProcessInfo } from './interface.js';
+import type { ProcessDiscoverer, ProcessInfo } from "./interface.js";
 
 export class OtherProcessDiscoverer implements ProcessDiscoverer {
   async findProcesses(): Promise<ProcessInfo[]> {
@@ -411,11 +430,11 @@ export class OtherProcessDiscoverer implements ProcessDiscoverer {
 
   async isPortInUse(port: number): Promise<boolean> {
     // Basic check using net module
-    return new Promise(resolve => {
-      const server = require('net').createServer();
+    return new Promise((resolve) => {
+      const server = require("net").createServer();
 
-      server.once('error', () => resolve(true));
-      server.once('listening', () => {
+      server.once("error", () => resolve(true));
+      server.once("listening", () => {
         server.close();
         resolve(false);
       });
@@ -429,11 +448,11 @@ export class OtherProcessDiscoverer implements ProcessDiscoverer {
 ### 6. index.ts - 模块导出
 
 ```typescript
-export type { ProcessInfo, ProcessDiscoverer } from './interface.js';
-export { getProcessDiscoverer } from './process.js';
-export { WindowsProcessDiscoverer } from './process-windows.js';
-export { UnixProcessDiscoverer } from './process-unix.js';
-export { OtherProcessDiscoverer } from './process-other.js';
+export type { ProcessInfo, ProcessDiscoverer } from "./interface.js";
+export { getProcessDiscoverer } from "./process.js";
+export { WindowsProcessDiscoverer } from "./process-windows.js";
+export { UnixProcessDiscoverer } from "./process-unix.js";
+export { OtherProcessDiscoverer } from "./process-other.js";
 
 /**
  * Create a process discoverer for the current platform
@@ -485,20 +504,24 @@ export function createProcessDiscoverer(): ProcessDiscoverer {
 ## 平台特定注意事项
 
 ### Windows
+
 - 使用 `tasklist` 列出进程
 - 使用 `netstat -ano` 查找端口
 - 输出格式为 CSV
 
 ### macOS
+
 - 使用 `ps` 列出进程
 - 使用 `lsof` 查找端口
 - 支持 `netstat` 作为备选
 
 ### Linux
+
 - 使用 `ps` 列出进程
 - 使用 `lsof` 或 `ss` 查找端口
 - 支持 `netstat` 作为备选
 
 ### 其他平台
+
 - 提供基本功能
 - 端口检查使用 net 模块

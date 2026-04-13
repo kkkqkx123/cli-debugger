@@ -9,6 +9,7 @@
 目标：建立插件化架构基础，定义核心接口和项目结构。
 
 ### 1.1 初始化 Go 项目
+
 - 创建 go.mod 文件，定义模块名为 `cli-debugger`
 - 添加依赖：cobra、viper、color、tablewriter、progressbar、websocket、toml、yaml
 - 创建目录结构（cmd/、internal/api/、internal/config/、internal/output/、internal/monitor/、internal/platform/、pkg/types/）
@@ -17,6 +18,7 @@
 - 参考: Design Document - 目录结构
 
 ### 1.2 定义统一调试协议接口
+
 - 创建 `internal/api/base.go`
 - 定义 DebugProtocol 接口（生命周期、查询、线程、执行、断点、变量、事件、元数据）
 - 定义通用数据类型（ThreadInfo、StackFrame、BreakpointInfo、Variable、DebugEvent 等）于 `pkg/types/`
@@ -25,6 +27,7 @@
 - 参考: Design Document - 核心组件设计 第1节
 
 ### 1.3 实现插件注册与客户端工厂
+
 - 创建 `internal/api/client.go`
 - 定义插件注册表（协议名称到工厂函数的映射）
 - 实现 CreateClient 方法（根据协议名称创建实例）
@@ -34,16 +37,18 @@
 - 参考: Design Document - 核心组件设计 第2节
 
 ### 1.4 实现配置系统
+
 - 创建 `internal/config/config.go` 定义配置结构
 - 创建 `internal/config/loader.go` 实现配置加载（viper 集成）
 - 创建 `internal/config/paths.go` 定义配置路径（全局、项目）
 - 支持 YAML 和 TOML 配置文件
-- 支持环境变量覆盖（DEBUGGER_* 前缀）
+- 支持环境变量覆盖（DEBUGGER\_\* 前缀）
 - 实现配置验证逻辑
 - 创建配置加载测试
 - 参考: Design Document - 配置系统 第6节
 
 ### 1.5 实现输出格式化器
+
 - 创建 `internal/output/formatter.go` 定义格式化接口
 - 实现 `internal/output/text.go` 文本格式化（集成 color，支持彩色输出）
 - 实现 `internal/output/json.go` JSON 格式化
@@ -59,6 +64,7 @@
 目标：使用 cobra 实现根命令和全局标志，建立命令执行模式。
 
 ### 2.1 实现根命令
+
 - 创建 `cmd/root.go`
 - 定义根命令（Use: debugger, Short/Long 描述）
 - 实现全局标志（--config、--protocol、--host、--port、--timeout、--output、--json、--watch、--interval、--verbose、--no-color）
@@ -69,6 +75,7 @@
 - 参考: Design Document - 核心组件设计 第3节
 
 ### 2.2 实现命令上下文传递
+
 - 定义命令上下文结构（DebugProtocol 实例、配置、格式化器）
 - 使用 cobra 的 Context 或全局变量传递调试器实例
 - 实现错误处理与退出码映射（0/1/2/3）
@@ -77,6 +84,7 @@
 - 参考: Design Document - 核心组件设计 第3节
 
 ### 2.3 实现 version 命令
+
 - 创建 `cmd/version.go`
 - 实现 version 命令结构（嵌入全局配置）
 - 在 JDWP 插件中实现 Version() 方法
@@ -87,6 +95,7 @@
 - 参考: Requirements 5.1, 5.2
 
 ### 2.4 实现 threads 命令
+
 - 创建 `cmd/threads.go`
 - 在 JDWP 插件中实现 GetThreads() 方法
 - 在 JDWP 插件中实现 GetThreadState() 方法
@@ -103,6 +112,7 @@
 目标：实现 JDWP 协议插件，完成所有核心调试命令。
 
 ### 3.1 实现 JDWP 协议层基础
+
 - 创建 `internal/api/jdwp/plugin.go` 实现 DebugProtocol 接口
 - 创建 `internal/api/jdwp/protocol.go` 实现 JDWP 包编解码
   - CommandPacket/ReplyPacket 定义
@@ -116,6 +126,7 @@
 - 参考: Design Document - JDWP 插件设计
 
 ### 3.2 实现 JDWP VirtualMachine 命令集
+
 - 创建 `internal/api/jdwp/vm.go`
 - 实现 IDSizes 获取（解析 ID 长度）
 - 实现 Version 方法（获取 JDWP/JVM 版本）
@@ -126,6 +137,7 @@
 - 参考: Design Document - JDWP 插件设计
 
 ### 3.3 实现 JDWP ThreadReference 命令集
+
 - 创建 `internal/api/jdwp/thread.go`
 - 实现 ThreadName 方法
 - 实现 ThreadStatus 方法
@@ -135,6 +147,7 @@
 - 参考: Design Document - JDWP 插件设计
 
 ### 3.4 实现 JDWP EventRequest 命令集
+
 - 创建 `internal/api/jdwp/event.go`
 - 实现 SetBreakpoint 方法（行断点、方法断点）
 - 实现 RemoveBreakpoint 方法
@@ -144,6 +157,7 @@
 - 参考: Design Document - JDWP 插件设计
 
 ### 3.5 实现 JDWP StackFrame 命令集
+
 - 创建 `internal/api/jdwp/stackframe.go`
 - 实现 GetLocalVariables 方法
 - 实现字段值获取方法
@@ -157,6 +171,7 @@
 目标：实现所有核心调试命令，完成 CLI 功能。
 
 ### 4.1 实现 stack 命令
+
 - 创建 `cmd/stack.go`
 - 支持 --thread 参数指定线程
 - 调用 GetThreadStack() 获取调用栈
@@ -165,6 +180,7 @@
 - 参考: Requirements 6.1, 6.2
 
 ### 4.2 实现 locals 命令
+
 - 创建 `cmd/locals.go`
 - 支持 --thread 和 --frame 参数
 - 调用 GetLocalVariables() 获取局部变量
@@ -173,6 +189,7 @@
 - 参考: Requirements 6.3, 6.4, 6.5
 
 ### 4.3 实现 breakpoint 命令
+
 - 创建 `cmd/breakpoint.go`
 - 实现子命令结构：
   - breakpoint add: 设置断点（--class、--line、--method）
@@ -184,6 +201,7 @@
 - 参考: Requirements 4.1-4.6
 
 ### 4.4 实现执行控制命令
+
 - 创建 `cmd/execution.go`
 - 实现子命令：
   - suspend: 挂起 VM
@@ -205,6 +223,7 @@
 目标：实现 --watch 监控模式，支持实时状态监控。
 
 ### 5.1 实现监控基础设施
+
 - 创建 `internal/monitor/poller.go` 实现轮询监控器
 - 创建 `internal/monitor/stream.go` 实现 WebSocket 流式客户端（可选，为未来扩展预留）
 - 实现监控器接口（Start、Stop、SetInterval、SetTimeout）
@@ -214,6 +233,7 @@
 - 参考: Design Document - 核心组件设计 第5节
 
 ### 5.2 实现流式输出
+
 - 创建 `internal/output/stream.go`
 - 实现终端刷新显示（类似 top 命令）
 - 集成 progressbar 显示进度指示器
@@ -222,6 +242,7 @@
 - 参考: Design Document - 输出格式化 第4节
 
 ### 5.3 实现 monitor 命令
+
 - 创建 `cmd/monitor.go`
 - 实现 --watch/-w 标志支持
 - 实现 --interval/-i 标志（刷新间隔）
@@ -238,6 +259,7 @@
 目标：完善输出格式、彩色显示、错误提示等用户体验功能。
 
 ### 6.1 完善彩色输出
+
 - 在所有命令中集成彩色输出
 - 定义颜色方案：
   - 字符串值: 绿色
@@ -249,6 +271,7 @@
 - 参考: Requirements 7.4
 
 ### 6.2 完善表格输出
+
 - 在 threads、classes、breakpoints 命令中使用表格输出
 - 配置表格样式（表头、对齐、边框）
 - 支持 JSON 输出时表格自动切换为 JSON 格式
@@ -256,6 +279,7 @@
 - 参考: Requirements 7.3
 
 ### 6.3 实现命令帮助文档
+
 - 为每个命令编写详细的 Short 和 Long 描述
 - 添加使用示例到命令的 Example 字段
 - 实现 --help 输出显示可用参数和示例
@@ -264,6 +288,7 @@
 - 参考: Requirements 2.4, NFR7
 
 ### 6.4 完善错误处理
+
 - 实现统一错误类型（APIError）
 - 实现错误消息格式化（文本/JSON）
 - 实现 verbose 模式显示协议级详细信息
@@ -278,6 +303,7 @@
 目标：确保跨平台兼容性，完善配置文件管理。
 
 ### 7.1 实现进程发现
+
 - 创建 `internal/platform/process.go` 定义进程发现接口
 - 创建 `internal/platform/process_unix.go` 实现 Unix 进程查找
 - 创建 `internal/platform/process_windows.go` 实现 Windows 进程查找
@@ -287,6 +313,7 @@
 - 参考: Requirements 9.3
 
 ### 7.2 实现自动检测
+
 - 实现端口特征检测（5005 → JDWP）
 - 实现进程特征检测（java 进程 → JDWP）
 - 实现检测结果可信度评分
@@ -295,6 +322,7 @@
 - 参考: Requirements 2.6
 
 ### 7.3 实现配置文件管理
+
 - 创建全局配置目录支持（~/.config/debugger/）
 - 实现项目配置文件自动发现（.debugger.yaml）
 - 实现命名配置文件管理（profiles）
@@ -304,6 +332,7 @@
 - 参考: Requirements 6.1-6.6
 
 ### 7.4 创建示例配置
+
 - 创建 `configs/example.yaml` 示例配置文件
 - 包含常用配置项和注释
 - 包含命名 profiles 示例
@@ -317,6 +346,7 @@
 目标：完善测试覆盖，确保功能质量。
 
 ### 8.1 完善单元测试
+
 - 为核心组件编写单元测试
   - 协议接口 mock 测试
   - 配置加载测试
@@ -327,6 +357,7 @@
 - 参考: Requirements 10.1
 
 ### 8.2 创建测试固件
+
 - 创建简单 Java 测试应用
   - 包含多个线程
   - 包含断点测试代码
@@ -335,6 +366,7 @@
 - 参考: Requirements 10.3
 
 ### 8.3 实现集成测试
+
 - 实现 JDWP 插件集成测试
   - 连接测试
   - 版本查询测试
@@ -345,6 +377,7 @@
 - 参考: Requirements 10.2
 
 ### 8.4 实现端到端测试
+
 - 实现完整调试会话测试
   - 连接 → 断点 → 执行 → 检查 → 断开
 - 实现 CLI 命令组合测试
@@ -358,6 +391,7 @@
 目标：完善所有文档，准备首个版本发布。
 
 ### 9.1 编写 README
+
 - 编写项目简介和特性列表
 - 编写快速开始指南
 - 编写安装说明（从源码构建、预编译二进制）
@@ -366,6 +400,7 @@
 - 参考: NFR7, NFR8
 
 ### 9.2 编写开发者文档
+
 - 编写架构概述
 - 编写插件开发指南（如何实现新协议插件）
 - 编写贡献指南（代码规范、提交流程）
@@ -373,6 +408,7 @@
 - 参考: NFR1, NFR2
 
 ### 9.3 最终验证
+
 - 运行所有测试（单元、集成、端到端）
 - 检查代码格式（gofmt）
 - 运行静态分析（go vet）
@@ -381,6 +417,7 @@
 - 参考: Requirements 9.1, 9.4, 9.5
 
 ### 9.4 发布准备
+
 - 更新 CHANGELOG.md
 - 准备发布说明
 - 验证二进制文件可正常运行
@@ -414,18 +451,22 @@
 ## 推荐执行顺序
 
 **第一批**（核心基础）: 阶段 1 全部 → 阶段 2 全部 → 阶段 3 的 3.1-3.2
+
 - 完成插件架构和 JDWP 基础
 - 验证架构可行性
 
 **第二批**（JDWP 功能）: 阶段 3 的 3.3-3.5 → 阶段 4 全部
+
 - 完成所有 JDWP 调试命令
 - 验证核心调试功能
 
 **第三批**（用户体验）: 阶段 5 全部 → 阶段 6 全部 → 阶段 7 全部
+
 - 完善监控模式、输出格式、配置管理
 - 完善跨平台兼容
 
 **第四批**（质量保证）: 阶段 8 全部 → 阶段 9 全部
+
 - 完善测试和文档
 - 准备发布
 

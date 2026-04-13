@@ -78,15 +78,15 @@ interface DebugProtocol {
 ### 注册协议
 
 ```typescript
-import { registerProtocol, createClient } from 'cli-debugger';
+import { registerProtocol, createClient } from "cli-debugger";
 
 // 注册自定义协议
-registerProtocol('my-protocol', (config) => new MyProtocolClient(config));
+registerProtocol("my-protocol", (config) => new MyProtocolClient(config));
 
 // 创建客户端
 const client = await createClient({
-  protocol: 'my-protocol',
-  host: 'localhost',
+  protocol: "my-protocol",
+  host: "localhost",
   port: 5005,
 });
 ```

@@ -157,13 +157,16 @@
 ## 非功能性需求
 
 ### 性能
+
 - NFR1: Connection establishment and command execution SHALL complete within reasonable time (typically < 1 second for simple queries)
 - NFR2: The system SHALL handle network timeouts gracefully with configurable timeout values
 
 ### 可维护性
+
 - NFR3: The code SHALL be organized in clear layers (protocol, client, CLI)
 - NFR4: The system SHALL use standard Go libraries where possible to minimize dependencies
 
 ### 可用性
+
 - NFR5: The CLI SHALL provide comprehensive help documentation accessible via --help flag
 - NFR6: Error messages SHALL be actionable and guide users toward resolution

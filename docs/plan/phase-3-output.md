@@ -29,11 +29,13 @@ src/output/
 ### 1. interface.ts - Formatter 接口
 
 **功能**:
+
 - 定义统一的输出格式化接口
 - 支持多种输出类型
 - 支持写入流
 
 **参考实现** (`ref/internal/output/formatter.go`):
+
 ```go
 type Formatter interface {
     FormatVersion(info *types.VersionInfo) error
@@ -49,8 +51,9 @@ type Formatter interface {
 ```
 
 **TypeScript 实现**:
+
 ```typescript
-import type { Writable } from 'node:stream';
+import type { Writable } from "node:stream";
 import type {
   VersionInfo,
   ThreadInfo,
@@ -58,7 +61,7 @@ import type {
   Variable,
   BreakpointInfo,
   DebugEvent,
-} from '../types/index.js';
+} from "../types/index.js";
 
 /**
  * Output formatter interface
@@ -93,7 +96,7 @@ export interface Formatter {
 }
 
 /** Formatter type */
-export type FormatterType = 'text' | 'json' | 'table';
+export type FormatterType = "text" | "json" | "table";
 
 /** Formatter factory options */
 export interface FormatterOptions {
@@ -106,11 +109,13 @@ export interface FormatterOptions {
 ### 2. text.ts - 文本格式化
 
 **功能**:
+
 - 人类可读的文本输出
 - 支持彩色输出
 - 格式化对齐
 
 **参考实现** (`ref/internal/output/text.go`):
+
 ```go
 type TextFormatter struct {
     writer io.Writer
@@ -127,11 +132,12 @@ func (f *TextFormatter) FormatThreads(threads []*types.ThreadInfo) error {
 ```
 
 **TypeScript 实现**:
+
 ```typescript
-import type { Writable } from 'node:stream';
-import process from 'node:process';
-import chalk from 'chalk';
-import type { Formatter } from './interface.js';
+import type { Writable } from "node:stream";
+import process from "node:process";
+import chalk from "chalk";
+import type { Formatter } from "./interface.js";
 import type {
   VersionInfo,
   ThreadInfo,
@@ -139,7 +145,7 @@ import type {
   Variable,
   BreakpointInfo,
   DebugEvent,
-} from '../types/index.js';
+} from "../types/index.js";
 
 export class TextFormatter implements Formatter {
   private writer: Writable = process.stdout;
@@ -161,45 +167,47 @@ export class TextFormatter implements Formatter {
 
   async formatThreads(threads: ThreadInfo[]): Promise<void> {
     if (threads.length === 0) {
-      this.write('No threads found\n');
+      this.write("No threads found\n");
       return;
     }
 
     for (const thread of threads) {
       const status = thread.isSuspended
-        ? this.colorize(chalk.yellow, '[SUSPENDED]')
-        : this.colorize(chalk.green, '[RUNNING]');
+        ? this.colorize(chalk.yellow, "[SUSPENDED]")
+        : this.colorize(chalk.green, "[RUNNING]");
       this.write(
-        `Thread ${thread.id}: ${thread.name} ${status} (state: ${thread.state})\n`
+        `Thread ${thread.id}: ${thread.name} ${status} (state: ${thread.state})\n`,
       );
     }
   }
 
   async formatStack(frames: StackFrame[]): Promise<void> {
     if (frames.length === 0) {
-      this.write('No stack frames\n');
+      this.write("No stack frames\n");
       return;
     }
 
     for (let i = 0; i < frames.length; i++) {
       const frame = frames[i];
-      const native = frame.isNative ? this.colorize(chalk.gray, '[native]') : '';
+      const native = frame.isNative
+        ? this.colorize(chalk.gray, "[native]")
+        : "";
       this.write(
-        `  #${i} ${frame.method} at ${frame.location}:${frame.line} ${native}\n`
+        `  #${i} ${frame.method} at ${frame.location}:${frame.line} ${native}\n`,
       );
     }
   }
 
   async formatVariables(variables: Variable[]): Promise<void> {
     if (variables.length === 0) {
-      this.write('No variables\n');
+      this.write("No variables\n");
       return;
     }
 
     for (const v of variables) {
       const type = this.colorize(chalk.gray, v.type);
       const value = v.isNull
-        ? this.colorize(chalk.red, 'null')
+        ? this.colorize(chalk.red, "null")
         : String(v.value);
       this.write(`  ${v.name}: ${type} = ${value}\n`);
     }
@@ -207,23 +215,23 @@ export class TextFormatter implements Formatter {
 
   async formatBreakpoints(breakpoints: BreakpointInfo[]): Promise<void> {
     if (breakpoints.length === 0) {
-      this.write('No breakpoints\n');
+      this.write("No breakpoints\n");
       return;
     }
 
     for (const bp of breakpoints) {
       const status = bp.enabled
-        ? this.colorize(chalk.green, '[enabled]')
-        : this.colorize(chalk.red, '[disabled]');
+        ? this.colorize(chalk.green, "[enabled]")
+        : this.colorize(chalk.red, "[disabled]");
       this.write(
-        `Breakpoint ${bp.id}: ${bp.location} ${status} (hits: ${bp.hitCount})\n`
+        `Breakpoint ${bp.id}: ${bp.location} ${status} (hits: ${bp.hitCount})\n`,
       );
     }
   }
 
   async formatEvent(event: DebugEvent): Promise<void> {
     this.write(
-      `Event: ${event.type} at ${event.location} (thread: ${event.threadId})\n`
+      `Event: ${event.type} at ${event.location} (thread: ${event.threadId})\n`,
     );
   }
 
@@ -234,7 +242,7 @@ export class TextFormatter implements Formatter {
   async formatVerboseError(error: Error): Promise<void> {
     await this.formatError(error);
     if (error.stack) {
-      this.write(this.colorize(chalk.gray, error.stack) + '\n');
+      this.write(this.colorize(chalk.gray, error.stack) + "\n");
     }
   }
 
@@ -251,15 +259,17 @@ export class TextFormatter implements Formatter {
 ### 3. json.ts - JSON 格式化
 
 **功能**:
+
 - 结构化 JSON 输出
 - 美化输出
 - 支持流式输出
 
 **TypeScript 实现**:
+
 ```typescript
-import type { Writable } from 'node:stream';
-import process from 'node:process';
-import type { Formatter } from './interface.js';
+import type { Writable } from "node:stream";
+import process from "node:process";
+import type { Formatter } from "./interface.js";
 
 export class JsonFormatter implements Formatter {
   private writer: Writable = process.stdout;
@@ -269,32 +279,32 @@ export class JsonFormatter implements Formatter {
   }
 
   async formatVersion(info: VersionInfo): Promise<void> {
-    this.write({ type: 'version', data: info });
+    this.write({ type: "version", data: info });
   }
 
   async formatThreads(threads: ThreadInfo[]): Promise<void> {
-    this.write({ type: 'threads', data: threads });
+    this.write({ type: "threads", data: threads });
   }
 
   async formatStack(frames: StackFrame[]): Promise<void> {
-    this.write({ type: 'stack', data: frames });
+    this.write({ type: "stack", data: frames });
   }
 
   async formatVariables(variables: Variable[]): Promise<void> {
-    this.write({ type: 'variables', data: variables });
+    this.write({ type: "variables", data: variables });
   }
 
   async formatBreakpoints(breakpoints: BreakpointInfo[]): Promise<void> {
-    this.write({ type: 'breakpoints', data: breakpoints });
+    this.write({ type: "breakpoints", data: breakpoints });
   }
 
   async formatEvent(event: DebugEvent): Promise<void> {
-    this.write({ type: 'event', data: event });
+    this.write({ type: "event", data: event });
   }
 
   async formatError(error: Error): Promise<void> {
     this.write({
-      type: 'error',
+      type: "error",
       data: {
         name: error.name,
         message: error.message,
@@ -304,7 +314,7 @@ export class JsonFormatter implements Formatter {
 
   async formatVerboseError(error: Error): Promise<void> {
     this.write({
-      type: 'error',
+      type: "error",
       data: {
         name: error.name,
         message: error.message,
@@ -314,7 +324,7 @@ export class JsonFormatter implements Formatter {
   }
 
   private write(data: unknown): void {
-    this.writer.write(JSON.stringify(data, null, 2) + '\n');
+    this.writer.write(JSON.stringify(data, null, 2) + "\n");
   }
 }
 ```
@@ -322,16 +332,18 @@ export class JsonFormatter implements Formatter {
 ### 4. table.ts - 表格格式化
 
 **功能**:
+
 - 表格化输出
 - 列对齐
 - 支持彩色
 
 **TypeScript 实现**:
+
 ```typescript
-import type { Writable } from 'node:stream';
-import process from 'node:process';
-import chalk from 'chalk';
-import type { Formatter } from './interface.js';
+import type { Writable } from "node:stream";
+import process from "node:process";
+import chalk from "chalk";
+import type { Formatter } from "./interface.js";
 
 export class TableFormatter implements Formatter {
   private writer: Writable = process.stdout;
@@ -346,18 +358,15 @@ export class TableFormatter implements Formatter {
   }
 
   async formatThreads(threads: ThreadInfo[]): Promise<void> {
-    const rows = threads.map(t => [
+    const rows = threads.map((t) => [
       t.id,
       t.name,
       t.state,
-      t.isSuspended ? 'Yes' : 'No',
+      t.isSuspended ? "Yes" : "No",
       String(t.priority),
     ]);
 
-    this.writeTable(
-      ['ID', 'Name', 'State', 'Suspended', 'Priority'],
-      rows
-    );
+    this.writeTable(["ID", "Name", "State", "Suspended", "Priority"], rows);
   }
 
   async formatStack(frames: StackFrame[]): Promise<void> {
@@ -366,42 +375,33 @@ export class TableFormatter implements Formatter {
       f.method,
       f.location,
       String(f.line),
-      f.isNative ? 'Yes' : 'No',
+      f.isNative ? "Yes" : "No",
     ]);
 
-    this.writeTable(
-      ['#', 'Method', 'Location', 'Line', 'Native'],
-      rows
-    );
+    this.writeTable(["#", "Method", "Location", "Line", "Native"], rows);
   }
 
   async formatVariables(variables: Variable[]): Promise<void> {
-    const rows = variables.map(v => [
+    const rows = variables.map((v) => [
       v.name,
       v.type,
-      v.isNull ? 'null' : String(v.value),
-      v.isPrimitive ? 'Yes' : 'No',
+      v.isNull ? "null" : String(v.value),
+      v.isPrimitive ? "Yes" : "No",
     ]);
 
-    this.writeTable(
-      ['Name', 'Type', 'Value', 'Primitive'],
-      rows
-    );
+    this.writeTable(["Name", "Type", "Value", "Primitive"], rows);
   }
 
   async formatBreakpoints(breakpoints: BreakpointInfo[]): Promise<void> {
-    const rows = breakpoints.map(bp => [
+    const rows = breakpoints.map((bp) => [
       bp.id,
       bp.location,
-      bp.enabled ? 'Yes' : 'No',
+      bp.enabled ? "Yes" : "No",
       String(bp.hitCount),
-      bp.condition || '-',
+      bp.condition || "-",
     ]);
 
-    this.writeTable(
-      ['ID', 'Location', 'Enabled', 'Hits', 'Condition'],
-      rows
-    );
+    this.writeTable(["ID", "Location", "Enabled", "Hits", "Condition"], rows);
   }
 
   // ... 其他方法实现
@@ -409,25 +409,21 @@ export class TableFormatter implements Formatter {
   private writeTable(headers: string[], rows: string[][]): void {
     // Calculate column widths
     const widths = headers.map((h, i) =>
-      Math.max(h.length, ...rows.map(r => r[i].length))
+      Math.max(h.length, ...rows.map((r) => r[i].length)),
     );
 
     // Write header
-    const headerLine = headers
-      .map((h, i) => h.padEnd(widths[i]))
-      .join(' | ');
-    this.writer.write(this.colorize(chalk.bold, headerLine) + '\n');
+    const headerLine = headers.map((h, i) => h.padEnd(widths[i])).join(" | ");
+    this.writer.write(this.colorize(chalk.bold, headerLine) + "\n");
 
     // Write separator
-    const separator = widths.map(w => '-'.repeat(w)).join('-+-');
-    this.writer.write(separator + '\n');
+    const separator = widths.map((w) => "-".repeat(w)).join("-+-");
+    this.writer.write(separator + "\n");
 
     // Write rows
     for (const row of rows) {
-      const line = row
-        .map((cell, i) => cell.padEnd(widths[i]))
-        .join(' | ');
-      this.writer.write(line + '\n');
+      const line = row.map((cell, i) => cell.padEnd(widths[i])).join(" | ");
+      this.writer.write(line + "\n");
     }
   }
 
@@ -440,16 +436,24 @@ export class TableFormatter implements Formatter {
 ### 5. index.ts - 模块导出和工厂函数
 
 ```typescript
-import type { Writable } from 'node:stream';
-import type { Formatter, FormatterType, FormatterOptions } from './interface.js';
-import { TextFormatter } from './text.js';
-import { JsonFormatter } from './json.js';
-import { TableFormatter } from './table.js';
+import type { Writable } from "node:stream";
+import type {
+  Formatter,
+  FormatterType,
+  FormatterOptions,
+} from "./interface.js";
+import { TextFormatter } from "./text.js";
+import { JsonFormatter } from "./json.js";
+import { TableFormatter } from "./table.js";
 
-export type { Formatter, FormatterType, FormatterOptions } from './interface.js';
-export { TextFormatter } from './text.js';
-export { JsonFormatter } from './json.js';
-export { TableFormatter } from './table.js';
+export type {
+  Formatter,
+  FormatterType,
+  FormatterOptions,
+} from "./interface.js";
+export { TextFormatter } from "./text.js";
+export { JsonFormatter } from "./json.js";
+export { TableFormatter } from "./table.js";
 
 /**
  * Create a formatter
@@ -460,13 +464,13 @@ export function createFormatter(options: FormatterOptions): Formatter {
   let formatter: Formatter;
 
   switch (type) {
-    case 'json':
+    case "json":
       formatter = new JsonFormatter();
       break;
-    case 'table':
+    case "table":
       formatter = new TableFormatter({ color });
       break;
-    case 'text':
+    case "text":
     default:
       formatter = new TextFormatter({ color });
       break;

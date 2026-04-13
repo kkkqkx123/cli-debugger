@@ -10,13 +10,10 @@ export type {
   BreakpointInfo,
   Variable,
   DebugEvent,
-} from './debug.js';
+} from "./debug.js";
 
 // Metadata types
-export type {
-  VersionInfo,
-  Capabilities,
-} from './metadata.js';
+export type { VersionInfo, Capabilities } from "./metadata.js";
 
 // Config types and schemas
 export type {
@@ -26,7 +23,7 @@ export type {
   AppConfig,
   Profile,
   GlobalConfig,
-} from './config.js';
+} from "./config.js";
 
 export {
   DebugConfigSchema,
@@ -36,4 +33,4 @@ export {
   ProfileSchema,
   GlobalConfigSchema,
   createDefaultConfig,
-} from './config.js';
+} from "./config.js";

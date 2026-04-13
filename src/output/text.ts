@@ -1,6 +1,6 @@
-import type { Writable } from 'node:stream';
-import process from 'node:process';
-import type { Formatter } from './interface.js';
+import type { Writable } from "node:stream";
+import process from "node:process";
+import type { Formatter } from "./interface.js";
 import type {
   VersionInfo,
   ThreadInfo,
@@ -8,7 +8,7 @@ import type {
   Variable,
   BreakpointInfo,
   DebugEvent,
-} from '../types/index.js';
+} from "../types/index.js";
 
 /**
  * Simple color functions (fallback when chalk is not available)
@@ -45,32 +45,34 @@ export class TextFormatter implements Formatter {
 
   async formatThreads(threads: ThreadInfo[]): Promise<void> {
     if (threads.length === 0) {
-      this.write('No threads found\n');
+      this.write("No threads found\n");
       return;
     }
 
     for (const thread of threads) {
       const status = thread.isSuspended
-        ? this.colorize(colors.yellow, '[SUSPENDED]')
-        : this.colorize(colors.green, '[RUNNING]');
+        ? this.colorize(colors.yellow, "[SUSPENDED]")
+        : this.colorize(colors.green, "[RUNNING]");
       this.write(
-        `Thread ${thread.id}: ${thread.name} ${status} (state: ${thread.state})\n`
+        `Thread ${thread.id}: ${thread.name} ${status} (state: ${thread.state})\n`,
       );
     }
   }
 
   async formatStack(frames: StackFrame[]): Promise<void> {
     if (frames.length === 0) {
-      this.write('No stack frames\n');
+      this.write("No stack frames\n");
       return;
     }
 
     for (let i = 0; i < frames.length; i++) {
       const frame = frames[i];
       if (frame) {
-        const native = frame.isNative ? this.colorize(colors.gray, '[native]') : '';
+        const native = frame.isNative
+          ? this.colorize(colors.gray, "[native]")
+          : "";
         this.write(
-          `  #${i} ${frame.method} at ${frame.location}:${frame.line} ${native}\n`
+          `  #${i} ${frame.method} at ${frame.location}:${frame.line} ${native}\n`,
         );
       }
     }
@@ -78,14 +80,14 @@ export class TextFormatter implements Formatter {
 
   async formatVariables(variables: Variable[]): Promise<void> {
     if (variables.length === 0) {
-      this.write('No variables\n');
+      this.write("No variables\n");
       return;
     }
 
     for (const v of variables) {
       const type = this.colorize(colors.gray, v.type);
       const value = v.isNull
-        ? this.colorize(colors.red, 'null')
+        ? this.colorize(colors.red, "null")
         : String(v.value);
       this.write(`  ${v.name}: ${type} = ${value}\n`);
     }
@@ -93,23 +95,23 @@ export class TextFormatter implements Formatter {
 
   async formatBreakpoints(breakpoints: BreakpointInfo[]): Promise<void> {
     if (breakpoints.length === 0) {
-      this.write('No breakpoints\n');
+      this.write("No breakpoints\n");
       return;
     }
 
     for (const bp of breakpoints) {
       const status = bp.enabled
-        ? this.colorize(colors.green, '[enabled]')
-        : this.colorize(colors.red, '[disabled]');
+        ? this.colorize(colors.green, "[enabled]")
+        : this.colorize(colors.red, "[disabled]");
       this.write(
-        `Breakpoint ${bp.id}: ${bp.location} ${status} (hits: ${bp.hitCount})\n`
+        `Breakpoint ${bp.id}: ${bp.location} ${status} (hits: ${bp.hitCount})\n`,
       );
     }
   }
 
   async formatEvent(event: DebugEvent): Promise<void> {
     this.write(
-      `Event: ${event.type} at ${event.location} (thread: ${event.threadId})\n`
+      `Event: ${event.type} at ${event.location} (thread: ${event.threadId})\n`,
     );
   }
 
@@ -120,7 +122,7 @@ export class TextFormatter implements Formatter {
   async formatVerboseError(error: Error): Promise<void> {
     await this.formatError(error);
     if (error.stack) {
-      this.write(this.colorize(colors.gray, error.stack) + '\n');
+      this.write(this.colorize(colors.gray, error.stack) + "\n");
     }
   }
 

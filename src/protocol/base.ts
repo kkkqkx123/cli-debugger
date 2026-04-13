@@ -2,18 +2,15 @@
  * DebugProtocol interface definition
  */
 
-import type { DebugConfig } from '../types/config.js';
-import type {
-  VersionInfo,
-  Capabilities,
-} from '../types/metadata.js';
+import type { DebugConfig } from "../types/config.js";
+import type { VersionInfo, Capabilities } from "../types/metadata.js";
 import type {
   ThreadInfo,
   StackFrame,
   BreakpointInfo,
   Variable,
   DebugEvent,
-} from '../types/debug.js';
+} from "../types/debug.js";
 
 /**
  * Unified debugging protocol interface

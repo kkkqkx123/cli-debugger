@@ -146,21 +146,25 @@
 ## 非功能性需求
 
 ### 架构
+
 - NFR1: Adding a new language plugin SHALL require implementing only the debug protocol interface (no core changes)
 - NFR2: Plugin code SHALL be isolated from core framework (no cross-plugin dependencies)
 - NFR3: The system SHALL maintain backward compatibility when adding new plugins
 
 ### 性能
+
 - NFR4: Connection establishment SHALL complete within 5 seconds for local targets
 - NFR5: Simple commands (version, threads) SHALL return results within 1 second
 - NFR6: Watch mode SHALL support configurable intervals (minimum 1 second)
 
 ### 可用性
+
 - NFR7: The CLI SHALL provide comprehensive help documentation accessible via --help flag
 - NFR8: Error messages SHALL be actionable and guide users toward resolution
 - NFR9: The system SHALL display available commands based on active plugin capabilities
 
 ### 可扩展性
+
 - NFR10: The plugin registry SHALL support programmatic registration for testing
 - NFR11: Configuration SHALL allow enabling/disabling specific plugins
 - NFR12: Plugin-specific commands SHALL be namespaced to avoid conflicts with core commands

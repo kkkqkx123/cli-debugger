@@ -26,10 +26,12 @@ src/monitor/
 ### 1. interface.ts - Monitor 接口
 
 **功能**:
+
 - 定义监控接口
 - 支持启动、停止、配置
 
 **参考实现** (`ref/internal/monitor/poller.go`):
+
 ```go
 type Monitor interface {
     Start(ctx context.Context) error
@@ -41,6 +43,7 @@ type Monitor interface {
 ```
 
 **TypeScript 实现**:
+
 ```typescript
 /**
  * Monitor interface for observing debug state changes
@@ -88,11 +91,13 @@ export interface MonitorOptions {
 ### 2. poller.ts - 轮询监控
 
 **功能**:
+
 - 定时轮询执行命令
 - 支持超时和中断
 - 错误处理和恢复
 
 **参考实现** (`ref/internal/monitor/poller.go`):
+
 ```go
 type Poller struct {
     interval  time.Duration
@@ -138,9 +143,10 @@ func (p *Poller) Start(ctx context.Context) error {
 ```
 
 **TypeScript 实现**:
+
 ```typescript
-import process from 'node:process';
-import type { Monitor, MonitorOptions } from './interface.js';
+import process from "node:process";
+import type { Monitor, MonitorOptions } from "./interface.js";
 
 export class Poller implements Monitor {
   private interval: number;
@@ -173,11 +179,11 @@ export class Poller implements Monitor {
 
   async start(): Promise<void> {
     if (this.running) {
-      throw new Error('Monitor is already running');
+      throw new Error("Monitor is already running");
     }
 
     if (!this.command) {
-      throw new Error('Monitor command not set');
+      throw new Error("Monitor command not set");
     }
 
     this.running = true;
@@ -204,12 +210,12 @@ export class Poller implements Monitor {
 
     // Setup signal handlers
     const signalHandler = () => {
-      console.error('\n[Monitor] Interrupted, stopping...');
+      console.error("\n[Monitor] Interrupted, stopping...");
       this.stop();
     };
 
-    process.on('SIGINT', signalHandler);
-    process.on('SIGTERM', signalHandler);
+    process.on("SIGINT", signalHandler);
+    process.on("SIGTERM", signalHandler);
 
     try {
       // Run first command immediately
@@ -219,7 +225,7 @@ export class Poller implements Monitor {
       while (!this.abortController?.signal.aborted) {
         // Check timeout
         if (Date.now() - startTime >= this.timeout) {
-          console.error('\n[Monitor] Timeout reached, stopping...');
+          console.error("\n[Monitor] Timeout reached, stopping...");
           break;
         }
 
@@ -235,8 +241,8 @@ export class Poller implements Monitor {
         await this.executeCommand(command);
       }
     } finally {
-      process.off('SIGINT', signalHandler);
-      process.off('SIGTERM', signalHandler);
+      process.off("SIGINT", signalHandler);
+      process.off("SIGTERM", signalHandler);
       this.running = false;
     }
   }
@@ -245,17 +251,17 @@ export class Poller implements Monitor {
     try {
       await command();
     } catch (error) {
-      console.error('\n[Monitor] Command error:', error);
+      console.error("\n[Monitor] Command error:", error);
       // Continue monitoring despite errors
     }
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const timeout = setTimeout(resolve, ms);
 
       // Allow aborting during sleep
-      this.abortController?.signal.addEventListener('abort', () => {
+      this.abortController?.signal.addEventListener("abort", () => {
         clearTimeout(timeout);
         resolve();
       });
@@ -267,15 +273,17 @@ export class Poller implements Monitor {
 ### 3. stream.ts - WebSocket 流式监控
 
 **功能**:
+
 - WebSocket 实时推送
 - 自动重连
 - 事件过滤
 
 **TypeScript 实现**:
+
 ```typescript
-import WebSocket from 'ws';
-import type { Monitor, MonitorOptions } from './interface.js';
-import type { DebugEvent } from '../types/debug.js';
+import WebSocket from "ws";
+import type { Monitor, MonitorOptions } from "./interface.js";
+import type { DebugEvent } from "../types/debug.js";
 
 export interface StreamOptions extends MonitorOptions {
   url: string;
@@ -314,7 +322,7 @@ export class StreamMonitor implements Monitor {
 
   async start(): Promise<void> {
     if (this.running) {
-      throw new Error('Monitor is already running');
+      throw new Error("Monitor is already running");
     }
 
     this.running = true;
@@ -345,22 +353,22 @@ export class StreamMonitor implements Monitor {
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(this.url);
 
-      this.ws.on('open', () => {
-        console.error('[Stream] Connected to', this.url);
+      this.ws.on("open", () => {
+        console.error("[Stream] Connected to", this.url);
         resolve();
       });
 
-      this.ws.on('message', (data: WebSocket.Data) => {
+      this.ws.on("message", (data: WebSocket.Data) => {
         try {
           const event = JSON.parse(data.toString()) as DebugEvent;
           this.onEvent?.(event);
         } catch (error) {
-          console.error('[Stream] Failed to parse event:', error);
+          console.error("[Stream] Failed to parse event:", error);
         }
       });
 
-      this.ws.on('close', () => {
-        console.error('[Stream] Connection closed');
+      this.ws.on("close", () => {
+        console.error("[Stream] Connection closed");
         if (this.reconnect && !this.abortController?.signal.aborted) {
           setTimeout(() => {
             this.connect().catch(console.error);
@@ -370,15 +378,15 @@ export class StreamMonitor implements Monitor {
         }
       });
 
-      this.ws.on('error', (error: Error) => {
-        console.error('[Stream] Error:', error);
+      this.ws.on("error", (error: Error) => {
+        console.error("[Stream] Error:", error);
         reject(error);
       });
     });
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 ```
@@ -386,10 +394,10 @@ export class StreamMonitor implements Monitor {
 ### 4. index.ts - 模块导出
 
 ```typescript
-export type { Monitor, MonitorOptions } from './interface.js';
-export { Poller } from './poller.js';
-export type { StreamOptions } from './stream.js';
-export { StreamMonitor } from './stream.js';
+export type { Monitor, MonitorOptions } from "./interface.js";
+export { Poller } from "./poller.js";
+export type { StreamOptions } from "./stream.js";
+export { StreamMonitor } from "./stream.js";
 
 /**
  * Create a poller monitor

@@ -3,15 +3,15 @@
 
 # 默认配置
 defaults:
-  protocol: jdwp           # 默认协议 (jdwp, dap, 等)
-  host: 127.0.0.1          # 默认主机地址
-  port: 5005               # 默认调试端口
-  timeout: 30              # 超时时间（秒）
-  output: text             # 输出格式 (text/json/table)
-  color: true              # 启用彩色输出
-  watch: false             # 是否启用监控模式
-  interval: 1              # 监控刷新间隔（秒）
-  verbose: false           # 是否显示详细日志
+  protocol: jdwp # 默认协议 (jdwp, dap, 等)
+  host: 127.0.0.1 # 默认主机地址
+  port: 5005 # 默认调试端口
+  timeout: 30 # 超时时间（秒）
+  output: text # 输出格式 (text/json/table)
+  color: true # 启用彩色输出
+  watch: false # 是否启用监控模式
+  interval: 1 # 监控刷新间隔（秒）
+  verbose: false # 是否显示详细日志
 
 # 命名配置文件
 profiles:

@@ -1,4 +1,4 @@
-import type { Writable } from 'node:stream';
+import type { Writable } from "node:stream";
 import type {
   VersionInfo,
   ThreadInfo,
@@ -6,7 +6,7 @@ import type {
   Variable,
   BreakpointInfo,
   DebugEvent,
-} from '../types/index.js';
+} from "../types/index.js";
 
 /**
  * Output formatter interface
@@ -62,7 +62,7 @@ export interface Formatter {
 /**
  * Formatter type
  */
-export type FormatterType = 'text' | 'json' | 'table';
+export type FormatterType = "text" | "json" | "table";
 
 /**
  * Formatter factory options

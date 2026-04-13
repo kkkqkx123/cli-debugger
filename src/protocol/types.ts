@@ -10,15 +10,10 @@ export type {
   BreakpointInfo,
   Variable,
   DebugEvent,
-} from '../types/debug.js';
+} from "../types/debug.js";
 
 // Re-export all metadata types
-export type {
-  VersionInfo,
-  Capabilities,
-} from '../types/metadata.js';
+export type { VersionInfo, Capabilities } from "../types/metadata.js";
 
 // Re-export config types
-export type {
-  DebugConfig,
-} from '../types/config.js';
+export type { DebugConfig } from "../types/config.js";

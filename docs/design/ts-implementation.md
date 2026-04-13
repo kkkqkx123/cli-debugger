@@ -26,7 +26,7 @@
 
 ```typescript
 // 场景 1: 编程式 API
-const client = await createClient({ protocol: 'jdwp', port: 5005 });
+const client = await createClient({ protocol: "jdwp", port: 5005 });
 const threads = await client.threads();
 await client.suspend(threads[0].id);
 const locals = await client.locals(threads[0].id, 0);
@@ -34,12 +34,12 @@ console.log(locals);
 await client.resume(threads[0].id);
 
 // 场景 2: DSL 链式调用
-const dsl = new DebugDSL({ protocol: 'jdwp', port: 5005 });
+const dsl = new DebugDSL({ protocol: "jdwp", port: 5005 });
 await dsl.run(async (debug) => {
   await debug
-    .thread('main')
+    .thread("main")
     .suspend()
-    .breakpointAt('com.example.Main', 42)
+    .breakpointAt("com.example.Main", 42)
     .inspectVariables()
     .resume();
 });
@@ -133,13 +133,13 @@ cli-debugger/
 
 ### 2.3 架构优势 (相比 Go)
 
-| 维度 | Go 实现 | TypeScript 实现 |
-|------|---------|-----------------|
-| 代码组织 | 受包管理限制需平铺 | 自由嵌套目录结构 |
-| 异步模型 | goroutine/channel | Promise/async-await |
-| DSL 能力 | 弱 (需要嵌入引擎) | 强 (原生脚本语言) |
-| 内部 API | 无法暴露子模块 | 可通过目录精细组织 |
-| 类型安全 | 编译时 | 编译时 + 运行时 (Zod) |
+| 维度     | Go 实现            | TypeScript 实现       |
+| -------- | ------------------ | --------------------- |
+| 代码组织 | 受包管理限制需平铺 | 自由嵌套目录结构      |
+| 异步模型 | goroutine/channel  | Promise/async-await   |
+| DSL 能力 | 弱 (需要嵌入引擎)  | 强 (原生脚本语言)     |
+| 内部 API | 无法暴露子模块     | 可通过目录精细组织    |
+| 类型安全 | 编译时             | 编译时 + 运行时 (Zod) |
 
 ---
 
@@ -227,7 +227,7 @@ export interface Capabilities {
 ```typescript
 // src/protocol/base.ts
 
-import { z } from 'zod';
+import { z } from "zod";
 import type {
   VersionInfo,
   Capabilities,
@@ -236,12 +236,12 @@ import type {
   BreakpointInfo,
   Variable,
   DebugEvent,
-} from './types.js';
+} from "./types.js";
 
 /** 调试配置 */
 export const DebugConfigSchema = z.object({
-  protocol: z.string().min(1).default('jdwp'),
-  host: z.string().default('127.0.0.1'),
+  protocol: z.string().min(1).default("jdwp"),
+  host: z.string().default("127.0.0.1"),
   port: z.number().int().positive().default(5005),
   timeout: z.number().int().positive().default(30000),
 });
@@ -293,31 +293,28 @@ export interface DebugProtocol {
 ```typescript
 // src/protocol/client.ts
 
-import type { DebugProtocol, DebugConfig } from './base.js';
-import { DebugConfigSchema } from './base.js';
-import { JDWPClient } from './jdwp/index.js';
+import type { DebugProtocol, DebugConfig } from "./base.js";
+import { DebugConfigSchema } from "./base.js";
+import { JDWPClient } from "./jdwp/index.js";
 
 type ProtocolFactory = (config: DebugConfig) => DebugProtocol;
 
 const registry = new Map<string, ProtocolFactory>();
 
 /** 注册协议 */
-export function registerProtocol(
-  name: string,
-  factory: ProtocolFactory
-): void {
+export function registerProtocol(name: string, factory: ProtocolFactory): void {
   registry.set(name, factory);
 }
 
 /** 创建调试客户端 */
 export async function createClient(
-  config: DebugConfig
+  config: DebugConfig,
 ): Promise<DebugProtocol> {
   // 验证配置
   const validatedConfig = DebugConfigSchema.parse(config);
 
   const factory = registry.get(validatedConfig.protocol);
-  
+
   if (!factory) {
     throw new Error(`Protocol '${validatedConfig.protocol}' is not registered`);
   }
@@ -328,7 +325,7 @@ export async function createClient(
 }
 
 // 注册 JDWP 协议
-registerProtocol('jdwp', (config) => new JDWPClient(config));
+registerProtocol("jdwp", (config) => new JDWPClient(config));
 
 /** 获取已注册的协议列表 */
 export function getRegisteredProtocols(): string[] {
@@ -343,11 +340,11 @@ export function getRegisteredProtocols(): string[] {
 
 /** 错误类型 */
 export enum ErrorType {
-  ConnectionError = 'connection',
-  ProtocolError = 'protocol',
-  CommandError = 'command',
-  InputError = 'input',
-  InternalError = 'internal',
+  ConnectionError = "connection",
+  ProtocolError = "protocol",
+  CommandError = "command",
+  InputError = "input",
+  InternalError = "internal",
 }
 
 /** 调试 API 错误 */
@@ -356,10 +353,10 @@ export class APIError extends Error {
     public readonly type: ErrorType,
     public readonly code: number,
     message: string,
-    public readonly cause?: Error
+    public readonly cause?: Error,
   ) {
     super(message);
-    this.name = 'APIError';
+    this.name = "APIError";
   }
 
   toString(): string {
@@ -376,11 +373,11 @@ export const ErrorCodes = {
   ConnectionRefused: 2002,
   ConnectionTimeout: 2003,
   HandshakeFailed: 2004,
-  
+
   ResourceNotFound: 3001,
   InvalidInput: 3002,
   UnsupportedCommand: 3003,
-  
+
   ProtocolError: 4001,
   DecodeError: 4002,
   EncodeError: 4003,
@@ -392,9 +389,9 @@ export const ErrorCodes = {
 ```typescript
 // src/protocol/jdwp/client.ts
 
-import net from 'node:net';
-import type { DebugProtocol, DebugConfig } from '../base.js';
-import { APIError, ErrorType, ErrorCodes } from '../errors.js';
+import net from "node:net";
+import type { DebugProtocol, DebugConfig } from "../base.js";
+import { APIError, ErrorType, ErrorCodes } from "../errors.js";
 import type {
   VersionInfo,
   Capabilities,
@@ -403,7 +400,7 @@ import type {
   BreakpointInfo,
   Variable,
   DebugEvent,
-} from '../types.js';
+} from "../types.js";
 
 export class JDWPClient implements DebugProtocol {
   private conn: net.Socket | null = null;
@@ -427,28 +424,32 @@ export class JDWPClient implements DebugProtocol {
 
       conn.setTimeout(timeout);
 
-      conn.on('connect', () => {
+      conn.on("connect", () => {
         this.conn = conn;
         this.connected = true;
         resolve();
       });
 
-      conn.on('error', (err) => {
-        reject(new APIError(
-          ErrorType.ConnectionError,
-          ErrorCodes.ConnectionFailed,
-          `Failed to connect to ${this.config.host}:${this.config.port}`,
-          err
-        ));
+      conn.on("error", (err) => {
+        reject(
+          new APIError(
+            ErrorType.ConnectionError,
+            ErrorCodes.ConnectionFailed,
+            `Failed to connect to ${this.config.host}:${this.config.port}`,
+            err,
+          ),
+        );
       });
 
-      conn.on('timeout', () => {
+      conn.on("timeout", () => {
         conn.destroy();
-        reject(new APIError(
-          ErrorType.ConnectionError,
-          ErrorCodes.ConnectionTimeout,
-          'Connection timeout'
-        ));
+        reject(
+          new APIError(
+            ErrorType.ConnectionError,
+            ErrorCodes.ConnectionTimeout,
+            "Connection timeout",
+          ),
+        );
       });
     });
   }
@@ -466,11 +467,11 @@ export class JDWPClient implements DebugProtocol {
   }
 
   protocolName(): string {
-    return 'jdwp';
+    return "jdwp";
   }
 
   supportedLanguages(): string[] {
-    return ['java', 'kotlin', 'scala'];
+    return ["java", "kotlin", "scala"];
   }
 
   async capabilities(): Promise<Capabilities> {
@@ -492,49 +493,49 @@ export class JDWPClient implements DebugProtocol {
   // 其他方法实现...
   async version(): Promise<VersionInfo> {
     // 实现 JDWP Version 查询
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async threads(): Promise<ThreadInfo[]> {
     // 实现线程查询
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async stack(threadId: string): Promise<StackFrame[]> {
     // 实现调用栈查询
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async suspend(threadId?: string): Promise<void> {
     // 实现挂起
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async resume(threadId?: string): Promise<void> {
     // 实现恢复
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async stepInto(threadId: string): Promise<void> {
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async stepOver(threadId: string): Promise<void> {
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async stepOut(threadId: string): Promise<void> {
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async setBreakpoint(location: string, condition?: string): Promise<string> {
     // 实现断点设置
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async removeBreakpoint(id: string): Promise<void> {
     // 实现断点移除
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async clearBreakpoints(): Promise<void> {
@@ -548,20 +549,20 @@ export class JDWPClient implements DebugProtocol {
 
   async locals(threadId: string, frameIndex: number): Promise<Variable[]> {
     // 实现变量查询
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async fields(objectId: string): Promise<Variable[]> {
     // 实现字段查询
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async threadState(threadId: string): Promise<string> {
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 
   async waitForEvent(timeout?: number): Promise<DebugEvent | null> {
-    throw new Error('Not implemented');
+    throw new Error("Not implemented");
   }
 }
 ```
@@ -575,7 +576,12 @@ export class JDWPClient implements DebugProtocol {
 ```typescript
 // src/dsl/builder.ts
 
-import type { DebugProtocol, ThreadInfo, Variable, StackFrame } from '../protocol/index.js';
+import type {
+  DebugProtocol,
+  ThreadInfo,
+  Variable,
+  StackFrame,
+} from "../protocol/index.js";
 
 /** 链式调试 API 构建器 */
 export class DebugBuilder {
@@ -589,9 +595,8 @@ export class DebugBuilder {
   /** 选择线程 */
   async thread(nameOrId: string): Promise<this> {
     const threads = await this.client.threads();
-    this.currentThread = threads.find(
-      t => t.id === nameOrId || t.name === nameOrId
-    ) ?? null;
+    this.currentThread =
+      threads.find((t) => t.id === nameOrId || t.name === nameOrId) ?? null;
 
     if (!this.currentThread) {
       throw new Error(`Thread '${nameOrId}' not found`);
@@ -601,28 +606,28 @@ export class DebugBuilder {
 
   /** 挂起当前线程 */
   async suspend(): Promise<this> {
-    if (!this.currentThread) throw new Error('No thread selected');
+    if (!this.currentThread) throw new Error("No thread selected");
     await this.client.suspend(this.currentThread.id);
     return this;
   }
 
   /** 恢复当前线程 */
   async resume(): Promise<this> {
-    if (!this.currentThread) throw new Error('No thread selected');
+    if (!this.currentThread) throw new Error("No thread selected");
     await this.client.resume(this.currentThread.id);
     return this;
   }
 
   /** 单步进入 */
   async stepInto(): Promise<this> {
-    if (!this.currentThread) throw new Error('No thread selected');
+    if (!this.currentThread) throw new Error("No thread selected");
     await this.client.stepInto(this.currentThread.id);
     return this;
   }
 
   /** 单步跳过 */
   async stepOver(): Promise<this> {
-    if (!this.currentThread) throw new Error('No thread selected');
+    if (!this.currentThread) throw new Error("No thread selected");
     await this.client.stepOver(this.currentThread.id);
     return this;
   }
@@ -637,17 +642,17 @@ export class DebugBuilder {
 
   /** 检查变量 */
   async inspectVariables(frameIndex = 0): Promise<Variable[]> {
-    if (!this.currentThread) throw new Error('No thread selected');
+    if (!this.currentThread) throw new Error("No thread selected");
     const locals = await this.client.locals(this.currentThread.id, frameIndex);
-    console.log('Variables:', locals);
+    console.log("Variables:", locals);
     return locals;
   }
 
   /** 打印调用栈 */
   async printStack(): Promise<StackFrame[]> {
-    if (!this.currentThread) throw new Error('No thread selected');
+    if (!this.currentThread) throw new Error("No thread selected");
     const stack = await this.client.stack(this.currentThread.id);
-    console.log('Stack Trace:');
+    console.log("Stack Trace:");
     stack.forEach((frame, i) => {
       console.log(`  #${i} ${frame.method} at ${frame.location}:${frame.line}`);
     });
@@ -666,9 +671,9 @@ export class DebugBuilder {
 ```typescript
 // src/dsl/interpreter.ts
 
-import type { DebugConfig } from '../protocol/index.js';
-import { createClient } from '../protocol/index.js';
-import { DebugBuilder } from './builder.js';
+import type { DebugConfig } from "../protocol/index.js";
+import { createClient } from "../protocol/index.js";
+import { DebugBuilder } from "./builder.js";
 
 /** DSL 解释器 */
 export class DebugDSL {
@@ -695,37 +700,37 @@ export class DebugDSL {
 ### 4.3 使用示例
 
 ```typescript
-import { createClient, DebugDSL } from './index.js';
+import { createClient, DebugDSL } from "./index.js";
 
 // 方式 1: 直接调用 API
 const client = await createClient({
-  protocol: 'jdwp',
-  host: '127.0.0.1',
-  port: 5005
+  protocol: "jdwp",
+  host: "127.0.0.1",
+  port: 5005,
 });
 
 try {
   const threads = await client.threads();
-  const main = threads.find(t => t.name === 'main')!;
+  const main = threads.find((t) => t.name === "main")!;
 
   await client.suspend(main.id);
   const stack = await client.stack(main.id);
   const locals = await client.locals(main.id, 0);
 
-  console.log('Variables:', locals);
+  console.log("Variables:", locals);
   await client.resume(main.id);
 } finally {
   await client.close();
 }
 
 // 方式 2: 使用 DSL 链式调用
-const dsl = new DebugDSL({ protocol: 'jdwp', port: 5005 });
+const dsl = new DebugDSL({ protocol: "jdwp", port: 5005 });
 
 await dsl.run(async (debug) => {
   await debug
-    .thread('main')
+    .thread("main")
     .suspend()
-    .breakpointAt('com.example.Main', 42)
+    .breakpointAt("com.example.Main", 42)
     .inspectVariables()
     .printStack()
     .resume();
@@ -734,15 +739,12 @@ await dsl.run(async (debug) => {
 // 方式 3: 混合使用
 await dsl.run(async (debug) => {
   // 使用链式 API
-  await debug.thread('main').suspend();
+  await debug.thread("main").suspend();
 
   // 使用底层 API (条件断点)
   const client = debug.getClient();
-  const bpId = await client.setBreakpoint(
-    'com.example.Main:100',
-    'x > 10'
-  );
-  console.log('Conditional breakpoint set:', bpId);
+  const bpId = await client.setBreakpoint("com.example.Main:100", "x > 10");
+  console.log("Conditional breakpoint set:", bpId);
 
   // 等待事件
   const event = await client.waitForEvent(5000);
@@ -787,14 +789,7 @@ await dsl.run(async (debug) => {
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist"
   },
-  "keywords": [
-    "debugger",
-    "jdwp",
-    "dap",
-    "cli",
-    "dsl",
-    "typescript"
-  ],
+  "keywords": ["debugger", "jdwp", "dap", "cli", "dsl", "typescript"],
   "license": "MIT",
   "dependencies": {
     "zod": "^4.3.6",
@@ -820,19 +815,19 @@ await dsl.run(async (debug) => {
 
 ### 5.2 依赖说明
 
-| 包名 | 用途 | 类型 |
-|------|------|------|
-| zod | 运行时配置验证 | 生产依赖 |
-| commander | CLI 命令解析 | 生产依赖 |
-| chalk | 终端彩色输出 | 生产依赖 |
-| ws | WebSocket 支持 | 生产依赖 |
-| @types/node | Node.js 类型定义 | 开发依赖 |
-| @types/ws | WebSocket 类型定义 | 开发依赖 |
-| typescript | TypeScript 编译器 | 开发依赖 |
-| vitest | 单元测试框架 | 开发依赖 |
-| eslint | 代码检查 | 开发依赖 |
-| prettier | 代码格式化 | 开发依赖 |
-| rimraf | 清理工具 | 开发依赖 |
+| 包名        | 用途               | 类型     |
+| ----------- | ------------------ | -------- |
+| zod         | 运行时配置验证     | 生产依赖 |
+| commander   | CLI 命令解析       | 生产依赖 |
+| chalk       | 终端彩色输出       | 生产依赖 |
+| ws          | WebSocket 支持     | 生产依赖 |
+| @types/node | Node.js 类型定义   | 开发依赖 |
+| @types/ws   | WebSocket 类型定义 | 开发依赖 |
+| typescript  | TypeScript 编译器  | 开发依赖 |
+| vitest      | 单元测试框架       | 开发依赖 |
+| eslint      | 代码检查           | 开发依赖 |
+| prettier    | 代码格式化         | 开发依赖 |
+| rimraf      | 清理工具           | 开发依赖 |
 
 ---
 
@@ -883,23 +878,23 @@ await dsl.run(async (debug) => {
 
 ### 6.2 Go 到 TypeScript 映射表
 
-| Go 源文件 | TypeScript 目标文件 | 说明 |
-|-----------|---------------------|------|
-| `ref/internal/api/base.go` | `src/protocol/base.ts` | DebugProtocol 接口 |
-| `ref/internal/api/client.go` | `src/protocol/client.ts` | 客户端工厂 |
-| `ref/pkg/types/base.go` | `src/protocol/types.ts` | 类型定义 |
-| `ref/internal/api/jdwp/client.go` | `src/protocol/jdwp/client.ts` | JDWP 客户端 |
-| `ref/internal/api/jdwp/handshake.go` | `src/protocol/jdwp/handshake.ts` | 握手协议 |
-| `ref/internal/api/jdwp/protocol.go` | `src/protocol/jdwp/codec.ts` | 编解码 |
-| `ref/internal/api/jdwp/vm.go` | `src/protocol/jdwp/vm.ts` | VirtualMachine |
-| `ref/internal/api/jdwp/thread.go` | `src/protocol/jdwp/thread.ts` | ThreadReference |
-| `ref/internal/api/jdwp/breakpoint.go` | `src/protocol/jdwp/breakpoint.ts` | EventRequest |
-| `ref/internal/api/jdwp/stack.go` | `src/protocol/jdwp/stack.ts` | StackFrame |
-| `ref/internal/api/jdwp/variable.go` | `src/protocol/jdwp/variable.ts` | 变量检查 |
-| `ref/internal/api/jdwp/event.go` | `src/protocol/jdwp/event.ts` | 事件处理 |
-| `ref/cmd/*.go` | `src/cli/commands/*.ts` | CLI 命令 |
-| `ref/internal/output/*.go` | `src/cli/utils/formatter.ts` | 输出格式化 |
-| `ref/internal/monitor/*.go` | `src/monitor/*.ts` | 监控模式 |
+| Go 源文件                             | TypeScript 目标文件               | 说明               |
+| ------------------------------------- | --------------------------------- | ------------------ |
+| `ref/internal/api/base.go`            | `src/protocol/base.ts`            | DebugProtocol 接口 |
+| `ref/internal/api/client.go`          | `src/protocol/client.ts`          | 客户端工厂         |
+| `ref/pkg/types/base.go`               | `src/protocol/types.ts`           | 类型定义           |
+| `ref/internal/api/jdwp/client.go`     | `src/protocol/jdwp/client.ts`     | JDWP 客户端        |
+| `ref/internal/api/jdwp/handshake.go`  | `src/protocol/jdwp/handshake.ts`  | 握手协议           |
+| `ref/internal/api/jdwp/protocol.go`   | `src/protocol/jdwp/codec.ts`      | 编解码             |
+| `ref/internal/api/jdwp/vm.go`         | `src/protocol/jdwp/vm.ts`         | VirtualMachine     |
+| `ref/internal/api/jdwp/thread.go`     | `src/protocol/jdwp/thread.ts`     | ThreadReference    |
+| `ref/internal/api/jdwp/breakpoint.go` | `src/protocol/jdwp/breakpoint.ts` | EventRequest       |
+| `ref/internal/api/jdwp/stack.go`      | `src/protocol/jdwp/stack.ts`      | StackFrame         |
+| `ref/internal/api/jdwp/variable.go`   | `src/protocol/jdwp/variable.ts`   | 变量检查           |
+| `ref/internal/api/jdwp/event.go`      | `src/protocol/jdwp/event.ts`      | 事件处理           |
+| `ref/cmd/*.go`                        | `src/cli/commands/*.ts`           | CLI 命令           |
+| `ref/internal/output/*.go`            | `src/cli/utils/formatter.ts`      | 输出格式化         |
+| `ref/internal/monitor/*.go`           | `src/monitor/*.ts`                | 监控模式           |
 
 ### 6.3 技术栈配置
 
@@ -930,15 +925,15 @@ await dsl.run(async (debug) => {
 
 ```typescript
 // vitest.config.ts
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
+    environment: "node",
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      provider: "v8",
+      reporter: ["text", "json", "html"],
     },
   },
 });

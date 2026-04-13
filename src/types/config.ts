@@ -3,12 +3,12 @@
  * Uses Zod for runtime validation
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
 /** Debug connection configuration schema */
 export const DebugConfigSchema = z.object({
-  protocol: z.string().min(1).default('jdwp'),
-  host: z.string().min(1).default('127.0.0.1'),
+  protocol: z.string().min(1).default("jdwp"),
+  host: z.string().min(1).default("127.0.0.1"),
   port: z.number().int().positive().default(5005),
   timeout: z.number().int().positive().default(30000),
 });
@@ -20,7 +20,7 @@ export type PartialDebugConfig = Partial<DebugConfig>;
 
 /** Output configuration schema */
 export const OutputConfigSchema = z.object({
-  format: z.enum(['text', 'json', 'table']).default('text'),
+  format: z.enum(["text", "json", "table"]).default("text"),
   color: z.boolean().default(true),
 });
 
@@ -79,13 +79,13 @@ export type GlobalConfig = z.infer<typeof GlobalConfigSchema>;
 export function createDefaultConfig(): AppConfig {
   return {
     connection: {
-      protocol: 'jdwp',
-      host: '127.0.0.1',
+      protocol: "jdwp",
+      host: "127.0.0.1",
       port: 5005,
       timeout: 30000,
     },
     output: {
-      format: 'text',
+      format: "text",
       color: true,
     },
     monitor: {

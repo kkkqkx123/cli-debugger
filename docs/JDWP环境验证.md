@@ -3,7 +3,9 @@
 ---
 
 # 一、最核心的 3 步验证法（推荐）
+
 ## 步骤1：用 JDWP 模式启动一个 Java 程序
+
 随便写一个最简单的 `Test.java`，用来测试：
 
 ```java
@@ -18,16 +20,19 @@ public class Test {
 ```
 
 编译：
+
 ```bash
 javac Test.java
 ```
 
 **以调试模式启动（开启 JDWP）：**
+
 ```bash
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 Test
 ```
 
 出现下面这句话，就说明 **JDWP 服务启动成功**：
+
 ```
 Listening for transport dt_socket at address: 5005
 ```
@@ -37,6 +42,7 @@ Listening for transport dt_socket at address: 5005
 ---
 
 ## 步骤2：端口连通性测试（证明能连上）
+
 新开一个终端，执行：
 
 ```bash
@@ -44,11 +50,13 @@ telnet localhost 5005
 ```
 
 或者
+
 ```bash
 nc -zv localhost 5005
 ```
 
 **只要能连接成功**，说明：
+
 - JDWP 服务正常
 - 端口开放
 - 无防火墙拦截
@@ -58,14 +66,17 @@ nc -zv localhost 5005
 ---
 
 ## 步骤3：用 JDK 自带的 jdb 连接（真正验证调试功能）
+
 这是**最权威、最标准**的验证方式，因为 `jdb` 是 JDK 官方的 JDWP 调试客户端。
 
 新开终端执行：
+
 ```bash
 jdb -connect com.sun.jdi.SocketAttach:hostname=localhost,port=5005
 ```
 
 ### ✅ 出现以下内容 = **JDWP 完全可用！**
+
 ```
 Set uncaught java.lang.Throwable
 Set deferred uncaught java.lang.Throwable
@@ -76,6 +87,7 @@ Initializing jdb ...
 此时你已经成功通过 JDWP 连接 JVM！
 
 你可以输入调试命令测试：
+
 - `classes`：查看加载的类
 - `methods Test`：查看方法
 - `run`：继续运行
@@ -85,17 +97,19 @@ Initializing jdb ...
 ---
 
 # 二、快速判断结果
-| 现象 | 结论 |
-|------|------|
+
+| 现象                                         | 结论              |
+| -------------------------------------------- | ----------------- |
 | 启动提示 `Listening for transport dt_socket` | JDWP 服务启动成功 |
-| telnet/nc 能连上 5005 | 端口通 |
-| jdb 能 attach 上去 | **JDWP 完全可用** |
+| telnet/nc 能连上 5005                        | 端口通            |
+| jdb 能 attach 上去                           | **JDWP 完全可用** |
 
 **三步都通过 = 你的环境 JDWP 100% 正常。**
 
 ---
 
 # 三、常见失败原因（你可能会遇到）
+
 1. **端口被占用**
    换端口：`address=5006`
 2. **权限不足**
@@ -108,7 +122,9 @@ Initializing jdb ...
 ---
 
 # 四、最简单一句话总结
+
 你只需要做两件事：
+
 1. `java -agentlib:jdwp=...` 启动程序
 2. `jdb -connect ...` 连接上去
 
@@ -117,4 +133,5 @@ Initializing jdb ...
 ---
 
 ## 需要我给你提供一个 **一键验证 JDWP 的脚本** 吗？
+
 双击/一行命令就能自动验证你的环境是否支持 JDWP 调试。

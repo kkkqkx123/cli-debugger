@@ -9,19 +9,14 @@ export type {
   BreakpointInfo,
   Variable,
   DebugEvent,
-} from '../types/debug.js';
+} from "../types/debug.js";
 
-export type {
-  VersionInfo,
-  Capabilities,
-} from '../types/metadata.js';
+export type { VersionInfo, Capabilities } from "../types/metadata.js";
 
-export type {
-  DebugConfig,
-} from '../types/config.js';
+export type { DebugConfig } from "../types/config.js";
 
 // Protocol interface and factory
-export type { DebugProtocol, ProtocolFactory } from './base.js';
+export type { DebugProtocol, ProtocolFactory } from "./base.js";
 
 // Errors
 export {
@@ -33,7 +28,7 @@ export {
   commandError,
   inputError,
   internalError,
-} from './errors.js';
+} from "./errors.js";
 
 // Client factory and registry
 export {
@@ -45,4 +40,4 @@ export {
   hasProtocol,
   getProtocolFactory,
   clearRegistry,
-} from './client.js';
+} from "./client.js";

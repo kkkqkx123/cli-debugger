@@ -4,11 +4,11 @@
 
 /** Error type enumeration */
 export enum ErrorType {
-  ConnectionError = 'connection',
-  ProtocolError = 'protocol',
-  CommandError = 'command',
-  InputError = 'input',
-  InternalError = 'internal',
+  ConnectionError = "connection",
+  ProtocolError = "protocol",
+  CommandError = "command",
+  InputError = "input",
+  InternalError = "internal",
 }
 
 /** Error codes */
@@ -46,16 +46,11 @@ export class APIError extends Error {
   public readonly type: ErrorType;
   public readonly code: number;
 
-  constructor(
-    type: ErrorType,
-    code: number,
-    message: string,
-    cause?: Error
-  ) {
+  constructor(type: ErrorType, code: number, message: string, cause?: Error) {
     super(message, { cause });
     this.type = type;
     this.code = code;
-    this.name = 'APIError';
+    this.name = "APIError";
 
     // Maintains proper stack trace for where the error was thrown (only available on V8)
     if (Error.captureStackTrace) {
@@ -69,7 +64,7 @@ export class APIError extends Error {
     if (this.cause instanceof Error) {
       parts.push(`: ${this.cause.message}`);
     }
-    return parts.join(' ');
+    return parts.join(" ");
   }
 
   /** Convert to JSON-serializable object */
@@ -88,7 +83,7 @@ export class APIError extends Error {
 export function connectionError(
   code: number,
   message: string,
-  cause?: Error
+  cause?: Error,
 ): APIError {
   return new APIError(ErrorType.ConnectionError, code, message, cause);
 }
@@ -97,7 +92,7 @@ export function connectionError(
 export function protocolError(
   code: number,
   message: string,
-  cause?: Error
+  cause?: Error,
 ): APIError {
   return new APIError(ErrorType.ProtocolError, code, message, cause);
 }
@@ -106,7 +101,7 @@ export function protocolError(
 export function commandError(
   code: number,
   message: string,
-  cause?: Error
+  cause?: Error,
 ): APIError {
   return new APIError(ErrorType.CommandError, code, message, cause);
 }
@@ -115,7 +110,7 @@ export function commandError(
 export function inputError(
   code: number,
   message: string,
-  cause?: Error
+  cause?: Error,
 ): APIError {
   return new APIError(ErrorType.InputError, code, message, cause);
 }
@@ -124,7 +119,7 @@ export function inputError(
 export function internalError(
   code: number,
   message: string,
-  cause?: Error
+  cause?: Error,
 ): APIError {
   return new APIError(ErrorType.InternalError, code, message, cause);
 }
