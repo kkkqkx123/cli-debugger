@@ -1,4 +1,4 @@
-# Mihomo CLI - Project Context Documentation
+# CLI Debugger - Project Context Documentation
 
 ## Language
 
@@ -7,16 +7,18 @@ Always use English in code, comments, logging, error info or other string litera
 
 ## Project Overview
 
-`cli`cli-debugger` is a **multi-language debugging CLI client** built with a plugin-based architecture using the Go programming language. The core objective of this project is to provide a lightweight, unified command-line debugging tool that supports various debugging protocols (such as JDWP, DAP, etc.) for debugging scenarios across different programming languages.
+`cli-debugger` is a **multi-language debugging CLI client with DSL support** built with TypeScript. The core objective of this project is to provide a lightweight, programmable debugging tool that supports various debugging protocols (such as JDWP, DAP, etc.) and offers both command-line interface and programmatic API for debugging scenarios across different programming languages.
 
 ### Key Features
 
-- **Plugin-Based Architecture**: Utilizes a unified `DebugProtocol` interface, with language-specific plugins implementing this interface
+- **Programmable API**: Provides TypeScript/JavaScript API for scripting debug workflows
+- **DSL Support**: Chainable API builder for fluent debug operation sequences
+- **Multi-Protocol Support**: Unified `DebugProtocol` interface with protocol-specific implementations (JDWP, DAP, etc.)
 - **Stateless Execution**: Each command establishes an independent connection, ideal for scripting and automation
-- **Optional Watch Mode**: Supports the `--watch` flag for real-time observation of debugging state changes
-- **Flexible Output Formats**: Offers three output formats: text, JSON, and table
-- **Configuration Management**: Supports YAML/TOML configuration files and environment variables (with `DEBUGGER_*` prefix)
-- **Cross-Platform Compatibility**: Compatible with Windows, macOS, and Linux
+- **Optional Watch Mode**: Supports real-time observation of debugging state changes
+- **Flexible Output Formats**: Offers text, JSON, and table output formats
+- **Configuration Management**: Supports config files and environment variables
+- **Cross-Platform Compatibility**: Compatible with Windows, macOS, and Linux (Node.js 22+)
 
 ---
 
@@ -24,136 +26,205 @@ Always use English in code, comments, logging, error info or other string litera
 
 ### Programming Language
 
-**Go 1.26.1**
+**TypeScript 5.9+** (ESM)
 
 ### Core Dependencies
 
-- **github.com/spf13/cobra v1.10.2**: CLI framework for building the command structure.
-- **github.com/spf13/viper v1.21.0**: Configuration management supporting config files and environment variables.
-- **github.com/fatih/color v1.18.0**: Colored terminal output.
-- **github.com/olekukonko/tablewriter v0.0.5**: Table formatting output.
+- **zod v4.3.6**: Runtime validation for configuration and inputs
+- **commander v12.0.0**: CLI framework for building the command structure
+- **chalk v5.3.0**: Colored terminal output
+- **ws v8.16.0**: WebSocket support for streaming mode
+
+### Dev Dependencies
+
+- **typescript v5.9.3**: TypeScript compiler
+- **vitest v4.0.18**: Unit testing framework
+- **@vitest/coverage-v8 v4.0.18**: Code coverage
+- **eslint v10.0.0**: Code linting
+- **prettier v3.8.1**: Code formatting
+- **rimraf v6.1.2**: Directory cleanup
 
 ### Project Architecture
 
-- Modular design following standard Go project structures.
-- Command tree architecture based on Cobra.
-- Layered design: `cmd` (Command Layer) → `internal` (Business Logic Layer) → `pkg` (Common Types Layer).
+- Single package structure with organized directory hierarchy
+- Layered design: `protocol/` (Interface Layer) → `jdwp/` (Implementation Layer) → `dsl/` (DSL Layer) → `cli/` (Command Layer)
+- ESM module system with NodeNext resolution
 
 ## Project Structure
 
 ```
 cli-debugger/
-├── main.go                  # Program entry point, calls cmd.Execute()
-├── cmd/                     # CLI command implementations
-│   ├── root.go              # Root command and global flag definitions
-│   └── version.go           # version subcommand
-├── internal/                # Internal implementation (not exposed externally)
-│   ├── api/                 # Protocol plugin layer
-│   │   ├── base.go          # DebugProtocol interface definition + APIError error type
-│   │   ├── client.go        # Plugin registry, CreateClient factory function, AutoDetect auto-detection
-│   │   └── jdwp/            # JDWP plugin (to be implemented)
-│   ├── config/              # Configuration management
-│   │   ├── config.go        # Config, Profile, GlobalConfig struct definitions + Validate validation
-│   │   ├── loader.go        # Loader configuration loader (Viper wrapper)
-│   │   └── paths.go         # Cross-platform config path/cache directory/log directory resolution
-│   ├── output/              # Output formatting
-│   │   ├── formatter.go     # Formatter interface definition + factory function
-│   │   ├── text.go          # Text formatting implementation
-│   │   ├── json.go          # JSON formatting implementation
-│   │   └── table.go         # Table formatting implementation
-│   ├── monitor/             # Watch mode (to be implemented)
-│   │   └── poller.go        # HTTP polling monitor (skeleton code)
-│   └── platform/            # Platform-specific code (to be implemented)
-│       └── process.go       # Process discovery interface
-├── pkg/
-│   └── types/               # Common type definitions
-│       └── base.go          # ThreadInfo, StackFrame, BreakpointInfo, Variable, DebugEvent, etc.
-└── go.mod                   # Go module definition
+├── src/                           # Source code root
+│   ├── index.ts                   # Public API exports
+│   ├── protocol/                  # Protocol layer
+│   │   ├── index.ts               # Protocol module exports
+│   │   ├── base.ts                # DebugProtocol interface definition
+│   │   ├── types.ts               # Type definitions (ThreadInfo, StackFrame, etc.)
+│   │   ├── client.ts              # Client factory function + protocol registry
+│   │   ├── errors.ts              # Error types (APIError, ErrorType, ErrorCodes)
+│   │   └── jdwp/                  # JDWP protocol implementation
+│   │       ├── index.ts           # JDWP module exports
+│   │       ├── client.ts          # JDWP client (implements DebugProtocol)
+│   │       ├── codec.ts           # JDWP packet encode/decode
+│   │       ├── handshake.ts       # JDWP handshake protocol
+│   │       ├── vm.ts              # VirtualMachine command set
+│   │       ├── thread.ts          # ThreadReference command set
+│   │       ├── breakpoint.ts      # EventRequest command set
+│   │       ├── stack.ts           # StackFrame queries
+│   │       ├── variable.ts        # Variable inspection
+│   │       └── event.ts           # Event handling
+│   ├── dsl/                       # DSL layer
+│   │   ├── index.ts               # DSL module exports
+│   │   ├── builder.ts             # Chainable API builder
+│   │   └── interpreter.ts         # Script interpreter
+│   ├── cli/                       # CLI implementation
+│   │   ├── index.ts               # CLI entry point
+│   │   ├── commands/              # Command implementations
+│   │   │   ├── threads.ts         # Thread listing command
+│   │   │   ├── stack.ts           # Stack trace command
+│   │   │   ├── breakpoints.ts     # Breakpoint management
+│   │   │   ├── variables.ts       # Variable inspection
+│   │   │   ├── control.ts         # Suspend/Resume commands
+│   │   │   └── step.ts            # Step Into/Over/Out commands
+│   │   └── utils/
+│   │       ├── formatter.ts       # Output formatting (text/json/table)
+│   │       └── config.ts          # Configuration loading
+│   └── monitor/                   # Watch mode
+│       ├── index.ts
+│       ├── poller.ts              # HTTP polling monitor
+│       └── stream.ts              # WebSocket streaming
+│
+├── ref/                           # Reference implementation (Go version)
+│   └── ...
+│
+├── package.json                   # Project configuration
+├── tsconfig.json                  # TypeScript configuration
+└── vitest.config.ts               # Vitest configuration
 ```
 
 ---
 
 ## Core Architecture
 
-### 1. Plugin System (`internal/api/`)
+### 1. Protocol System (`src/protocol/`)
 
-The **`DebugProtocol` interface** is the core interface that all language plugins must implement, defining complete debugging operations:
+The **`DebugProtocol` interface** is the core interface that all protocol implementations must follow, defining complete debugging operations:
 
-| Category              | Methods                                                                           |
-| --------------------- | --------------------------------------------------------------------------------- |
-| Lifecycle             | `Connect()`, `Close()`, `IsConnected()`                                           |
-| Metadata              | `Version()`, `Capabilities()`, `ProtocolName()`, `SupportedLanguages()`           |
-| Thread Management     | `GetThreads()`, `GetThreadStack()`, `GetThreadState()`                            |
-| Execution Control     | `Suspend()`, `Resume()`, `StepInto()`, `StepOver()`, `StepOut()`                  |
-| Breakpoint Management | `SetBreakpoint()`, `RemoveBreakpoint()`, `ClearBreakpoints()`, `GetBreakpoints()` |
-| Variable Inspection   | `GetLocalVariables()`, `GetFields()`                                              |
-| Event Handling        | `WaitForEvent()`                                                                  |
+| Category              | Methods                                                                        |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Lifecycle             | `connect()`, `close()`, `isConnected()`                                        |
+| Metadata              | `version()`, `capabilities()`, `protocolName()`, `supportedLanguages()`        |
+| Thread Management     | `threads()`, `stack()`, `threadState()`                                        |
+| Execution Control     | `suspend()`, `resume()`, `stepInto()`, `stepOver()`, `stepOut()`               |
+| Breakpoint Management | `setBreakpoint()`, `removeBreakpoint()`, `clearBreakpoints()`, `breakpoints()` |
+| Variable Inspection   | `locals()`, `fields()`                                                         |
+| Event Handling        | `waitForEvent()`                                                               |
 
-**Plugin Registration and Creation Flow**:
+**Protocol Registration and Creation Flow**:
 
-```go
-// Register plugin (called in plugin package's init())
-api.RegisterPlugin("jdwp", func() api.DebugProtocol { return &JDWPClient{} })
+```typescript
+// Register protocol (typically in module initialization)
+registerProtocol("jdwp", (config) => new JDWPClient(config));
 
 // Create client
-client, err := api.CreateClient("jdwp")
+const client = await createClient({
+  protocol: "jdwp",
+  host: "127.0.0.1",
+  port: 5005,
+});
 ```
 
-**Auto-Detection** (`AutoDetect()`): Currently only determines JDWP by port 5005 detection, with potential for more complex detection logic in the future.
+**Configuration Validation**: Uses Zod schema for runtime validation with automatic type inference.
 
-### 2. Configuration System (`internal/config/`)
+### 2. DSL System (`src/dsl/`)
 
-**Multi-layer priority merge** strategy is used for configuration loading:
+The DSL provides a **chainable API builder** for fluent debug operation sequences:
 
-1. Default values (`NewDefaultConfig()`)
-2. Global config file (`~/.config/debugger/config.yaml`)
-3. Project config file (`.debugger.yaml` in current directory)
-4. Environment variables (`DEBUGGER_PROTOCOL`, `DEBUGGER_HOST`, etc.)
-5. Command-line flags
+```typescript
+const dsl = new DebugDSL({ protocol: "jdwp", port: 5005 });
 
-Supports **named profiles** allowing multiple profiles to be defined in the global config file and switched between.
+await dsl.run(async (debug) => {
+  await debug
+    .thread("main")
+    .suspend()
+    .breakpointAt("com.example.Main", 42)
+    .inspectVariables()
+    .resume();
+});
+```
 
-### 3. Output Formatting (`internal/output/`)
+**Key Features**:
 
-The `Formatter` interface defines unified output formatting methods:
+- Thread selection and management
+- Chainable operation sequences
+- Access to underlying `DebugProtocol` client for advanced operations
+- Automatic resource cleanup (connection close on completion)
 
-- `FormatVersion()`, `FormatThreads()`, `FormatStack()`, `FormatVariables()`, `FormatBreakpoints()`, `FormatEvent()`, `FormatError()`
+### 3. Configuration System
 
-Corresponding formatters are created through the `NewFormatter(formatterType, color)` factory function.
+**Configuration loading** supports multiple sources with priority:
+
+1. Default values (defined in Zod schema)
+2. Configuration files (YAML/TOML)
+3. Environment variables (`DEBUGGER_PROTOCOL`, `DEBUGGER_HOST`, etc.)
+4. Command-line flags
+
+Configuration validation is enforced at runtime using Zod schemas.
+
+### 4. Output Formatting (`src/cli/utils/formatter.ts`)
+
+The formatter supports unified output methods:
+
+- `formatVersion()`, `formatThreads()`, `formatStack()`, `formatVariables()`, `formatBreakpoints()`, `formatEvent()`, `formatError()`
+
+Formatters are created through factory functions and support text, JSON, and table formats.
 
 ## Key Commands and Usage
 
 ### Build
 
 ```powershell
-go build -o debugger.exe
+npm run build
 ```
 
-### Lint
+### Development
 
 ```powershell
-go vet
-golangci-lint run
+npm run dev
+```
+
+### Lint & Test
+
+```powershell
+npm run lint
+npm run test
+npm run test:coverage
 ```
 
 ### Basic Usage
 
 ```powershell
+# CLI usage (after build)
 debugger --help
 debugger version
 debugger --host 192.168.1.100 --port 5005 threads
 debugger --json stack --thread-id 1
 debugger --watch --interval 2 threads
+
+# Programmatic API usage
+import { createClient, DebugDSL } from 'cli-debugger';
+
+// Direct API
+const client = await createClient({ protocol: 'jdwp', port: 5005 });
+const threads = await client.threads();
+await client.suspend(threads[0].id);
+
+// DSL
+const dsl = new DebugDSL({ protocol: 'jdwp', port: 5005 });
+await dsl.run(async (debug) => {
+  await debug.thread('main').suspend().inspectVariables().resume();
+});
 ```
-
-### Exit Codes
-
-| Code | Meaning          |
-| ---- | ---------------- |
-| 0    | Success          |
-| 1    | Input Error      |
-| 2    | Connection Error |
-| 3    | Protocol Error   |
 
 ---
 
@@ -161,13 +232,28 @@ debugger --watch --interval 2 threads
 
 ### Code Style
 
-- Follow Go standard formatting (`gofmt`)
-- Interface names should use `-er` suffix (e.g., `DebugProtocol`, `Formatter`)
-- Factory functions should use `New` prefix (e.g., `NewDefaultConfig`, `NewFormatter`)
-- Use custom error types for error handling (`APIError`, `ValidationError`)
+- Follow TypeScript standard formatting (Prettier)
+- Interface names should use `-er` or `-able` suffix (e.g., `DebugProtocol`, `Formatter`)
+- Factory functions should use `create` or `new` prefix (e.g., `createClient`, `new DebugDSL`)
+- Use custom error types for error handling (`APIError` with typed error codes)
+- All async functions should use `async/await` pattern (no raw Promises or callbacks)
 
 ### Configuration Standards
 
-- All configuration fields must include `mapstructure`, `yaml`, and `toml` tags
+- All configuration schemas must be defined with Zod for runtime validation
 - Environment variables must use the `DEBUGGER_` prefix uniformly
-- Configuration validation should be implemented in the `Validate()` method and return a `ValidationError`
+- Configuration validation errors should throw `APIError` with `InputError` type
+
+### Type Safety
+
+- Use strict TypeScript compiler options
+- Avoid `any` type; use `unknown` when type is truly dynamic
+- Export interfaces and types from `protocol/types.ts`
+- Use Zod schema inference for configuration types (`z.infer<typeof Schema>`)
+
+### Testing
+
+- Write unit tests for protocol implementations (mock network operations). Place in `__tests__` in the same path.
+- Write e2e tests for CLI commands. Place in `tests` folder.
+- Use Vitest's `describe`, `it`, `expect` pattern
+- Test coverage should target protocol layer and DSL builder

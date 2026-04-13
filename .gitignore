@@ -1,46 +1,40 @@
-.translator
+.translate
 
-# 可执行文件
-*.exe
-*.dll
-*.so
-*.dylib
-debugger
-debugger.exe
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
-# 测试二进制文件
-*.test
+# Build output
+dist/
+*.tsbuildinfo
 
-# 输出目录
-bin/
-out/
-
-# 依赖
-vendor/
-
-# Go 工作文件
-go.sum
+# Test coverage
+coverage/
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
 
-# 操作系统文件
+# OS
 .DS_Store
 Thumbs.db
 
-# 配置文件（用户特定）
-.debugger.yaml
-.config/debugger/
+# Environment
+.env
+.env.local
+.env.*.local
 
-# 日志和缓存
-logs/
-cache/
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# 覆盖文件
-coverage.out
-coverage.html
+# Temporary files
+tmp/
+temp/
