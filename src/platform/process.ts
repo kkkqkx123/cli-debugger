@@ -1,5 +1,8 @@
 import process from "node:process";
 import type { ProcessDiscoverer } from "./interface.js";
+import { WindowsProcessDiscoverer } from "./process-windows.js";
+import { UnixProcessDiscoverer } from "./process-unix.js";
+import { OtherProcessDiscoverer } from "./process-other.js";
 
 let discoverer: ProcessDiscoverer | null = null;
 
@@ -12,21 +15,19 @@ export function getProcessDiscoverer(): ProcessDiscoverer {
 
     switch (platform) {
       case "win32":
-        discoverer =
-          new (require("./process-windows.js").WindowsProcessDiscoverer)();
+        discoverer = new WindowsProcessDiscoverer();
         break;
       case "darwin":
       case "linux":
-        discoverer = new (require("./process-unix.js").UnixProcessDiscoverer)();
+        discoverer = new UnixProcessDiscoverer();
         break;
       default:
-        discoverer =
-          new (require("./process-other.js").OtherProcessDiscoverer)();
+        discoverer = new OtherProcessDiscoverer();
         break;
     }
   }
 
-  return discoverer!;
+  return discoverer;
 }
 
 /**

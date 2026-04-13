@@ -16,31 +16,18 @@ import type {
 } from "../../types/debug.js";
 import { APIError, ErrorType, ErrorCodes } from "../errors.js";
 import { performHandshake } from "./handshake.js";
-import {
-  createCommandPacket,
-  createCommandPacketWithData,
-  decodeReplyPacket,
-  encodeID,
-  encodeString,
-} from "./codec.js";
-import { PacketReader } from "./reader.js";
+import { decodeReplyPacket } from "./codec.js";
 import {
   type IDSizes,
   type InternalBreakpointInfo,
-  type ClassInfo,
-  type FieldInfo,
   SuspendPolicy,
   StepKind,
-  EventType,
-  CommandSet,
-  VMCommand,
 } from "./protocol.js";
 import * as vm from "./vm.js";
 import * as referenceType from "./reference-type.js";
 import * as method from "./method.js";
 import * as thread from "./thread.js";
 import * as stackFrame from "./stack-frame.js";
-import * as objectReference from "./object-reference.js";
 import * as event from "./event.js";
 
 /**
@@ -94,9 +81,19 @@ export class JDWPClient implements DebugProtocol {
       });
 
       this.socket.connect(this.config.port, this.config.host, async () => {
+        if (!this.socket) {
+          reject(
+            new APIError(
+              ErrorType.ConnectionError,
+              ErrorCodes.ConnectionClosed,
+              "Socket not available",
+            ),
+          );
+          return;
+        }
         try {
           // Perform handshake
-          await performHandshake(this.socket!, this.config.timeout);
+          await performHandshake(this.socket, this.config.timeout);
 
           // Get ID sizes
           this.idSizes = await this.executeCommand((executor) =>
@@ -119,7 +116,7 @@ export class JDWPClient implements DebugProtocol {
     }
 
     return new Promise((resolve) => {
-      this.socket!.end(() => {
+      this.socket.end(() => {
         this.connected = false;
         this.socket = null;
         resolve();
@@ -280,7 +277,7 @@ export class JDWPClient implements DebugProtocol {
 
   // ==================== Breakpoint Management ====================
 
-  async setBreakpoint(location: string, condition?: string): Promise<string> {
+  async setBreakpoint(location: string): Promise<string> {
     return this.executeCommand(async (executor) => {
       const { className, methodName, lineNumber } = this.parseLocation(location);
 
@@ -472,15 +469,22 @@ export class JDWPClient implements DebugProtocol {
     const executor: vm.JDWPCommandExecutor = {
       sendPacket: (packet) => this.sendPacket(packet),
       readReply: () => this.readReply(),
-      idSizes: this.idSizes!,
+      idSizes: this.idSizes,
     };
 
     return fn(executor);
   }
 
   private async sendPacket(packet: Buffer): Promise<void> {
+    if (!this.socket) {
+      throw new APIError(
+        ErrorType.ConnectionError,
+        ErrorCodes.ConnectionClosed,
+        "Socket not available",
+      );
+    }
     return new Promise((resolve, reject) => {
-      this.socket!.write(packet, (err) => {
+      this.socket.write(packet, (err) => {
         if (err) {
           reject(
             new APIError(
@@ -502,6 +506,13 @@ export class JDWPClient implements DebugProtocol {
     message: string;
     data: Buffer;
   }> {
+    if (!this.socket) {
+      throw new APIError(
+        ErrorType.ConnectionError,
+        ErrorCodes.ConnectionClosed,
+        "Socket not available",
+      );
+    }
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         reject(
@@ -526,9 +537,9 @@ export class JDWPClient implements DebugProtocol {
         // Check if we have complete packet
         if (this.packetBuffer.length >= length) {
           clearTimeout(timeoutId);
-          this.socket!.removeListener("data", onData);
-          this.socket!.removeListener("error", onError);
-          this.socket!.removeListener("close", onClose);
+          this.socket.removeListener("data", onData);
+          this.socket.removeListener("error", onError);
+          this.socket.removeListener("close", onClose);
 
           const packetData = this.packetBuffer.subarray(4, length);
           this.packetBuffer = this.packetBuffer.subarray(length);
@@ -569,9 +580,9 @@ export class JDWPClient implements DebugProtocol {
         );
       };
 
-      this.socket!.on("data", onData);
-      this.socket!.on("error", onError);
-      this.socket!.on("close", onClose);
+      this.socket.on("data", onData);
+      this.socket.on("error", onError);
+      this.socket.on("close", onClose);
 
       // Process existing buffer
       if (this.packetBuffer.length > 0) {
@@ -584,6 +595,13 @@ export class JDWPClient implements DebugProtocol {
     executor: vm.JDWPCommandExecutor,
     timeout: number,
   ): Promise<DebugEvent | null> {
+    if (!this.idSizes) {
+      throw new APIError(
+        ErrorType.ConnectionError,
+        ErrorCodes.ConnectionClosed,
+        "ID sizes not available",
+      );
+    }
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeout) {
@@ -592,7 +610,7 @@ export class JDWPClient implements DebugProtocol {
 
       // Check if this is an event packet (command set 64)
       if (reply.data.length > 0) {
-        const evt = event.parseEvent(reply.data, this.idSizes!);
+        const evt = event.parseEvent(reply.data, this.idSizes);
         if (evt) {
           return evt;
         }

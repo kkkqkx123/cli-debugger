@@ -3,8 +3,6 @@
  * Utility for reading data from JDWP reply packets
  */
 
-import { isPrimitiveTag } from "./codec.js";
-
 /**
  * Packet reader for parsing JDWP reply data
  */
@@ -160,21 +158,25 @@ export class PacketReader {
       case 0x43: // C - char
         return this.readUint32();
 
-      case 0x44: // D - double
+      case 0x44: {
+        // D - double
         if (this.pos + 8 > this.data.length) {
           return 0;
         }
         const doubleVal = this.data.readDoubleBE(this.pos);
         this.pos += 8;
         return doubleVal;
+      }
 
-      case 0x46: // F - float
+      case 0x46: {
+        // F - float
         if (this.pos + 4 > this.data.length) {
           return 0;
         }
         const floatVal = this.data.readFloatBE(this.pos);
         this.pos += 4;
         return floatVal;
+      }
 
       case 0x49: // I - int
         return this.readInt();
@@ -182,18 +184,22 @@ export class PacketReader {
       case 0x4a: // J - long
         return this.readInt64();
 
-      case 0x4c: // L - object
+      case 0x4c: {
+        // L - object
         const objTag = this.readByte();
         const objId = this.readID(idSize);
         return `${String.fromCharCode(objTag)}:${objId}`;
+      }
 
-      case 0x53: // S - short
+      case 0x53: {
+        // S - short
         if (this.pos + 2 > this.data.length) {
           return 0;
         }
         const shortVal = this.data.readInt16BE(this.pos);
         this.pos += 2;
         return shortVal;
+      }
 
       case 0x5a: // Z - boolean
         return this.readByte() !== 0;
@@ -201,10 +207,12 @@ export class PacketReader {
       case 0x56: // V - void
         return null;
 
-      case 0x5b: // [ - array
+      case 0x5b: {
+        // [ - array
         const arrayTag = this.readByte();
         const arrayId = this.readID(idSize);
         return `${String.fromCharCode(arrayTag)}:${arrayId}`;
+      }
 
       default:
         return `unknown(${String.fromCharCode(tag)})`;

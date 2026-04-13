@@ -7,7 +7,6 @@ import {
   EventRequestCommand,
   EventType,
   SuspendPolicy,
-  StepKind,
   type IDSizes,
 } from "./protocol.js";
 import {
@@ -298,7 +297,7 @@ export function parseEvent(
 
   // Determine event type
   let eventType: string;
-  let location = "";
+  const location = "";
 
   switch (eventKind) {
     case EventType.Breakpoint:

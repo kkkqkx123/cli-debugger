@@ -59,7 +59,10 @@ export class Poller implements Monitor {
 
   private async runLoop(): Promise<void> {
     const startTime = Date.now();
-    const command = this.command!;
+    if (!this.command) {
+      throw new Error("Monitor command not set");
+    }
+    const command = this.command;
 
     // Setup signal handlers
     const signalHandler = () => {

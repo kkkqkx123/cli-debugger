@@ -13,10 +13,8 @@ import {
   encodeID,
   encodeUint32,
   encodeValue,
-  isPrimitiveTag,
 } from "./codec.js";
 import { PacketReader } from "./reader.js";
-import type { Variable } from "../../types/debug.js";
 import { APIError, ErrorType, ErrorCodes } from "../errors.js";
 
 /**

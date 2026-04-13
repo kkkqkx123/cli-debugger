@@ -52,7 +52,10 @@ export async function performHandshake(
         socket.removeListener("close", onClose);
 
         // Verify handshake string (may or may not contain null terminator)
-        const received = handshakeBuffer.toString("utf8").replace(/\x00+$/, "");
+        let received = handshakeBuffer.toString("utf8");
+        while (received.endsWith("\0")) {
+          received = received.slice(0, -1);
+        }
         if (received !== JDWP_HANDSHAKE) {
           reject(
             new APIError(

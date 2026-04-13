@@ -77,8 +77,8 @@ export class WindowsProcessDiscoverer implements ProcessDiscoverer {
       const match = line.match(/"([^"]+)","(\d+)"/);
       if (match) {
         processes.push({
-          name: match[1]!,
-          pid: Number.parseInt(match[2]!, 10),
+          name: match[1],
+          pid: Number.parseInt(match[2], 10),
         });
       }
     }

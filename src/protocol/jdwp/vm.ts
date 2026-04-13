@@ -20,7 +20,6 @@ import {
 } from "./codec.js";
 import { PacketReader } from "./reader.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
-import type { ThreadInfo } from "../../types/debug.js";
 import { APIError, ErrorType, ErrorCodes } from "../errors.js";
 
 /**
@@ -341,8 +340,6 @@ export async function getCapabilities(
       `Get capabilities failed: ${reply.message}`,
     );
   }
-
-  const reader = new PacketReader(reply.data);
 
   return {
     supportsVersion: true,

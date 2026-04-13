@@ -5,7 +5,6 @@
 import {
   CommandSet,
   ThreadCommand,
-  ThreadState,
   type IDSizes,
   type StackFrameInfo,
   getThreadStateString,
@@ -244,7 +243,7 @@ export async function getThreadStack(
 
   const frames = await getThreadFrames(executor, threadID, 0, frameCount);
 
-  return frames.map((frame, index) => ({
+  return frames.map((frame) => ({
     id: frame.frameID,
     location: frame.location,
     method: frame.method,

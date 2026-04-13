@@ -5,7 +5,6 @@
 import {
   CMD_FLAG,
   REPLY_FLAG,
-  type CommandPacket,
   type ReplyPacket,
   getErrorMessage,
 } from "./protocol.js";
