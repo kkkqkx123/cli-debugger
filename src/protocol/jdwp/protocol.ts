@@ -17,13 +17,14 @@ export const CommandSet = {
   Field: 6,
   ObjectReference: 7,
   StringReference: 8,
-  ThreadReference: 10,
-  ThreadGroupReference: 11,
-  ArrayReference: 12,
-  ClassLoaderReference: 13,
-  EventRequest: 14,
-  StackFrame: 15,
-  ClassObjectReference: 16,
+  ThreadReference: 11,
+  ThreadGroupReference: 12,
+  ArrayReference: 13,
+  ClassLoaderReference: 14,
+  EventRequest: 15,
+  StackFrame: 16,
+  ClassObjectReference: 17,
+  ModuleReference: 18,
   Event: 64,
 } as const;
 
@@ -95,6 +96,7 @@ export const ThreadCommand = {
   Stop: 10,
   Interrupt: 11,
   SuspendCount: 12,
+  ForceEarlyReturn: 14,
 } as const;
 
 // StackFrame Commands
@@ -103,6 +105,49 @@ export const StackFrameCommand = {
   SetValues: 2,
   ThisObject: 3,
   PopFrames: 4,
+} as const;
+
+// ArrayReference Commands
+export const ArrayReferenceCommand = {
+  Length: 1,
+  GetValues: 2,
+  SetValues: 3,
+} as const;
+
+// ClassLoaderReference Commands
+export const ClassLoaderReferenceCommand = {
+  VisibleClasses: 1,
+} as const;
+
+// StringReference Commands
+export const StringReferenceCommand = {
+  Value: 1,
+} as const;
+
+// ThreadGroupReference Commands
+export const ThreadGroupReferenceCommand = {
+  Name: 1,
+  Parent: 2,
+  Children: 3,
+} as const;
+
+// ClassObjectReference Commands
+export const ClassObjectReferenceCommand = {
+  ReflectedType: 1,
+} as const;
+
+// ModuleReference Commands
+export const ModuleReferenceCommand = {
+  Name: 1,
+  ClassLoader: 2,
+} as const;
+
+// ClassType Commands
+export const ClassTypeCommand = {
+  Superclass: 1,
+  SetValues: 2,
+  InvokeMethod: 3,
+  NewInstance: 4,
 } as const;
 
 // ObjectReference Commands

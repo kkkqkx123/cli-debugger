@@ -13,6 +13,7 @@ import {
   createCommandPacketWithData,
   encodeID,
   encodeUint32,
+  encodeValue,
 } from "./codec.js";
 import { PacketReader } from "./reader.js";
 import type { StackFrame } from "../../types/debug.js";
@@ -424,4 +425,37 @@ export async function getSuspendCount(
 
   const reader = new PacketReader(reply.data);
   return reader.readInt();
+}
+
+/**
+ * Force early return from method
+ */
+export async function forceEarlyReturn(
+  executor: JDWPCommandExecutor,
+  threadID: string,
+  frameID: string,
+  value: unknown,
+): Promise<void> {
+  const parts: Buffer[] = [
+    encodeID(threadID, executor.idSizes.objectIDSize),
+    encodeID(frameID, executor.idSizes.frameIDSize),
+    encodeValue(value, executor.idSizes.objectIDSize),
+  ];
+
+  const data = Buffer.concat(parts);
+  const packet = createCommandPacketWithData(
+    CommandSet.ThreadReference,
+    ThreadCommand.ForceEarlyReturn,
+    data,
+  );
+  await executor.sendPacket(packet);
+
+  const reply = await executor.readReply();
+  if (reply.errorCode !== 0) {
+    throw new APIError(
+      ErrorType.ProtocolError,
+      ErrorCodes.ProtocolError,
+      `Force early return failed: ${reply.message}`,
+    );
+  }
 }

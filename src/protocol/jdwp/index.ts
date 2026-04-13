@@ -29,6 +29,13 @@ export {
   MethodCommand,
   ThreadCommand,
   StackFrameCommand,
+  ArrayReferenceCommand,
+  ClassLoaderReferenceCommand,
+  StringReferenceCommand,
+  ThreadGroupReferenceCommand,
+  ClassObjectReferenceCommand,
+  ModuleReferenceCommand,
+  ClassTypeCommand,
   ObjectReferenceCommand,
   EventRequestCommand,
   EventType,
@@ -74,4 +81,11 @@ export * as method from "./method.js";
 export * as thread from "./thread.js";
 export * as stackFrame from "./stack-frame.js";
 export * as objectReference from "./object-reference.js";
+export * as arrayReference from "./array-reference.js";
+export * as stringReference from "./string-reference.js";
+export * as classType from "./class-type.js";
 export * as event from "./event.js";
+export * as threadGroupReference from "./thread-group-reference.js";
+export * as classLoaderReference from "./class-loader-reference.js";
+export * as classObjectReference from "./class-object-reference.js";
+export * as moduleReference from "./module-reference.js";
