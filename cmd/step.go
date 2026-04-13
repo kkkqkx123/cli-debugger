@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -15,56 +14,56 @@ var stepType string
 
 // stepCmd represents the step command
 var stepCmd = &cobra.Command{
-	Use:   "step",
-	Short: "Step through code",
-	Long: `Step through code execution.
-Requires --thread-id flag. Use --type to specify step mode (into, over, out).`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if threadID == "" {
-			fmt.Fprintf(os.Stderr, "Error: --thread-id is required\n")
-			os.Exit(1)
-		}
+	Use:     "step",
+	Short:   "Step through code",
+	Long:    `Step through code execution.\nRequires --thread-id flag. Use --type to specify step mode (into, over, out).`,
+	Example: `  debugger step --thread-id 1234 --type into
+  debugger step --thread-id 1234 --type over
+  debugger step --thread-id 1234 --type out`,
+	RunE: runStep,
+}
 
-		if stepType == "" {
-			stepType = "into"
-		}
+func runStep(cmd *cobra.Command, args []string) error {
+	if threadID == "" {
+		return fmt.Errorf("--thread-id is required")
+	}
 
-		// Create client
-		client, err := api.CreateClient(viper.GetString("protocol"))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+	if stepType == "" {
+		stepType = "into"
+	}
 
-		// Connect
-		ctx := context.Background()
-		if err := client.Connect(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(2)
-		}
-		defer client.Close()
+	// Create client
+	client, err := api.CreateClient(viper.GetString("protocol"))
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
 
-		// Step
-		var stepErr error
-		switch stepType {
-		case "into":
-			stepErr = client.StepInto(ctx, threadID)
-		case "over":
-			stepErr = client.StepOver(ctx, threadID)
-		case "out":
-			stepErr = client.StepOut(ctx, threadID)
-		default:
-			fmt.Fprintf(os.Stderr, "Error: invalid step type '%s'. Use 'into', 'over', or 'out'\n", stepType)
-			os.Exit(1)
-		}
+	// Connect
+	ctx := context.Background()
+	if err := client.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer client.Close()
 
-		if stepErr != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", stepErr)
-			os.Exit(3)
-		}
+	// Step
+	var stepErr error
+	switch stepType {
+	case "into":
+		stepErr = client.StepInto(ctx, threadID)
+	case "over":
+		stepErr = client.StepOver(ctx, threadID)
+	case "out":
+		stepErr = client.StepOut(ctx, threadID)
+	default:
+		return fmt.Errorf("invalid step type '%s'. Use 'into', 'over', or 'out'", stepType)
+	}
 
-		fmt.Printf("Stepped %s on thread %s\n", stepType, threadID)
-	},
+	if stepErr != nil {
+		return fmt.Errorf("failed to step: %w", stepErr)
+	}
+
+	fmt.Printf("Stepped %s on thread %s\n", stepType, threadID)
+	return nil
 }
 
 func init() {

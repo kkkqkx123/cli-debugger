@@ -20,150 +20,157 @@ var (
 
 // breakpointsCmd represents the breakpoints command
 var breakpointsCmd = &cobra.Command{
-	Use:   "breakpoints",
-	Short: "Manage breakpoints",
-	Long: `List, set, or remove breakpoints.
-Use subcommands to perform specific operations.`,
+	Use:     "breakpoints",
+	Short:   "Manage breakpoints",
+	Long:    `List, set, or remove breakpoints.\nUse subcommands to perform specific operations.`,
+	Example: `  debugger breakpoints list
+  debugger breakpoints set --location "com.example.MyClass:42"
+  debugger breakpoints set --location "com.example.MyClass:42" --condition "x > 10"
+  debugger breakpoints remove --breakpoint-id bp-1
+  debugger breakpoints clear`,
 }
 
 var breakpointsListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all breakpoints",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Create client
-		client, err := api.CreateClient(viper.GetString("protocol"))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+	Use:     "list",
+	Short:   "List all breakpoints",
+	Example: `  debugger breakpoints list
+  debugger breakpoints list -o json`,
+	RunE: runBreakpointsList,
+}
 
-		// Connect
-		ctx := context.Background()
-		if err := client.Connect(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(2)
-		}
-		defer client.Close()
+func runBreakpointsList(cmd *cobra.Command, args []string) error {
+	// Create client
+	client, err := api.CreateClient(viper.GetString("protocol"))
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
 
-		// Get breakpoints
-		bps, err := client.GetBreakpoints(ctx)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(3)
-		}
+	// Connect
+	ctx := context.Background()
+	if err := client.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer client.Close()
 
-		// Format output
-		formatter := output.NewFormatter(
-			output.GetFormatterType(viper.GetString("output")),
-			viper.GetBool("color"),
-		)
-		formatter.SetWriter(os.Stdout)
+	// Get breakpoints
+	bps, err := client.GetBreakpoints(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get breakpoints: %w", err)
+	}
 
-		if err := formatter.FormatBreakpoints(bps); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	},
+	// Format output
+	formatter := output.NewFormatter(
+		output.GetFormatterType(viper.GetString("output")),
+		viper.GetBool("color"),
+	)
+	formatter.SetWriter(os.Stdout)
+
+	if err := formatter.FormatBreakpoints(bps); err != nil {
+		return fmt.Errorf("failed to format breakpoints: %w", err)
+	}
+
+	return nil
 }
 
 var breakpointsSetCmd = &cobra.Command{
-	Use:   "set",
-	Short: "Set a breakpoint",
-	Long: `Set a breakpoint at a specific location.
-The location format depends on the debugging protocol (e.g., "com.example.MyClass:42" for line 42).`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if breakpointLocation == "" {
-			fmt.Fprintf(os.Stderr, "Error: --location is required\n")
-			os.Exit(1)
-		}
+	Use:     "set",
+	Short:   "Set a breakpoint",
+	Long:    `Set a breakpoint at a specific location.\nThe location format depends on the debugging protocol (e.g., "com.example.MyClass:42" for line 42).`,
+	Example: `  debugger breakpoints set --location "com.example.MyClass:42"
+  debugger breakpoints set --location "com.example.MyClass:100" --condition "x > 10"`,
+	RunE: runBreakpointsSet,
+}
 
-		// Create client
-		client, err := api.CreateClient(viper.GetString("protocol"))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+func runBreakpointsSet(cmd *cobra.Command, args []string) error {
+	if breakpointLocation == "" {
+		return fmt.Errorf("--location is required")
+	}
 
-		// Connect
-		ctx := context.Background()
-		if err := client.Connect(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(2)
-		}
-		defer client.Close()
+	// Create client
+	client, err := api.CreateClient(viper.GetString("protocol"))
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
 
-		// Set breakpoint
-		bpID, err := client.SetBreakpoint(ctx, breakpointLocation, breakpointCondition)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(3)
-		}
+	// Connect
+	ctx := context.Background()
+	if err := client.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer client.Close()
 
-		fmt.Printf("Breakpoint set: %s\n", bpID)
-	},
+	// Set breakpoint
+	bpID, err := client.SetBreakpoint(ctx, breakpointLocation, breakpointCondition)
+	if err != nil {
+		return fmt.Errorf("failed to set breakpoint: %w", err)
+	}
+
+	fmt.Printf("Breakpoint set: %s\n", bpID)
+	return nil
 }
 
 var breakpointsRemoveCmd = &cobra.Command{
-	Use:   "remove",
-	Short: "Remove a breakpoint",
-	Run: func(cmd *cobra.Command, args []string) {
-		if breakpointID == "" {
-			fmt.Fprintf(os.Stderr, "Error: --breakpoint-id is required\n")
-			os.Exit(1)
-		}
+	Use:     "remove",
+	Short:   "Remove a breakpoint",
+	Example: `  debugger breakpoints remove --breakpoint-id bp-1`,
+	RunE: runBreakpointsRemove,
+}
 
-		// Create client
-		client, err := api.CreateClient(viper.GetString("protocol"))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+func runBreakpointsRemove(cmd *cobra.Command, args []string) error {
+	if breakpointID == "" {
+		return fmt.Errorf("--breakpoint-id is required")
+	}
 
-		// Connect
-		ctx := context.Background()
-		if err := client.Connect(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(2)
-		}
-		defer client.Close()
+	// Create client
+	client, err := api.CreateClient(viper.GetString("protocol"))
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
 
-		// Remove breakpoint
-		if err := client.RemoveBreakpoint(ctx, breakpointID); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(3)
-		}
+	// Connect
+	ctx := context.Background()
+	if err := client.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer client.Close()
 
-		fmt.Printf("Breakpoint removed: %s\n", breakpointID)
-	},
+	// Remove breakpoint
+	if err := client.RemoveBreakpoint(ctx, breakpointID); err != nil {
+		return fmt.Errorf("failed to remove breakpoint: %w", err)
+	}
+
+	fmt.Printf("Breakpoint removed: %s\n", breakpointID)
+	return nil
 }
 
 var breakpointsClearCmd = &cobra.Command{
-	Use:   "clear",
-	Short: "Clear all breakpoints",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Create client
-		client, err := api.CreateClient(viper.GetString("protocol"))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+	Use:     "clear",
+	Short:   "Clear all breakpoints",
+	Example: `  debugger breakpoints clear`,
+	RunE: runBreakpointsClear,
+}
 
-		// Connect
-		ctx := context.Background()
-		if err := client.Connect(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(2)
-		}
-		defer client.Close()
+func runBreakpointsClear(cmd *cobra.Command, args []string) error {
+	// Create client
+	client, err := api.CreateClient(viper.GetString("protocol"))
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
 
-		// Clear breakpoints
-		if err := client.ClearBreakpoints(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(3)
-		}
+	// Connect
+	ctx := context.Background()
+	if err := client.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer client.Close()
 
-		fmt.Println("All breakpoints cleared")
-	},
+	// Clear breakpoints
+	if err := client.ClearBreakpoints(ctx); err != nil {
+		return fmt.Errorf("failed to clear breakpoints: %w", err)
+	}
+
+	fmt.Println("All breakpointss cleared")
+	return nil
 }
 
 func init() {

@@ -14,50 +14,51 @@ import (
 
 // stackCmd represents the stack command
 var stackCmd = &cobra.Command{
-	Use:   "stack",
-	Short: "Get thread stack trace",
-	Long: `Get the stack trace of a specific thread.
-Requires --thread-id flag to specify which thread to inspect.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if threadID == "" {
-			fmt.Fprintf(os.Stderr, "Error: --thread-id is required\n")
-			os.Exit(1)
-		}
+	Use:     "stack",
+	Short:   "Get thread stack trace",
+	Long:    `Get the stack trace of a specific thread.\nRequires --thread-id flag to specify which thread to inspect.`,
+	Example: `  debugger stack --thread-id 1234
+  debugger stack --thread-id 1234 -o json
+  debugger stack --thread-id 1234 -o table`,
+	RunE: runStack,
+}
 
-		// Create client
-		client, err := api.CreateClient(viper.GetString("protocol"))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+func runStack(cmd *cobra.Command, args []string) error {
+	if threadID == "" {
+		return fmt.Errorf("--thread-id is required")
+	}
 
-		// Connect
-		ctx := context.Background()
-		if err := client.Connect(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(2)
-		}
-		defer client.Close()
+	// Create client
+	client, err := api.CreateClient(viper.GetString("protocol"))
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
 
-		// Get stack
-		stack, err := client.GetThreadStack(ctx, threadID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(3)
-		}
+	// Connect
+	ctx := context.Background()
+	if err := client.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+	defer client.Close()
 
-		// Format output
-		formatter := output.NewFormatter(
-			output.GetFormatterType(viper.GetString("output")),
-			viper.GetBool("color"),
-		)
-		formatter.SetWriter(os.Stdout)
+	// Get stack
+	stack, err := client.GetThreadStack(ctx, threadID)
+	if err != nil {
+		return fmt.Errorf("failed to get stack: %w", err)
+	}
 
-		if err := formatter.FormatStack(stack); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-	},
+	// Format output
+	formatter := output.NewFormatter(
+		output.GetFormatterType(viper.GetString("output")),
+		viper.GetBool("color"),
+	)
+	formatter.SetWriter(os.Stdout)
+
+	if err := formatter.FormatStack(stack); err != nil {
+		return fmt.Errorf("failed to format stack: %w", err)
+	}
+
+	return nil
 }
 
 func init() {
