@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"cli-debugger/internal/api"
+	"cli-debugger/pkg/types"
 )
 
 // Client JDWP Client
@@ -194,4 +195,57 @@ func (c *Client) EnableStreaming() error {
 	}()
 
 	return nil
+}
+
+// ProtocolName Get protocol name
+func (c *Client) ProtocolName() string {
+	return "jdwp"
+}
+
+// SupportedLanguages Get a list of supported languages.
+func (c *Client) SupportedLanguages() []string {
+	return []string{"java", "kotlin", "scala"}
+}
+
+// Capabilities Get the set of features supported by the plugin
+func (c *Client) Capabilities(ctx context.Context) (*types.Capabilities, error) {
+	return &types.Capabilities{
+		SupportsVersion:      true,
+		SupportsThreads:      true,
+		SupportsStack:        true,
+		SupportsLocals:       true,
+		SupportsBreakpoints:  true,
+		SupportsSuspend:      true,
+		SupportsResume:       true,
+		SupportsStep:         true,
+		SupportsCont:         true,
+		SupportsNext:         true,
+		SupportsFinish:       true,
+		SupportsEvents:       true,
+		SupportsWatchMode:    true,
+		SupportsStreaming:    true,
+	}, nil
+}
+
+// Suspend Suspends the entire VM or a specified thread.
+func (c *Client) Suspend(ctx context.Context, threadID string) error {
+	if threadID == "" {
+		return c.SuspendVM(ctx)
+	}
+	return c.SuspendThread(ctx, threadID)
+}
+
+// Resume Resume execution
+func (c *Client) Resume(ctx context.Context, threadID string) error {
+	if threadID == "" {
+		return c.ResumeVM(ctx)
+	}
+	return c.ResumeThread(ctx, threadID)
+}
+
+// init Register JDWP plugin
+func init() {
+	api.RegisterPlugin("jdwp", func() api.DebugProtocol {
+		return NewClient()
+	})
 }

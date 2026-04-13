@@ -3,7 +3,10 @@ package api
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
+
+	"cli-debugger/internal/platform"
 
 	"github.com/spf13/viper"
 )
@@ -61,19 +64,33 @@ func AutoDetect() string {
 	// Get port from configuration
 	port := viper.GetInt("port")
 
-	// Simple Port Inspection Policy
+	// If port is specified, try to find the process listening on it
+	if port > 0 {
+		discoverer := platform.NewProcessDiscoverer()
+		proc, err := discoverer.FindProcessByPort(port)
+		if err == nil && proc != nil {
+			// Detect protocol based on process name
+			if contains(proc.Name, "java") {
+				return "jdwp"
+			}
+			// Future protocols can be added here
+			// e.g., if contains(proc.Name, "node") { return "dap" }
+		}
+	}
+
+	// Fallback to simple port inspection policy
 	// 5005 is a common port for Java JDWP
 	if port == 5005 {
 		return "jdwp"
 	}
 
-	// More detection logic can be added in the future:
-	// 1. Connect to the port and attempt a handshake
-	// 2. Checking process names
-	// 3. Examining service response characteristics
-
 	// The default return is the empty string, which means it cannot be detected
 	return ""
+}
+
+// contains checks if a string contains a substring case-insensitively
+func contains(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 // GetRegisteredProtocols Get the list of registered protocols

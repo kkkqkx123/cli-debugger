@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+// NewProcessDiscoverer creates a process discoverer for Unix-like systems
+func NewProcessDiscoverer() ProcessDiscoverer {
+	return &unixProcessDiscoverer{}
+}
+
 // unixProcessDiscoverer implements ProcessDiscoverer for Unix-like systems (Linux, macOS)
 type unixProcessDiscoverer struct{}
 
@@ -45,12 +50,10 @@ func (u *unixProcessDiscoverer) FindProcesses() ([]ProcessInfo, error) {
 		}
 
 		name := fields[1]
-		args := strings.Join(fields[2:], " ")
 
 		processes = append(processes, ProcessInfo{
 			PID:  pid,
 			Name: name,
-			Args: args,
 		})
 	}
 
@@ -61,7 +64,7 @@ func (u *unixProcessDiscoverer) FindProcesses() ([]ProcessInfo, error) {
 func (u *unixProcessDiscoverer) FindProcessByPort(port int) (*ProcessInfo, error) {
 	// First check if port is in use
 	if !checkPort(port) {
-		return nil, fmt.Errorf("port %d is not in use", port)
+		return nil, nil
 	}
 
 	// Use lsof to find the process listening on the port
@@ -98,7 +101,6 @@ func (u *unixProcessDiscoverer) FindProcessByPort(port int) (*ProcessInfo, error
 		return &ProcessInfo{
 			PID:  pid,
 			Name: name,
-			Args: "",
 		}, nil
 	}
 
@@ -143,7 +145,6 @@ func (u *unixProcessDiscoverer) FindProcessByName(name string) ([]ProcessInfo, e
 		processes = append(processes, ProcessInfo{
 			PID:  pid,
 			Name: name,
-			Args: args,
 		})
 	}
 

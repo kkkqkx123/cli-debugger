@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+// NewProcessDiscoverer creates a process discoverer for Windows
+func NewProcessDiscoverer() ProcessDiscoverer {
+	return &windowsProcessDiscoverer{}
+}
+
 // windowsProcessDiscoverer implements ProcessDiscoverer for Windows
 type windowsProcessDiscoverer struct{}
 
@@ -41,7 +46,6 @@ func (w *windowsProcessDiscoverer) FindProcesses() ([]ProcessInfo, error) {
 			processes = append(processes, ProcessInfo{
 				PID:  pid,
 				Name: name,
-				Args: "",
 			})
 		}
 	}
@@ -53,7 +57,7 @@ func (w *windowsProcessDiscoverer) FindProcesses() ([]ProcessInfo, error) {
 func (w *windowsProcessDiscoverer) FindProcessByPort(port int) (*ProcessInfo, error) {
 	// First check if port is in use
 	if !checkPort(port) {
-		return nil, fmt.Errorf("port %d is not in use", port)
+		return nil, nil
 	}
 
 	// Use netstat to find the process listening on the port
@@ -109,7 +113,6 @@ func (w *windowsProcessDiscoverer) FindProcessByPort(port int) (*ProcessInfo, er
 			return &ProcessInfo{
 				PID:  pid,
 				Name: name,
-				Args: "",
 			}, nil
 		}
 	}
@@ -147,7 +150,6 @@ func (w *windowsProcessDiscoverer) FindProcessByName(name string) ([]ProcessInfo
 			processes = append(processes, ProcessInfo{
 				PID:  pid,
 				Name: processName,
-				Args: "",
 			})
 		}
 	}

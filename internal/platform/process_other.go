@@ -7,6 +7,11 @@ import (
 	"runtime"
 )
 
+// NewProcessDiscoverer creates a process discoverer for unsupported platforms
+func NewProcessDiscoverer() ProcessDiscoverer {
+	return &basicProcessDiscoverer{}
+}
+
 // basicProcessDiscoverer implements ProcessDiscoverer for unsupported platforms
 type basicProcessDiscoverer struct{}
 

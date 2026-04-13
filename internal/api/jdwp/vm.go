@@ -319,8 +319,8 @@ func (c *Client) GetThreads(ctx context.Context) ([]*types.ThreadInfo, error) {
 	return threads, nil
 }
 
-// Capabilities Get VM capabilities
-func (c *Client) Capabilities(ctx context.Context) (*CapabilitiesInfo, error) {
+// CapabilitiesInfo Get VM capabilities
+func (c *Client) CapabilitiesInfo(ctx context.Context) (*CapabilitiesInfo, error) {
 	packet := createCommandPacket(vmCommandSet, vmCommandCapabilities)
 	if err := c.sendPacket(packet); err != nil {
 		return nil, errors.WrapCommandError(err, errors.ErrCommandFailed, "Failed to get VM capabilities")

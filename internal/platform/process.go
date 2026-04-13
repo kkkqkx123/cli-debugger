@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 )
@@ -13,7 +12,6 @@ import (
 type ProcessInfo struct {
 	PID  int    `json:"pid"`
 	Name string `json:"name"`
-	Args string `json:"args"`
 }
 
 // ProcessDiscoverer interface for discovering running processes
@@ -21,18 +19,6 @@ type ProcessDiscoverer interface {
 	FindProcesses() ([]ProcessInfo, error)
 	FindProcessByPort(port int) (*ProcessInfo, error)
 	FindProcessByName(name string) ([]ProcessInfo, error)
-}
-
-// NewProcessDiscoverer creates a platform-appropriate process discoverer
-func NewProcessDiscoverer() ProcessDiscoverer {
-	switch runtime.GOOS {
-	case "windows":
-		return &windowsProcessDiscoverer{}
-	case "linux", "darwin":
-		return &unixProcessDiscoverer{}
-	default:
-		return &basicProcessDiscoverer{}
-	}
 }
 
 // runCommand executes a command and returns stdout
