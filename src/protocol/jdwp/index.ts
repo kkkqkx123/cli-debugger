@@ -3,49 +3,8 @@
  * Java Debug Wire Protocol implementation
  */
 
-// Re-export types
-export type {
-  IDSizes,
-  ClassInfo,
-  FieldInfo,
-  MethodInfo,
-  LineLocation,
-  VariableInfo,
-  StackFrameInfo,
-  InternalBreakpointInfo,
-  MonitorInfo,
-  VMCapabilitiesInfo,
-  ClassPathsInfo,
-  ClassDef,
-  CommandPacket,
-  ReplyPacket,
-} from "./protocol.js";
-
-// Re-export constants
-export {
-  CommandSet,
-  VMCommand,
-  ReferenceTypeCommand,
-  MethodCommand,
-  ThreadCommand,
-  StackFrameCommand,
-  ArrayReferenceCommand,
-  ClassLoaderReferenceCommand,
-  StringReferenceCommand,
-  ThreadGroupReferenceCommand,
-  ClassObjectReferenceCommand,
-  ModuleReferenceCommand,
-  ClassTypeCommand,
-  ObjectReferenceCommand,
-  EventRequestCommand,
-  EventType,
-  SuspendPolicy,
-  StepKind,
-  ThreadState,
-  JDWPError,
-  getErrorMessage,
-  getThreadStateString,
-} from "./protocol.js";
+// Re-export protocol types, constants, and utils
+export * from "./protocol/index.js";
 
 // Re-export client
 export { JDWPClient } from "./client.js";

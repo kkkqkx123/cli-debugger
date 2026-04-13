@@ -7,7 +7,7 @@ import {
   REPLY_FLAG,
   type ReplyPacket,
   getErrorMessage,
-} from "./protocol.js";
+} from "./protocol/index.js";
 
 // Packet ID counter (global)
 let packetIdCounter = 1;

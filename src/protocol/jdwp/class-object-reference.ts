@@ -6,7 +6,7 @@ import {
   CommandSet,
   ClassObjectReferenceCommand,
   type IDSizes,
-} from "./protocol.js";
+} from "./protocol/index.js";
 import {
   createCommandPacketWithData,
   encodeID,

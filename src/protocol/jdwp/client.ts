@@ -23,7 +23,7 @@ import {
   SuspendPolicy,
   StepKind,
   EventType,
-} from "./protocol.js";
+} from "./protocol/index.js";
 import * as vm from "./vm.js";
 import * as referenceType from "./reference-type.js";
 import * as method from "./method.js";

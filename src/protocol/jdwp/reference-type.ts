@@ -8,7 +8,7 @@ import {
   type IDSizes,
   type FieldInfo,
   type MethodInfo,
-} from "./protocol.js";
+} from "./protocol/index.js";
 import {
   createCommandPacketWithData,
   encodeID,

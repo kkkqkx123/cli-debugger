@@ -7,7 +7,7 @@ import {
   ObjectReferenceCommand,
   type IDSizes,
   type MonitorInfo,
-} from "./protocol.js";
+} from "./protocol/index.js";
 import {
   createCommandPacketWithData,
   encodeID,

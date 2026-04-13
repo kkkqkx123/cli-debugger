@@ -8,7 +8,7 @@ import {
   type IDSizes,
   type StackFrameInfo,
   getThreadStateString,
-} from "./protocol.js";
+} from "./protocol/index.js";
 import {
   createCommandPacketWithData,
   encodeID,

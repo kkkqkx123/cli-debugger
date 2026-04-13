@@ -8,7 +8,7 @@ import {
   EventType,
   SuspendPolicy,
   type IDSizes,
-} from "./protocol.js";
+} from "./protocol/index.js";
 import {
   createCommandPacket,
   createCommandPacketWithData,

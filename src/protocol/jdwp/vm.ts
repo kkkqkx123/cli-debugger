@@ -10,7 +10,7 @@ import {
   type VMCapabilitiesInfo,
   type ClassPathsInfo,
   type ClassDef,
-} from "./protocol.js";
+} from "./protocol/index.js";
 import {
   createCommandPacket,
   createCommandPacketWithData,

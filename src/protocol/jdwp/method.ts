@@ -8,7 +8,7 @@ import {
   type IDSizes,
   type LineLocation,
   type VariableInfo,
-} from "./protocol.js";
+} from "./protocol/index.js";
 import { createCommandPacketWithData, encodeID } from "./codec.js";
 import { PacketReader } from "./reader.js";
 import { APIError, ErrorType, ErrorCodes } from "../errors.js";
