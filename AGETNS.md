@@ -181,24 +181,18 @@ Formatters are created through factory functions and support text, JSON, and tab
 
 ## Key Commands and Usage
 
-### Build
+### check
 
 ```powershell
-npm run build
-```
-
-### Development
-
-```powershell
-npm run dev
+npm run typecheck
 ```
 
 ### Lint & Test
 
 ```powershell
 npm run lint
-npm run test
-npm run test:coverage
+npm test
+npm test -- <path>
 ```
 
 ### Basic Usage

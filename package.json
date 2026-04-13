@@ -45,16 +45,19 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "ws": "^8.20.0",
     "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/iarna__toml": "^2.0.5",
-    "@types/node": "^25.2.1",
+    "@types/node": "^25.6.0",
+    "@types/ws": "^8.5.10",
     "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "^10.0.0",
-    "prettier": "^3.8.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.18"
+    "eslint": "^10.2.0",
+    "prettier": "^3.8.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   },
   "files": [
     "dist",

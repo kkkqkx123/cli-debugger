@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import { ConfigLoader } from "../loader.js";
+import type { PathLike } from "node:fs";
 
 vi.mock("node:fs/promises");
 vi.mock("../../paths.js", () => ({
@@ -121,7 +122,7 @@ interval = 2000
 timeout = 120000
 `;
       vi.mocked(fs.readFile).mockImplementation(
-        async (filePath: fs.PathLike) => {
+        async (filePath: PathLike | fs.FileHandle) => {
           const filePathStr = filePath.toString();
           if (filePathStr.includes("config.toml")) {
             return tomlContent;
@@ -161,7 +162,7 @@ format = "table"
 color = true
 `;
       vi.mocked(fs.readFile).mockImplementation(
-        async (filePath: fs.PathLike) => {
+        async (filePath: PathLike | fs.FileHandle) => {
           const filePathStr = filePath.toString();
           if (filePathStr.endsWith(".debugger.toml")) {
             return tomlContent;
@@ -190,12 +191,15 @@ color = true
   describe("config priority", () => {
     it("should prioritize CLI options over environment variables", async () => {
       vi.mocked(fs.readFile).mockRejectedValue(new Error("File not found"));
-      process.env.DEBUGGER_HOST = "env.example.com";
+      process.env["DEBUGGER_HOST"] = "env.example.com";
 
       const result = await loader.load({
         cliOptions: {
           connection: {
+            protocol: "jdwp",
             host: "cli.example.com",
+            port: 5005,
+            timeout: 30000,
           },
         },
       });
@@ -205,7 +209,7 @@ color = true
 
     it("should prioritize environment variables over defaults", async () => {
       vi.mocked(fs.readFile).mockRejectedValue(new Error("File not found"));
-      process.env.DEBUGGER_PROTOCOL = "custom-protocol";
+      process.env["DEBUGGER_PROTOCOL"] = "custom-protocol";
 
       const result = await loader.load();
 

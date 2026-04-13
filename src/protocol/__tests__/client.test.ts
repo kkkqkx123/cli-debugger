@@ -172,6 +172,8 @@ describe("Client Factory", () => {
     registerProtocol("mock", (config) => new MockProtocol(config));
     const client = createClientWithoutConnect({
       protocol: "mock",
+      host: "127.0.0.1",
+      port: 5005,
       timeout: 5000,
     });
     expect(client).toBeDefined();

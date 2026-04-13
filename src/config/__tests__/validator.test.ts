@@ -154,7 +154,7 @@ describe("validator", () => {
 
       const result = validateGlobalConfig(config);
       expect(result.profiles).toHaveLength(1);
-      expect(result.profiles[0].name).toBe("dev");
+      expect(result.profiles?.[0]?.name).toBe("dev");
     });
 
     it("should throw APIError for invalid global configuration", () => {

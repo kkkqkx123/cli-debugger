@@ -10,7 +10,7 @@ import type { ThreadInfo, StackFrame, VersionInfo } from "../../types/index.js";
 class MockWritable extends Writable {
   public output: string = "";
 
-  _write(chunk: Buffer, encoding: string, callback: () => void): void {
+  override _write(chunk: Buffer, _encoding: BufferEncoding, callback: () => void): void {
     this.output += chunk.toString();
     callback();
   }
@@ -24,18 +24,20 @@ describe("Output Formatters", () => {
   const mockWriter = new MockWritable();
 
   const mockThreads: ThreadInfo[] = [
-    { id: 1, name: "main", state: "RUNNABLE", isSuspended: false, priority: 5 },
-    { id: 2, name: "worker", state: "WAITING", isSuspended: true, priority: 5 },
+    { id: "1", name: "main", state: "RUNNABLE", status: "RUNNABLE", isSuspended: false, isDaemon: false, priority: 5, createdAt: new Date() },
+    { id: "2", name: "worker", state: "WAITING", status: "WAITING", isSuspended: true, isDaemon: false, priority: 5, createdAt: new Date() },
   ];
 
   const mockFrames: StackFrame[] = [
     {
+      id: "1",
       method: "main",
       location: "Main.java",
       line: 10,
       isNative: false,
     },
     {
+      id: "2",
       method: "run",
       location: "Worker.java",
       line: 25,
