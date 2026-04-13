@@ -85,6 +85,9 @@ class MockProtocol implements DebugProtocol {
   async fields() {
     return [];
   }
+  async setField() {
+    // Mock implementation - do nothing
+  }
   async waitForEvent() {
     return null;
   }

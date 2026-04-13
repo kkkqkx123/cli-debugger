@@ -27,6 +27,7 @@ export const ErrorCodes = {
   InvalidThreadId: 3004,
   InvalidBreakpointId: 3005,
   InvalidObjectId: 3006,
+  ThreadNotSuspended: 3007,
 
   // Protocol errors (4xxx)
   ProtocolError: 4001,

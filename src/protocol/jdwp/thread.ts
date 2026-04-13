@@ -194,7 +194,7 @@ export async function getThreadFrames(
     frames.push({
       frameID,
       location: classID,
-      method: `method_${methodID}`,
+      method: methodID,
     });
   }
 

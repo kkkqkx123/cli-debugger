@@ -41,7 +41,21 @@ export interface DebugProtocol {
   stepOut(threadId: string): Promise<void>;
 
   // Breakpoint management
-  setBreakpoint(location: string, condition?: string): Promise<string>;
+  setBreakpoint(
+    location: string,
+    condition?: string,
+    type?:
+      | 'line'
+      | 'method-entry'
+      | 'method-exit'
+      | 'exception'
+      | 'field-access'
+      | 'field-modify'
+      | 'class-load'
+      | 'class-unload'
+      | 'thread-start'
+      | 'thread-death',
+  ): Promise<string>;
   removeBreakpoint(id: string): Promise<void>;
   clearBreakpoints(): Promise<void>;
   breakpoints(): Promise<BreakpointInfo[]>;
@@ -49,6 +63,7 @@ export interface DebugProtocol {
   // Variable inspection
   locals(threadId: string, frameIndex: number): Promise<Variable[]>;
   fields(objectId: string): Promise<Variable[]>;
+  setField(objectId: string, fieldId: string, value: unknown): Promise<void>;
 
   // Event handling
   waitForEvent(timeout?: number): Promise<DebugEvent | null>;

@@ -13,6 +13,7 @@ import {
   createCommandPacketWithData,
   encodeID,
   encodeUint32,
+  encodeValue,
 } from "./codec.js";
 import { PacketReader } from "./reader.js";
 import { APIError, ErrorType, ErrorCodes } from "../errors.js";
@@ -252,6 +253,40 @@ export async function getValuesWithTags(
   }
 
   return { tags, values };
+}
+
+/**
+ * Set static field value
+ */
+export async function setStaticFieldValue(
+  executor: JDWPCommandExecutor,
+  refTypeID: string,
+  fieldID: string,
+  value: unknown,
+): Promise<void> {
+  const parts: Buffer[] = [
+    encodeID(refTypeID, executor.idSizes.referenceTypeIDSize),
+    encodeUint32(1),
+    encodeID(fieldID, executor.idSizes.fieldIDSize),
+    encodeValue(value, executor.idSizes.objectIDSize),
+  ];
+
+  const data = Buffer.concat(parts);
+  const packet = createCommandPacketWithData(
+    CommandSet.ReferenceType,
+    ReferenceTypeCommand.SetValues,
+    data,
+  );
+  await executor.sendPacket(packet);
+
+  const reply = await executor.readReply();
+  if (reply.errorCode !== 0) {
+    throw new APIError(
+      ErrorType.ProtocolError,
+      ErrorCodes.ProtocolError,
+      `Set static field value failed: ${reply.message}`,
+    );
+  }
 }
 
 /**

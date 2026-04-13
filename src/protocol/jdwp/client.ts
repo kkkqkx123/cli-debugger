@@ -22,12 +22,14 @@ import {
   type InternalBreakpointInfo,
   SuspendPolicy,
   StepKind,
+  EventType,
 } from "./protocol.js";
 import * as vm from "./vm.js";
 import * as referenceType from "./reference-type.js";
 import * as method from "./method.js";
 import * as thread from "./thread.js";
 import * as stackFrame from "./stack-frame.js";
+import * as objectReference from "./object-reference.js";
 import * as event from "./event.js";
 
 /**
@@ -186,9 +188,19 @@ export class JDWPClient implements DebugProtocol {
   }
 
   async stack(threadId: string): Promise<StackFrame[]> {
-    return this.executeCommand((executor) =>
-      thread.getThreadStack(executor, threadId),
-    );
+    return this.executeCommand(async (executor) => {
+      // Check if thread is suspended before getting stack
+      const { suspendStatus } = await thread.getThreadStatus(executor, threadId);
+      if (suspendStatus === 0) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ThreadNotSuspended,
+          `Thread ${threadId} is not suspended. Use 'suspend' command first.`,
+        );
+      }
+
+      return thread.getThreadStack(executor, threadId);
+    });
   }
 
   async threadState(threadId: string): Promise<string> {
@@ -231,7 +243,7 @@ export class JDWPClient implements DebugProtocol {
       await vm.resumeVM(executor);
 
       // Wait for step event
-      await this.waitForEventInternal(executor, 30000);
+      await this.waitForEventInternal(executor, this.config.timeout);
 
       // Clear event request
       await event.clearBreakpointRequest(executor, requestID);
@@ -250,7 +262,7 @@ export class JDWPClient implements DebugProtocol {
       await vm.resumeVM(executor);
 
       // Wait for step event
-      await this.waitForEventInternal(executor, 30000);
+      await this.waitForEventInternal(executor, this.config.timeout);
 
       // Clear event request
       await event.clearBreakpointRequest(executor, requestID);
@@ -269,7 +281,7 @@ export class JDWPClient implements DebugProtocol {
       await vm.resumeVM(executor);
 
       // Wait for step event
-      await this.waitForEventInternal(executor, 30000);
+      await this.waitForEventInternal(executor, this.config.timeout);
 
       // Clear event request
       await event.clearBreakpointRequest(executor, requestID);
@@ -278,7 +290,43 @@ export class JDWPClient implements DebugProtocol {
 
   // ==================== Breakpoint Management ====================
 
-  async setBreakpoint(location: string): Promise<string> {
+  async setBreakpoint(
+    location: string,
+    condition?: string,
+    type?: 'line' | 'method-entry' | 'method-exit' | 'exception' | 'field-access' | 'field-modify' | 'class-load' | 'class-unload' | 'thread-start' | 'thread-death',
+  ): Promise<string> {
+    const breakpointType = type ?? 'line';
+
+    // Handle method entry/exit breakpoints
+    if (breakpointType === 'method-entry' || breakpointType === 'method-exit') {
+      return this.setMethodBreakpoint(location, breakpointType, condition);
+    }
+
+    // Handle exception breakpoints
+    if (breakpointType === 'exception') {
+      return this.setExceptionBreakpoint(location, condition);
+    }
+
+    // Handle field breakpoints
+    if (breakpointType === 'field-access' || breakpointType === 'field-modify') {
+      return this.setFieldBreakpoint(location, breakpointType);
+    }
+
+    // Handle class load/unload breakpoints
+    if (breakpointType === 'class-load' || breakpointType === 'class-unload') {
+      return this.setClassBreakpoint(location, breakpointType);
+    }
+
+    // Handle thread start/death breakpoints
+    if (breakpointType === 'thread-start' || breakpointType === 'thread-death') {
+      return this.setThreadBreakpoint(location, breakpointType);
+    }
+
+    // Handle line breakpoints (existing logic)
+    return this.setLineBreakpoint(location, condition);
+  }
+
+  private async setLineBreakpoint(location: string, _condition?: string): Promise<string> {
     return this.executeCommand(async (executor) => {
       const { className, methodName, lineNumber } = this.parseLocation(location);
 
@@ -344,6 +392,214 @@ export class JDWPClient implements DebugProtocol {
     });
   }
 
+  private async setMethodBreakpoint(location: string, type: 'method-entry' | 'method-exit', _condition?: string): Promise<string> {
+    return this.executeCommand(async (executor) => {
+      const { className, methodName } = this.parseMethodLocation(location);
+
+      // Find class
+      const classInfo = await vm.classByName(executor, className);
+      if (!classInfo) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          `Class not found: ${className}`,
+        );
+      }
+
+      // Get methods
+      const methods = await referenceType.getMethods(executor, classInfo.refID);
+      const targetMethod = methods.find((m) => m.name === methodName);
+      if (!targetMethod) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          `Method not found: ${methodName}`,
+        );
+      }
+
+      // Set method entry/exit request
+      const eventType = type === 'method-entry' ? EventType.MethodEntry : EventType.MethodExit;
+      const requestID = await event.setMethodRequest(
+        executor,
+        eventType,
+        classInfo.refID,
+        targetMethod.methodID,
+        SuspendPolicy.EventThread,
+      );
+
+      // Generate breakpoint ID
+      const bpID = `bp_${this.breakpointMap.size + 1}`;
+      this.breakpointMap.set(bpID, {
+        id: bpID,
+        requestID,
+        location,
+        enabled: true,
+        hitCount: 0,
+      });
+
+      return bpID;
+    });
+  }
+
+  private async setExceptionBreakpoint(
+    exceptionClassName: string,
+    _condition?: string,
+  ): Promise<string> {
+    return this.executeCommand(async (executor) => {
+      // Handle '*' as all exceptions (null referenceTypeID)
+      let exceptionRefTypeID: string | null = null;
+
+      if (exceptionClassName !== '*') {
+        // Find exception class by name
+        const classInfo = await vm.classByName(executor, exceptionClassName);
+        if (!classInfo) {
+          throw new APIError(
+            ErrorType.CommandError,
+            ErrorCodes.ResourceNotFound,
+            `Exception class not found: ${exceptionClassName}`,
+          );
+        }
+        exceptionRefTypeID = classInfo.refID;
+      }
+
+      // Set exception request (caught and uncaught)
+      const requestID = await event.setExceptionRequest(
+        executor,
+        exceptionRefTypeID,
+        true,  // caught
+        true,  // uncaught
+        SuspendPolicy.All,
+      );
+
+      const bpID = `bp_${this.breakpointMap.size + 1}`;
+      this.breakpointMap.set(bpID, {
+        id: bpID,
+        requestID,
+        location: exceptionClassName,
+        enabled: true,
+        hitCount: 0,
+      });
+
+      return bpID;
+    });
+  }
+
+  private async setFieldBreakpoint(
+    fieldLocation: string,
+    type: 'field-access' | 'field-modify',
+  ): Promise<string> {
+    return this.executeCommand(async (executor) => {
+      // Parse field location format: "ClassName.fieldName"
+      const lastDot = fieldLocation.lastIndexOf('.');
+      if (lastDot === -1) {
+        throw new APIError(
+          ErrorType.InputError,
+          ErrorCodes.InvalidInput,
+          `Invalid field location format: ${fieldLocation}. Expected: ClassName.fieldName`,
+        );
+      }
+
+      const className = fieldLocation.substring(0, lastDot);
+      const fieldName = fieldLocation.substring(lastDot + 1);
+
+      // Find class
+      const classInfo = await vm.classByName(executor, className);
+      if (!classInfo) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          `Class not found: ${className}`,
+        );
+      }
+
+      // Get fields
+      const fields = await referenceType.getFields(executor, classInfo.refID);
+      const targetField = fields.find((f) => f.name === fieldName);
+      if (!targetField) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          `Field not found: ${fieldName}`,
+        );
+      }
+
+      // Set field request
+      const eventType = type === 'field-access' ? EventType.FieldAccess : EventType.FieldModification;
+      const requestID = await event.setFieldRequest(
+        executor,
+        eventType,
+        classInfo.refID,
+        targetField.fieldID,
+        SuspendPolicy.EventThread,
+      );
+
+      const bpID = `bp_${this.breakpointMap.size + 1}`;
+      this.breakpointMap.set(bpID, {
+        id: bpID,
+        requestID,
+        location: fieldLocation,
+        enabled: true,
+        hitCount: 0,
+      });
+
+      return bpID;
+    });
+  }
+
+  private async setClassBreakpoint(
+    classPattern: string,
+    type: 'class-load' | 'class-unload',
+  ): Promise<string> {
+    return this.executeCommand(async (executor) => {
+      // Set class request
+      const eventType = type === 'class-load' ? EventType.ClassLoad : EventType.ClassUnload;
+      const requestID = await event.setClassRequest(
+        executor,
+        eventType,
+        classPattern,
+        SuspendPolicy.EventThread,
+      );
+
+      const bpID = `bp_${this.breakpointMap.size + 1}`;
+      this.breakpointMap.set(bpID, {
+        id: bpID,
+        requestID,
+        location: classPattern,
+        enabled: true,
+        hitCount: 0,
+      });
+
+      return bpID;
+    });
+  }
+
+  private async setThreadBreakpoint(
+    threadID: string,
+    type: 'thread-start' | 'thread-death',
+  ): Promise<string> {
+    return this.executeCommand(async (executor) => {
+      // Set thread request
+      const eventType = type === 'thread-start' ? EventType.ThreadStart : EventType.ThreadDeath;
+      const requestID = await event.setThreadRequest(
+        executor,
+        eventType,
+        threadID,
+        SuspendPolicy.EventThread,
+      );
+
+      const bpID = `bp_${this.breakpointMap.size + 1}`;
+      this.breakpointMap.set(bpID, {
+        id: bpID,
+        requestID,
+        location: threadID,
+        enabled: true,
+        hitCount: 0,
+      });
+
+      return bpID;
+    });
+  }
+
   async removeBreakpoint(id: string): Promise<void> {
     const bp = this.breakpointMap.get(id);
     if (!bp) {
@@ -377,6 +633,16 @@ export class JDWPClient implements DebugProtocol {
 
   async locals(threadId: string, frameIndex: number): Promise<Variable[]> {
     return this.executeCommand(async (executor) => {
+      // Check if thread is suspended before getting locals
+      const { suspendStatus } = await thread.getThreadStatus(executor, threadId);
+      if (suspendStatus === 0) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ThreadNotSuspended,
+          `Thread ${threadId} is not suspended. Use 'suspend' command first.`,
+        );
+      }
+
       // Get frame count
       const frameCount = await thread.getThreadFrameCount(executor, threadId);
       if (frameIndex >= frameCount) {
@@ -398,17 +664,53 @@ export class JDWPClient implements DebugProtocol {
         return [];
       }
 
-      // Get frame values (simplified - would need variable table for proper names)
       const firstFrame = frames[0];
       if (!firstFrame) {
         return [];
       }
-      return stackFrame.getStackFrameValues(
+
+      // Get variable table from method to get proper variable names
+      const varTable = await method.getVariableTable(
+        executor,
+        firstFrame.location,
+        firstFrame.method,
+      );
+
+      // Get frame values
+      const slotCount = varTable.length > 0 ? varTable.length : 10;
+      const rawVars = await stackFrame.getStackFrameValues(
         executor,
         threadId,
         firstFrame.frameID,
-        10, // Assume max 10 local variables
+        slotCount,
       );
+
+      // Map slot index to variable name from variable table
+      const varMap = new Map<number, Variable>();
+      for (const varInfo of varTable) {
+        const rawVar = rawVars[varInfo.slot];
+        if (rawVar) {
+          varMap.set(varInfo.slot, {
+            name: varInfo.name,
+            type: varInfo.signature,
+            value: rawVar.value,
+            isPrimitive: rawVar.isPrimitive,
+            isNull: rawVar.isNull,
+          });
+        }
+      }
+
+      // Include any variables not in the variable table (e.g., compiler-generated)
+      for (let i = 0; i < rawVars.length; i++) {
+        if (!varMap.has(i)) {
+          const rawVar = rawVars[i];
+          if (rawVar) {
+            varMap.set(i, rawVar);
+          }
+        }
+      }
+
+      return Array.from(varMap.values());
     });
   }
 
@@ -461,11 +763,73 @@ export class JDWPClient implements DebugProtocol {
     });
   }
 
+  async setField(objectId: string, fieldId: string, value: unknown): Promise<void> {
+    return this.executeCommand(async (executor) => {
+      // Parse object ID (format: "tag:id")
+      const parts = objectId.split(":");
+      if (parts.length !== 2) {
+        throw new APIError(
+          ErrorType.InputError,
+          ErrorCodes.InvalidObjectId,
+          `Invalid object ID: ${objectId}`,
+        );
+      }
+
+      const objectID = parts[1];
+      if (!objectID) {
+        throw new APIError(
+          ErrorType.InputError,
+          ErrorCodes.InvalidInput,
+          `Invalid object ID: ${objectId}`,
+        );
+      }
+
+      // Get object reference type to determine if static field
+      const { refTypeID } = await objectReference.getReferenceType(
+        executor,
+        objectID,
+      );
+
+      // Check if field is static by getting field info
+      const fields = await referenceType.getFields(executor, refTypeID);
+      const targetField = fields.find((f) => f.fieldID === fieldId);
+      
+      if (!targetField) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          `Field not found: ${fieldId}`,
+        );
+      }
+
+      // Check if field is static (modifier bit 0x0008)
+      const isStatic = (targetField.modifiers & 0x0008) !== 0;
+
+      if (isStatic) {
+        // For static fields, use ReferenceType.SetValues
+        await referenceType.setStaticFieldValue(
+          executor,
+          refTypeID,
+          fieldId,
+          value,
+        );
+      } else {
+        // For instance fields, use ObjectReference.SetValues
+        await objectReference.setInstanceFieldValue(
+          executor,
+          objectID,
+          fieldId,
+          value,
+        );
+      }
+    });
+  }
+
   // ==================== Event Handling ====================
 
   async waitForEvent(timeout?: number): Promise<DebugEvent | null> {
     return this.executeCommand((executor) =>
-      this.waitForEventInternal(executor, timeout ?? 30000),
+      this.waitForEventInternal(executor, timeout ?? this.config.timeout),
     );
   }
 
@@ -668,6 +1032,35 @@ export class JDWPClient implements DebugProtocol {
     }
 
     return { className, methodName, lineNumber };
+  }
+
+  private parseMethodLocation(location: string): {
+    className: string;
+    methodName: string;
+  } {
+    // Parse location format: "ClassName.methodName" for method breakpoints
+    const lastDot = location.lastIndexOf(".");
+
+    if (lastDot === -1) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Invalid method location format: ${location}. Expected: ClassName.methodName`,
+      );
+    }
+
+    const className = location.substring(0, lastDot);
+    const methodName = location.substring(lastDot + 1);
+
+    if (!methodName || methodName.includes(":")) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Invalid method name in: ${location}`,
+      );
+    }
+
+    return { className, methodName };
   }
 
   private getThreadStateString(state: number): string {

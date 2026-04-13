@@ -139,6 +139,20 @@ export async function setInstanceFieldValues(
 }
 
 /**
+ * Set single instance field value
+ */
+export async function setInstanceFieldValue(
+  executor: JDWPCommandExecutor,
+  objectID: string,
+  fieldID: string,
+  value: unknown,
+): Promise<void> {
+  const fieldValues = new Map<string, unknown>();
+  fieldValues.set(fieldID, value);
+  return setInstanceFieldValues(executor, objectID, fieldValues);
+}
+
+/**
  * Get object monitor info
  */
 export async function getMonitorInfo(

@@ -69,6 +69,7 @@ export const ReferenceTypeCommand = {
   Instances: 16,
   ClassFileVersion: 17,
   ConstantPool: 18,
+  SetValues: 19,
 } as const;
 
 // Method Commands
@@ -141,6 +142,8 @@ export const EventType = {
   VMStart: 13,
   VMDeath: 14,
   VMDisconnected: 15,
+  MethodEntry: 40,
+  MethodExit: 41,
 } as const;
 
 // Suspend Policy
