@@ -214,8 +214,27 @@ async function waitForDebugReady(
  */
 export async function terminateJava(jvm: LaunchedJVM): Promise<void> {
   return new Promise((resolve) => {
-    jvm.process.on("close", resolve);
-    jvm.process.kill("SIGTERM");
+    // Check if process is already dead
+    const onClose = () => {
+      resolve();
+    };
+
+    const onError = () => {
+      // Process might already be dead, just resolve
+      resolve();
+    };
+
+    jvm.process.on("close", onClose);
+    jvm.process.on("error", onError);
+
+    // Try to kill gracefully
+    try {
+      jvm.process.kill("SIGTERM");
+    } catch {
+      // Process might already be dead
+      resolve();
+      return;
+    }
 
     // Force kill after timeout
     setTimeout(() => {
@@ -224,7 +243,9 @@ export async function terminateJava(jvm: LaunchedJVM): Promise<void> {
       } catch {
         // Ignore
       }
-    }, 5000);
+      // Resolve anyway after force kill attempt
+      resolve();
+    }, 3000);
   });
 }
 

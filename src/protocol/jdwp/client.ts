@@ -127,10 +127,23 @@ export class JDWPClient implements DebugProtocol {
     }
 
     const socket = this.socket;
+    this.connected = false;
+    this.socket = null;
+
     return new Promise((resolve) => {
+      const timeoutId = setTimeout(() => {
+        // Force destroy if timeout
+        socket.destroy();
+        resolve();
+      }, 3000);
+
       socket.end(() => {
-        this.connected = false;
-        this.socket = null;
+        clearTimeout(timeoutId);
+        resolve();
+      });
+
+      socket.on("error", () => {
+        clearTimeout(timeoutId);
         resolve();
       });
     });
@@ -160,10 +173,19 @@ export class JDWPClient implements DebugProtocol {
 
   // ==================== Thread Management ====================
 
-  async threads(): Promise<ThreadInfo[]> {
+  /**
+   * Get all threads
+   * @param options.keepSuspended - If true, keep VM suspended after getting threads (default: false)
+   * @param options.autoSuspend - If true, automatically suspend VM before getting threads (default: true)
+   */
+  async threads(options?: { keepSuspended?: boolean; autoSuspend?: boolean }): Promise<ThreadInfo[]> {
+    const keepSuspended = options?.keepSuspended ?? false;
+    const autoSuspend = options?.autoSuspend ?? true;
     return this.executeCommand(async (executor) => {
-      // Suspend VM to get consistent thread info
-      await vm.suspendVM(executor);
+      // Suspend VM to get consistent thread info (if autoSuspend is true)
+      if (autoSuspend) {
+        await vm.suspendVM(executor);
+      }
 
       try {
         const threadIDs = await vm.getAllThreads(executor);
@@ -190,25 +212,46 @@ export class JDWPClient implements DebugProtocol {
 
         return threads;
       } finally {
-        // Resume VM
-        await vm.resumeVM(executor);
+        // Resume VM only if we auto-suspended and not keeping suspended
+        if (autoSuspend && !keepSuspended) {
+          await vm.resumeVM(executor);
+        }
       }
     });
   }
 
-  async stack(threadId: string): Promise<StackFrame[]> {
+  /**
+   * Get stack frames for a thread
+   * @param threadId - Thread ID
+   * @param options.autoSuspend - If true, automatically suspend thread if not suspended (default: false)
+   */
+  async stack(threadId: string, options?: { autoSuspend?: boolean }): Promise<StackFrame[]> {
+    const autoSuspend = options?.autoSuspend ?? false;
     return this.executeCommand(async (executor) => {
       // Check if thread is suspended before getting stack
       const { suspendStatus } = await thread.getThreadStatus(executor, threadId);
-      if (suspendStatus === 0) {
-        throw new APIError(
-          ErrorType.CommandError,
-          ErrorCodes.ThreadNotSuspended,
-          `Thread ${threadId} is not suspended. Use 'suspend' command first.`,
-        );
+      const wasSuspended = suspendStatus > 0;
+
+      if (!wasSuspended) {
+        if (autoSuspend) {
+          await thread.suspendThread(executor, threadId);
+        } else {
+          throw new APIError(
+            ErrorType.CommandError,
+            ErrorCodes.ThreadNotSuspended,
+            `Thread ${threadId} is not suspended. Use 'suspend' command first or set autoSuspend option.`,
+          );
+        }
       }
 
-      return thread.getThreadStack(executor, threadId);
+      try {
+        return thread.getThreadStack(executor, threadId);
+      } finally {
+        // Resume thread if we auto-suspended it
+        if (!wasSuspended && autoSuspend) {
+          await thread.resumeThread(executor, threadId);
+        }
+      }
     });
   }
 
