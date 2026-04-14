@@ -14,12 +14,14 @@ import type { LaunchedJVM } from "../fixtures/launch.js";
 import type { DebugConfig } from "../../../src/types/config.js";
 
 describe("Step Operations E2E", () => {
-  let javaAvailable = false;
   let jvm: LaunchedJVM | null = null;
   let client: JDWPClient | null = null;
 
   beforeAll(async () => {
-    javaAvailable = await checkJavaAvailable();
+    const javaAvailable = await checkJavaAvailable();
+    if (!javaAvailable) {
+      console.log("Java is not available, skipping E2E tests");
+    }
   });
 
   afterAll(async () => {
@@ -40,7 +42,7 @@ describe("Step Operations E2E", () => {
   });
 
   describe("thread_suspension", () => {
-    it.skipIf(!javaAvailable)("should suspend and resume thread", async () => {
+    it("should suspend and resume thread", async () => {
       jvm = await launchSimpleProgram({ suspend: true });
 
       const config: DebugConfig = {
@@ -81,7 +83,7 @@ describe("Step Operations E2E", () => {
   });
 
   describe("stack_inspection", () => {
-    it.skipIf(!javaAvailable)("should get stack trace", async () => {
+    it("should get stack trace", async () => {
       jvm = await launchSimpleProgram({ suspend: true });
 
       const config: DebugConfig = {
@@ -94,10 +96,13 @@ describe("Step Operations E2E", () => {
       client = new JDWPClient(config);
       await client.connect();
 
-      // Get threads
+      // Get threads (this will suspend and resume VM)
       const threads = await client.threads();
       const mainThread = threads.find((t) => t.name === "main");
       expect(mainThread).toBeDefined();
+
+      // Suspend VM to get consistent state for stack inspection
+      await client.suspend();
 
       // Get stack
       const stack = await client.stack(mainThread!.id);
@@ -115,7 +120,7 @@ describe("Step Operations E2E", () => {
   });
 
   describe("variable_inspection", () => {
-    it.skipIf(!javaAvailable)("should inspect local variables", async () => {
+    it("should inspect local variables", async () => {
       jvm = await launchSimpleProgram({ suspend: true });
 
       const config: DebugConfig = {
@@ -132,6 +137,9 @@ describe("Step Operations E2E", () => {
       const threads = await client.threads();
       const mainThread = threads.find((t) => t.name === "main");
       expect(mainThread).toBeDefined();
+
+      // Suspend VM for stack inspection
+      await client.suspend();
 
       // Get stack
       const stack = await client.stack(mainThread!.id);

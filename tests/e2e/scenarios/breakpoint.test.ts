@@ -14,12 +14,14 @@ import type { LaunchedJVM } from "../fixtures/launch.js";
 import type { DebugConfig } from "../../../src/types/config.js";
 
 describe("Breakpoint E2E", () => {
-  let javaAvailable = false;
   let jvm: LaunchedJVM | null = null;
   let client: JDWPClient | null = null;
 
   beforeAll(async () => {
-    javaAvailable = await checkJavaAvailable();
+    const javaAvailable = await checkJavaAvailable();
+    if (!javaAvailable) {
+      console.log("Java is not available, skipping E2E tests");
+    }
   });
 
   afterAll(async () => {
@@ -40,7 +42,7 @@ describe("Breakpoint E2E", () => {
   });
 
   describe("breakpoint_management", () => {
-    it.skipIf(!javaAvailable)("should clear all breakpoints", async () => {
+    it("should clear all breakpoints", async () => {
       jvm = await launchBreakpointTest({ suspend: true });
 
       const config: DebugConfig = {
@@ -63,7 +65,7 @@ describe("Breakpoint E2E", () => {
       await client.resume();
     });
 
-    it.skipIf(!javaAvailable)("should list breakpoints", async () => {
+    it("should list breakpoints", async () => {
       jvm = await launchBreakpointTest({ suspend: true });
 
       const config: DebugConfig = {
@@ -86,7 +88,7 @@ describe("Breakpoint E2E", () => {
   });
 
   describe("breakpoint_workflow", () => {
-    it.skipIf(!javaAvailable)("should handle breakpoint operations", async () => {
+    it("should handle breakpoint operations", async () => {
       jvm = await launchBreakpointTest({ suspend: true });
 
       const config: DebugConfig = {

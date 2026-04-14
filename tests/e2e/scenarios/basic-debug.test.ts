@@ -3,7 +3,7 @@
  * Tests basic debugging scenarios with real JVM
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { JDWPClient } from "../../../src/protocol/jdwp/client.js";
 import {
   checkJavaAvailable,
@@ -14,23 +14,19 @@ import type { LaunchedJVM } from "../fixtures/launch.js";
 import type { DebugConfig } from "../../../src/types/config.js";
 
 describe("Basic Debug E2E", () => {
-  let javaAvailable = false;
   let jvm: LaunchedJVM | null = null;
   let client: JDWPClient | null = null;
 
   beforeAll(async () => {
-    javaAvailable = await checkJavaAvailable();
+    const javaAvailable = await checkJavaAvailable();
+    if (!javaAvailable) {
+      console.log("Java is not available, skipping E2E tests");
+    }
   });
 
   afterAll(async () => {
     if (jvm) {
       await terminateJava(jvm);
-    }
-  });
-
-  beforeEach(async () => {
-    if (!javaAvailable) {
-      return;
     }
   });
 
@@ -46,7 +42,7 @@ describe("Basic Debug E2E", () => {
   });
 
   describe("simple_java_program", () => {
-    it.skipIf(!javaAvailable)("should debug simple Java program", async () => {
+    it("should debug simple Java program", async () => {
       // Launch JVM
       jvm = await launchSimpleProgram({ suspend: true });
 
@@ -65,8 +61,8 @@ describe("Basic Debug E2E", () => {
       // Get version
       const version = await client.version();
       expect(version).toBeDefined();
-      expect(version.vmName).toBeDefined();
-      expect(version.vmVersion).toBeDefined();
+      expect(version.runtimeName).toBeDefined();
+      expect(version.runtimeVersion).toBeDefined();
 
       // Get capabilities
       const caps = await client.capabilities();
@@ -87,7 +83,7 @@ describe("Basic Debug E2E", () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     });
 
-    it.skipIf(!javaAvailable)("should get thread information", async () => {
+    it("should get thread information", async () => {
       jvm = await launchSimpleProgram({ suspend: true });
 
       const config: DebugConfig = {
@@ -115,7 +111,7 @@ describe("Basic Debug E2E", () => {
   });
 
   describe("connection_management", () => {
-    it.skipIf(!javaAvailable)("should connect and disconnect cleanly", async () => {
+    it("should connect and disconnect cleanly", async () => {
       jvm = await launchSimpleProgram({ suspend: true });
 
       const config: DebugConfig = {
@@ -144,7 +140,7 @@ describe("Basic Debug E2E", () => {
   });
 
   describe("metadata_queries", () => {
-    it.skipIf(!javaAvailable)("should query VM metadata", async () => {
+    it("should query VM metadata", async () => {
       jvm = await launchSimpleProgram({ suspend: true });
 
       const config: DebugConfig = {
@@ -160,8 +156,7 @@ describe("Basic Debug E2E", () => {
       // Version
       const version = await client.version();
       expect(version.description).toBeDefined();
-      expect(version.jdwpMajor).toBeDefined();
-      expect(version.jdwpMinor).toBeDefined();
+      expect(version.protocolVersion).toBeDefined();
 
       // Capabilities
       const caps = await client.capabilities();

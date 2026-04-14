@@ -14,12 +14,14 @@ import type { LaunchedJVM } from "../fixtures/launch.js";
 import type { DebugConfig } from "../../../src/types/config.js";
 
 describe("Variable Inspection E2E", () => {
-  let javaAvailable = false;
   let jvm: LaunchedJVM | null = null;
   let client: JDWPClient | null = null;
 
   beforeAll(async () => {
-    javaAvailable = await checkJavaAvailable();
+    const javaAvailable = await checkJavaAvailable();
+    if (!javaAvailable) {
+      console.log("Java is not available, skipping E2E tests");
+    }
   });
 
   afterAll(async () => {
@@ -40,7 +42,7 @@ describe("Variable Inspection E2E", () => {
   });
 
   describe("stack_frames", () => {
-    it.skipIf(!javaAvailable)("should get stack frames", async () => {
+    it("should get stack frames", async () => {
       jvm = await launchBreakpointTest({ suspend: true });
 
       const config: DebugConfig = {
@@ -58,6 +60,9 @@ describe("Variable Inspection E2E", () => {
       const mainThread = threads.find((t) => t.name === "main");
       expect(mainThread).toBeDefined();
 
+      // Suspend VM for stack inspection
+      await client.suspend();
+
       // Get stack
       const stack = await client.stack(mainThread!.id);
       expect(stack.length).toBeGreaterThan(0);
@@ -73,7 +78,7 @@ describe("Variable Inspection E2E", () => {
   });
 
   describe("local_variables", () => {
-    it.skipIf(!javaAvailable)("should inspect local variables", async () => {
+    it("should inspect local variables", async () => {
       jvm = await launchBreakpointTest({ suspend: true });
 
       const config: DebugConfig = {
@@ -117,7 +122,7 @@ describe("Variable Inspection E2E", () => {
   });
 
   describe("object_fields", () => {
-    it.skipIf(!javaAvailable)("should handle field inspection requests", async () => {
+    it("should handle field inspection requests", async () => {
       jvm = await launchBreakpointTest({ suspend: true });
 
       const config: DebugConfig = {
@@ -166,7 +171,7 @@ describe("Variable Inspection E2E", () => {
   });
 
   describe("thread_states", () => {
-    it.skipIf(!javaAvailable)("should get thread states", async () => {
+    it("should get thread states", async () => {
       jvm = await launchBreakpointTest({ suspend: true });
 
       const config: DebugConfig = {

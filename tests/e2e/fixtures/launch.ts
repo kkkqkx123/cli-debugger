@@ -164,29 +164,46 @@ async function waitForDebugReady(
   timeout: number = 10000,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    let resolved = false;
     const timeoutId = setTimeout(() => {
-      reject(new Error(`Timeout waiting for debug port ${port}`));
+      if (!resolved) {
+        reject(new Error(`Timeout waiting for debug port ${port}`));
+      }
     }, timeout);
 
-    proc.stderr?.on("data", (data) => {
+    const checkMessage = (data: Buffer) => {
+      if (resolved) return;
       const message = data.toString();
+      // Check for both exact match and just the port number
       if (
-        message.includes(`Listening for transport dt_socket at address: ${port}`)
+        message.includes(`Listening for transport dt_socket at address: ${port}`) ||
+        message.includes(`Listening for transport dt_socket at address: *:${port}`)
       ) {
+        resolved = true;
         clearTimeout(timeoutId);
         resolve();
       }
-    });
+    };
+
+    // Listen to both stdout and stderr (JDWP message can appear on either)
+    proc.stdout?.on("data", checkMessage);
+    proc.stderr?.on("data", checkMessage);
 
     proc.on("error", (err) => {
-      clearTimeout(timeoutId);
-      reject(err);
+      if (!resolved) {
+        clearTimeout(timeoutId);
+        reject(err);
+      }
     });
 
     proc.on("close", (code) => {
-      clearTimeout(timeoutId);
-      if (code !== 0) {
-        reject(new Error(`Process exited with code ${code}`));
+      if (!resolved) {
+        clearTimeout(timeoutId);
+        if (code !== 0) {
+          reject(new Error(`Process exited with code ${code}`));
+        } else {
+          resolve();
+        }
       }
     });
   });
@@ -218,9 +235,12 @@ export async function launchSimpleProgram(
   options: Partial<LaunchOptions> = {},
 ): Promise<LaunchedJVM> {
   await compileFixture("SimpleProgram");
+  // Use random port to avoid conflicts
+  const debugPort = options.debugPort ?? 5005 + Math.floor(Math.random() * 1000);
   return launchJava({
     mainClass: "SimpleProgram",
     ...options,
+    debugPort,
   });
 }
 
@@ -231,9 +251,11 @@ export async function launchMultiThreadProgram(
   options: Partial<LaunchOptions> = {},
 ): Promise<LaunchedJVM> {
   await compileFixture("MultiThreadProgram");
+  const debugPort = options.debugPort ?? 5005 + Math.floor(Math.random() * 1000);
   return launchJava({
     mainClass: "MultiThreadProgram",
     ...options,
+    debugPort,
   });
 }
 
@@ -244,9 +266,11 @@ export async function launchBreakpointTest(
   options: Partial<LaunchOptions> = {},
 ): Promise<LaunchedJVM> {
   await compileFixture("BreakpointTest");
+  const debugPort = options.debugPort ?? 5005 + Math.floor(Math.random() * 1000);
   return launchJava({
     mainClass: "BreakpointTest",
     ...options,
+    debugPort,
   });
 }
 
@@ -257,8 +281,10 @@ export async function launchExceptionTest(
   options: Partial<LaunchOptions> = {},
 ): Promise<LaunchedJVM> {
   await compileFixture("ExceptionTest");
+  const debugPort = options.debugPort ?? 5005 + Math.floor(Math.random() * 1000);
   return launchJava({
     mainClass: "ExceptionTest",
     ...options,
+    debugPort,
   });
 }

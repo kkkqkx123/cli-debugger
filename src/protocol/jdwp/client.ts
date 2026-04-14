@@ -918,32 +918,44 @@ export class JDWPClient implements DebugProtocol {
       const onData = (chunk: Buffer) => {
         this.packetBuffer = Buffer.concat([this.packetBuffer, chunk]);
 
-        // Check if we have enough data for length
-        if (this.packetBuffer.length < 4) {
-          return;
-        }
+        // Process all complete packets in buffer
+        while (this.packetBuffer.length >= 4) {
+          const length = this.packetBuffer.readUInt32BE(0);
 
-        const length = this.packetBuffer.readUInt32BE(0);
-
-        // Check if we have complete packet
-        if (this.packetBuffer.length >= length) {
-          clearTimeout(timeoutId);
-          socket.removeListener("data", onData);
-          socket.removeListener("error", onError);
-          socket.removeListener("close", onClose);
+          // Check if we have complete packet
+          if (this.packetBuffer.length < length) {
+            break;
+          }
 
           const packetData = this.packetBuffer.subarray(4, length);
           this.packetBuffer = this.packetBuffer.subarray(length);
 
-          try {
-            const reply = decodeReplyPacket(packetData);
-            resolve({
-              errorCode: reply.errorCode,
-              message: reply.message,
-              data: reply.data,
-            });
-          } catch (err) {
-            reject(err);
+          // Check if this is a reply packet (flag = 0x80) or command packet (flag = 0)
+          const flags = packetData[4];
+
+          if (flags === 0x80) {
+            // This is a reply packet
+            clearTimeout(timeoutId);
+            socket.removeListener("data", onData);
+            socket.removeListener("error", onError);
+            socket.removeListener("close", onClose);
+
+            try {
+              const reply = decodeReplyPacket(packetData);
+              resolve({
+                errorCode: reply.errorCode,
+                message: reply.message,
+                data: reply.data,
+              });
+              return;
+            } catch (err) {
+              reject(err);
+              return;
+            }
+          } else {
+            // This is a command packet (event from JVM) - skip it
+            // Events are handled separately via waitForEvent
+            continue;
           }
         }
       };
