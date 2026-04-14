@@ -11,7 +11,6 @@ import {
   isCollected,
   getReferringObjects,
 } from '../object-reference.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('object-reference', () => {
   const mockExecutor = {

@@ -4,7 +4,6 @@ import {
   getParentThreadGroup,
   getThreadGroupChildren,
 } from '../thread-group-reference.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('thread-group-reference', () => {
   const mockExecutor = {

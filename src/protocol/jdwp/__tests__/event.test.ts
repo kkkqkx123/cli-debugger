@@ -10,7 +10,6 @@ import {
   parseEvent,
 } from '../event.js';
 import { EventType } from '../protocol/index.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('event', () => {
   const mockExecutor = {

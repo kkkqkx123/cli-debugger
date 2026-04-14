@@ -5,7 +5,6 @@ import {
   getThisObject,
   popFrames,
 } from '../stack-frame.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('stack-frame', () => {
   const mockExecutor = {

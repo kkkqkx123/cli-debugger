@@ -4,7 +4,6 @@ import {
   getArrayValues,
   setArrayValues,
 } from '../array-reference.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('array-reference', () => {
   const mockExecutor = {

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { getStringValue } from '../string-reference.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('string-reference', () => {
   const mockExecutor = {

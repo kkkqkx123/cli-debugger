@@ -14,7 +14,6 @@ import {
   getClassFileVersion,
   getClassLoader,
 } from '../reference-type.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('reference-type', () => {
   const mockExecutor = {

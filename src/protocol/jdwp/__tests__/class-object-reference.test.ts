@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { getReflectedType } from '../class-object-reference.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('class-object-reference', () => {
   const mockExecutor = {

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { getVisibleClasses } from '../class-loader-reference.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('class-loader-reference', () => {
   const mockExecutor = {

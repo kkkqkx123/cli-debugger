@@ -3,7 +3,6 @@ import {
   getModuleName,
   getModuleClassLoader,
 } from '../module-reference.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('module-reference', () => {
   const mockExecutor = {

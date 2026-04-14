@@ -6,7 +6,6 @@ import {
   isObsolete,
   getVariableTableWithGeneric,
 } from '../method.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('method', () => {
   const mockExecutor = {

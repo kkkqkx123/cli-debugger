@@ -5,7 +5,6 @@ import {
   invokeStaticMethod,
   newInstance,
 } from '../class-type.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('class-type', () => {
   const mockExecutor = {

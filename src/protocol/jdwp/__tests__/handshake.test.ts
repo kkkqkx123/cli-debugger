@@ -10,7 +10,7 @@ describe('handshake', () => {
 
   beforeEach(() => {
     mockSocket = new EventEmitter();
-    mockSocket.write = vi.fn((data, callback) => {
+    mockSocket.write = vi.fn((_data, callback) => {
       callback?.();
     });
   });
@@ -68,7 +68,7 @@ describe('handshake', () => {
 
   it('should perform handshake write error', async () => {
     const err = new Error('Write error');
-    mockSocket.write = vi.fn((data, callback) => {
+    mockSocket.write = vi.fn((_data, callback) => {
       callback?.(err);
     });
     const handshakePromise = performHandshake(mockSocket, 5000);

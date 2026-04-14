@@ -16,7 +16,6 @@ import {
   getSuspendCount,
   forceEarlyReturn,
 } from '../thread.js';
-import { ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('thread', () => {
   const mockExecutor = {
