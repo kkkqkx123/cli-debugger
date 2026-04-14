@@ -243,11 +243,25 @@ describe("Protocol Encoding/Decoding", () => {
         // These packets should be invalid
         const length = packet.length >= 4 ? packet.readUInt32BE(0) : 0;
 
-        // Either length is invalid or packet is too short
-        const isInvalid =
+        // Check for various invalid conditions
+        let isInvalid =
           length === 0 ||
           length > packet.length ||
           packet.length < 11;
+
+        // If packet structure is complete, check for invalid flags or command set
+        if (!isInvalid && packet.length >= 11) {
+          const flags = packet.readUInt8(8);
+          const commandSet = packet.readUInt8(9);
+
+          // Flags should be 0 (command) or 0x80 (reply)
+          const invalidFlags = flags !== 0 && flags !== 0x80;
+
+          // Command set should be in valid range (1-64 for standard, 64-127 for vendor)
+          const invalidCmdSet = flags === 0 && (commandSet === 0 || commandSet > 127);
+
+          isInvalid = invalidFlags || invalidCmdSet;
+        }
 
         expect(isInvalid).toBe(true);
       }

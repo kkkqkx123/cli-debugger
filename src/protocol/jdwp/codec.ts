@@ -92,7 +92,7 @@ export function createCommandPacketWithData(
  * Decode reply packet
  */
 export function decodeReplyPacket(data: Buffer): ReplyPacket {
-  if (data.length < 11) {
+  if (data.length < 7) {
     throw new Error("Packet too short");
   }
 

@@ -10,8 +10,8 @@ const JDWP_HANDSHAKE = "JDWP-Handshake";
 /**
  * Perform JDWP handshake
  * JDWP handshake process:
- * 1. JVM sends "JDWP-Handshake" to the debugger
- * 2. The debugger verifies and writes back the same string with null terminator
+ * 1. Debugger (client) sends "JDWP-Handshake" to the JVM
+ * 2. JVM responds with the same string
  *
  * @param socket - TCP socket connection
  * @param timeout - Timeout in milliseconds
@@ -32,89 +32,88 @@ export async function performHandshake(
       );
     }, timeout);
 
-    // Read handshake string from JVM
-    const handshakeBuffer = Buffer.alloc(JDWP_HANDSHAKE.length);
-
-    let bytesRead = 0;
-
-    const onData = (chunk: Buffer) => {
-      // Copy data to buffer
-      const remaining = handshakeBuffer.length - bytesRead;
-      const toCopy = Math.min(chunk.length, remaining);
-      chunk.copy(handshakeBuffer, bytesRead, 0, toCopy);
-      bytesRead += toCopy;
-
-      // Check if we have enough data
-      if (bytesRead >= JDWP_HANDSHAKE.length) {
+    // Send handshake string to JVM
+    const handshake = Buffer.from(JDWP_HANDSHAKE, "utf8");
+    socket.write(handshake, (err) => {
+      if (err) {
         clearTimeout(timeoutId);
-        socket.removeListener("data", onData);
-        socket.removeListener("error", onError);
-        socket.removeListener("close", onClose);
+        reject(
+          new APIError(
+            ErrorType.ConnectionError,
+            ErrorCodes.HandshakeFailed,
+            "Failed to send handshake",
+            err,
+          ),
+        );
+        return;
+      }
 
-        // Verify handshake string (may or may not contain null terminator)
-        let received = handshakeBuffer.toString("utf8");
-        while (received.endsWith("\0")) {
-          received = received.slice(0, -1);
-        }
-        if (received !== JDWP_HANDSHAKE) {
-          reject(
-            new APIError(
-              ErrorType.ProtocolError,
-              ErrorCodes.HandshakeFailed,
-              `Invalid handshake response. Expected '${JDWP_HANDSHAKE}', received '${received}'`,
-            ),
-          );
-          return;
-        }
+      // Read handshake response from JVM
+      const handshakeBuffer = Buffer.alloc(JDWP_HANDSHAKE.length);
+      let bytesRead = 0;
 
-        // Write back handshake string with null terminator
-        const response = Buffer.concat([
-          Buffer.from(JDWP_HANDSHAKE, "utf8"),
-          Buffer.from([0x00]),
-        ]);
+      const onData = (chunk: Buffer) => {
+        // Copy data to buffer
+        const remaining = handshakeBuffer.length - bytesRead;
+        const toCopy = Math.min(chunk.length, remaining);
+        chunk.copy(handshakeBuffer, bytesRead, 0, toCopy);
+        bytesRead += toCopy;
 
-        socket.write(response, (err) => {
-          if (err) {
+        // Check if we have enough data
+        if (bytesRead >= JDWP_HANDSHAKE.length) {
+          clearTimeout(timeoutId);
+          socket.removeListener("data", onData);
+          socket.removeListener("error", onError);
+          socket.removeListener("close", onClose);
+
+          // Verify handshake string (may or may not contain null terminator)
+          let received = handshakeBuffer.toString("utf8");
+          while (received.endsWith("\0")) {
+            received = received.slice(0, -1);
+          }
+          if (received !== JDWP_HANDSHAKE) {
             reject(
               new APIError(
-                ErrorType.ConnectionError,
+                ErrorType.ProtocolError,
                 ErrorCodes.HandshakeFailed,
-                "Failed to send handshake response",
-                err,
+                `Invalid handshake response. Expected '${JDWP_HANDSHAKE}', received '${received}'`,
               ),
             );
-          } else {
-            resolve();
+            return;
           }
-        });
-      }
-    };
 
-    const onError = (err: Error) => {
-      clearTimeout(timeoutId);
-      reject(
-        new APIError(
-          ErrorType.ConnectionError,
-          ErrorCodes.HandshakeFailed,
-          "Handshake failed",
-          err,
-        ),
-      );
-    };
+          resolve();
+        }
+      };
 
-    const onClose = () => {
-      clearTimeout(timeoutId);
-      reject(
-        new APIError(
-          ErrorType.ConnectionError,
-          ErrorCodes.ConnectionClosed,
-          "Connection closed during handshake",
-        ),
-      );
-    };
+      const onError = (err: Error) => {
+        clearTimeout(timeoutId);
+        socket.removeListener("data", onData);
+        reject(
+          new APIError(
+            ErrorType.ConnectionError,
+            ErrorCodes.HandshakeFailed,
+            "Handshake failed",
+            err,
+          ),
+        );
+      };
 
-    socket.on("data", onData);
-    socket.on("error", onError);
-    socket.on("close", onClose);
+      const onClose = () => {
+        clearTimeout(timeoutId);
+        socket.removeListener("data", onData);
+        reject(
+          new APIError(
+            ErrorType.ConnectionError,
+            ErrorCodes.ConnectionClosed,
+            "Connection closed during handshake",
+          ),
+        );
+      };
+
+      socket.on("data", onData);
+      socket.on("error", onError);
+      socket.on("close", onClose);
+    });
   });
 }

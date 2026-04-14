@@ -40,9 +40,18 @@ export class ErrorInjector {
    */
   injectMalformedPacket(): void {
     this.injectedErrors.add("malformed-packet");
-    this.server.setResponseHandler(() => {
-      // Return malformed packet
-      return Buffer.from([0, 0, 0, 0]); // Invalid length
+    this.server.setResponseHandler((packet) => {
+      // Parse packet to get id
+      const id = packet.readInt32BE(4);
+
+      // Build a malformed reply packet with invalid flags
+      const reply = Buffer.alloc(11);
+      reply.writeUInt32BE(11, 0); // length
+      reply.writeInt32BE(id, 4); // id
+      reply.writeUInt8(0xff, 8); // invalid flags (should be 0x80)
+      reply.writeUInt16BE(0, 9); // error code
+
+      return reply;
     });
   }
 
@@ -53,15 +62,14 @@ export class ErrorInjector {
     this.injectedErrors.add("protocol-error");
     this.server.setResponseHandler((packet) => {
       // Return error response for all commands
-      const length = packet.readUInt32BE(0);
       const id = packet.readInt32BE(4);
 
-      // Build error reply
+      // Build error reply packet
       const reply = Buffer.alloc(11);
-      reply.writeUInt32BE(11, 0);
-      reply.writeInt32BE(id, 4);
+      reply.writeUInt32BE(11, 0); // length
+      reply.writeInt32BE(id, 4); // id
       reply.writeUInt8(0x80, 8); // Reply flag
-      reply.writeUInt16BE(500, 9); // Error code
+      reply.writeUInt16BE(500, 9); // Error code (500 = internal error)
 
       return reply;
     });
@@ -126,7 +134,7 @@ export class ErrorInjector {
           return false;
         }
       }
-      return originalWrite(data, ...args);
+      return originalWrite(data, ...args as Parameters<typeof originalSocket.write>[1]);
     }) as typeof originalSocket.write;
 
     return originalSocket;
@@ -143,7 +151,7 @@ export class ErrorInjector {
 
     originalSocket.write = ((data: Buffer | string, ...args: unknown[]) => {
       setTimeout(() => {
-        originalWrite(data, ...args);
+        originalWrite(data, ...args as Parameters<typeof originalSocket.write>[1]);
       }, delayMs);
       return true;
     }) as typeof originalSocket.write;

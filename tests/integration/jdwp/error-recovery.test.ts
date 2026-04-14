@@ -69,19 +69,9 @@ describe("Error Recovery", () => {
 
       const client = new JDWPClient(config);
 
-      // Connection should still work (handshake happens before injection)
-      await client.connect();
-      expect(client.isConnected()).toBe(true);
-
-      // Commands may fail due to malformed responses
-      try {
-        await client.version();
-      } catch (error) {
-        // Expected to fail
-        expect(error).toBeDefined();
-      }
-
-      await client.close();
+      // Connection should fail due to malformed packet during getIDSizes
+      await expect(client.connect()).rejects.toThrow();
+      expect(client.isConnected()).toBe(false);
     });
 
     it("should recover after clearing malformed packet handler", async () => {
@@ -107,17 +97,10 @@ describe("Error Recovery", () => {
       errorInjector.injectProtocolError();
 
       const client = new JDWPClient(config);
-      await client.connect();
 
-      // Commands should fail with protocol error
-      try {
-        await client.version();
-      } catch (error) {
-        // Expected to fail
-        expect(error).toBeDefined();
-      }
-
-      await client.close();
+      // Connection should fail due to protocol error during getIDSizes
+      await expect(client.connect()).rejects.toThrow();
+      expect(client.isConnected()).toBe(false);
     });
 
     it("should recover after clearing protocol error", async () => {

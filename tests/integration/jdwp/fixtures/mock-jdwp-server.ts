@@ -21,6 +21,7 @@ export interface MockJDWPState {
   }>;
   breakpoints: Map<string, { id: string; location: string }>;
   classes: Map<string, { refID: string; methods: string[] }>;
+  suspendedThreads: Set<string>;
 }
 
 /**
@@ -156,7 +157,7 @@ export class MockJDWPServer {
 
     socket.on("data", (data) => {
       if (!handshakeComplete) {
-        // Handle handshake
+        // Handle handshake - client sends "JDWP-Handshake", server responds with same string
         const handshakeData = data.toString();
         if (handshakeData.startsWith(JDWP_HANDSHAKE)) {
           // Send handshake response
@@ -233,33 +234,35 @@ export class MockJDWPServer {
     id: number,
     commandSet: number,
     command: number,
-    _data: Buffer,
+    data: Buffer,
   ): Buffer {
     // Default response: empty reply with error code 0
-    const responseData = this.generateResponse(commandSet, command);
+    const responseData = this.generateResponse(commandSet, command, data);
     return this.buildReplyPacket(id, 0, responseData);
   }
 
   /**
    * Generate response data for command
    */
-  private generateResponse(commandSet: number, command: number): Buffer {
+  private generateResponse(commandSet: number, command: number, data: Buffer): Buffer {
     // VirtualMachine command set (1)
     if (commandSet === 1) {
       switch (command) {
         case 1: // Version
           return this.generateVersionResponse();
-        case 10: // IDSizes
+        case 7: // IDSizes
           return this.generateIDSizesResponse();
-        case 11: // Suspend
+        case 8: // Suspend
           return Buffer.alloc(0);
-        case 12: // Resume
+        case 9: // Resume
           return Buffer.alloc(0);
         case 4: // AllThreads
           return this.generateAllThreadsResponse();
-        case 13: // Exit
+        case 10: // Exit
           return Buffer.alloc(0);
         case 2: // ClassesBySignature
+          return Buffer.alloc(0);
+        case 12: // Capabilities
           return Buffer.alloc(0);
         default:
           return Buffer.alloc(0);
@@ -268,14 +271,22 @@ export class MockJDWPServer {
 
     // ThreadReference command set (11)
     if (commandSet === 11) {
+      // Extract thread ID from data (8 bytes for object ID)
+      let threadID = "1";
+      if (data.length >= 8) {
+        threadID = data.readBigUInt64BE(0).toString();
+      }
+
       switch (command) {
         case 1: // Name
-          return Buffer.from("main", "utf8");
+          return this.generateThreadNameResponse(threadID);
         case 4: // Status
-          return Buffer.from([0, 0, 0, 2, 0, 0, 0, 0]); // RUNNING, not suspended
-        case 8: // Suspend
+          return this.generateThreadStatusResponse(threadID);
+        case 2: // Suspend
+          this.state.suspendedThreads.add(threadID);
           return Buffer.alloc(0);
-        case 9: // Resume
+        case 3: // Resume
+          this.state.suspendedThreads.delete(threadID);
           return Buffer.alloc(0);
         default:
           return Buffer.alloc(0);
@@ -321,11 +332,11 @@ export class MockJDWPServer {
     offset += descBuf.length;
 
     // jdwpMajor
-    buffer.writeUInt32BE(1, offset);
+    buffer.writeInt32BE(1, offset);
     offset += 4;
 
     // jdwpMinor
-    buffer.writeUInt32BE(6, offset);
+    buffer.writeInt32BE(6, offset);
     offset += 4;
 
     // vmVersion
@@ -419,6 +430,36 @@ export class MockJDWPServer {
       ],
       breakpoints: new Map(),
       classes: new Map(),
+      suspendedThreads: new Set(),
     };
+  }
+
+  /**
+   * Generate thread name response
+   */
+  private generateThreadNameResponse(threadID: string): Buffer {
+    const thread = this.state.threads.find((t) => t.id === threadID);
+    const name = thread?.name ?? "unknown";
+    const nameBuf = Buffer.from(name, "utf8");
+
+    const buffer = Buffer.alloc(4 + nameBuf.length);
+    buffer.writeUInt32BE(nameBuf.length, 0);
+    nameBuf.copy(buffer, 4);
+
+    return buffer;
+  }
+
+  /**
+   * Generate thread status response
+   */
+  private generateThreadStatusResponse(threadID: string): Buffer {
+    const thread = this.state.threads.find((t) => t.id === threadID);
+    const isSuspended = this.state.suspendedThreads.has(threadID);
+
+    const buffer = Buffer.alloc(8);
+    buffer.writeInt32BE(thread?.status ?? 2, 0); // threadStatus
+    buffer.writeInt32BE(isSuspended ? 1 : 0, 4); // suspendStatus
+
+    return buffer;
   }
 }

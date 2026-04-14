@@ -38,8 +38,8 @@ describe("Command Execution", () => {
       const version = await client.version();
       expect(version).toBeDefined();
       expect(version.protocolVersion).toBeDefined();
-      expect(version.vmVersion).toBeDefined();
-      expect(version.vmName).toBeDefined();
+      expect(version.runtimeVersion).toBeDefined();
+      expect(version.runtimeName).toBeDefined();
 
       // Capabilities
       const caps = await client.capabilities();

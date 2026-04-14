@@ -97,10 +97,19 @@ export class JDWPClient implements DebugProtocol {
           // Perform handshake
           await performHandshake(this.socket, this.config.timeout);
 
-          // Get ID sizes
-          this.idSizes = await this.executeCommand((executor) =>
-            vm.getIDSizes(executor),
-          );
+          // Get ID sizes - use a temporary executor since we don't have idSizes yet
+          const executor: vm.JDWPCommandExecutor = {
+            sendPacket: (packet) => this.sendPacket(packet),
+            readReply: () => this.readReply(),
+            idSizes: {
+              fieldIDSize: 8,
+              methodIDSize: 8,
+              objectIDSize: 8,
+              referenceTypeIDSize: 8,
+              frameIDSize: 8,
+            },
+          };
+          this.idSizes = await vm.getIDSizes(executor);
 
           this.connected = true;
           resolve();
@@ -838,7 +847,7 @@ export class JDWPClient implements DebugProtocol {
   private async executeCommand<T>(
     fn: (executor: vm.JDWPCommandExecutor) => Promise<T>,
   ): Promise<T> {
-    if (!this.connected || !this.socket || !this.idSizes) {
+    if (!this.socket || !this.idSizes) {
       throw new APIError(
         ErrorType.ConnectionError,
         ErrorCodes.ConnectionClosed,
@@ -987,15 +996,36 @@ export class JDWPClient implements DebugProtocol {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeout) {
-      // Read packet
-      const reply = await this.readReply();
+      // Calculate remaining time for this iteration
+      const remainingTime = timeout - (Date.now() - startTime);
+      if (remainingTime <= 0) {
+        break;
+      }
 
-      // Check if this is an event packet (command set 64)
-      if (reply.data.length > 0) {
-        const evt = event.parseEvent(reply.data, this.idSizes);
-        if (evt) {
-          return evt;
+      // Read packet with remaining time as timeout
+      try {
+        // Temporarily override timeout for readReply
+        const originalTimeout = this.config.timeout;
+        this.config.timeout = Math.min(remainingTime, originalTimeout);
+
+        const reply = await this.readReply();
+
+        // Restore original timeout
+        this.config.timeout = originalTimeout;
+
+        // Check if this is an event packet (command set 64)
+        if (reply.data.length > 0) {
+          const evt = event.parseEvent(reply.data, this.idSizes);
+          if (evt) {
+            return evt;
+          }
         }
+      } catch (err) {
+        // If timeout, just return null
+        if (err instanceof APIError && err.code === ErrorCodes.Timeout) {
+          return null;
+        }
+        throw err;
       }
     }
 

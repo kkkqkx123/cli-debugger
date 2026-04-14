@@ -89,7 +89,7 @@ export async function getIDSizes(
     throw new APIError(
       ErrorType.ProtocolError,
       ErrorCodes.DecodeError,
-      "IDSizes response too short",
+      `IDSizes response too short: ${reply.data.length} bytes`,
     );
   }
 
