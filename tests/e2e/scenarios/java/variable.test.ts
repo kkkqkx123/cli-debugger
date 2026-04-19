@@ -4,14 +4,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { JDWPClient } from "../../../src/protocol/jdwp/client.js";
+import { JDWPClient } from "../../../../src/protocol/jdwp/client.js";
 import {
   checkJavaAvailable,
   launchBreakpointTest,
   terminateJava,
-} from "../fixtures/launch.js";
-import type { LaunchedJVM } from "../fixtures/launch.js";
-import type { DebugConfig } from "../../../src/types/config.js";
+} from "../../fixtures/launch.js";
+import type { LaunchedJVM } from "../../fixtures/launch.js";
+import type { DebugConfig } from "../../../../src/types/config.js";
 
 describe("Variable Inspection E2E", () => {
   let jvm: LaunchedJVM | null = null;
