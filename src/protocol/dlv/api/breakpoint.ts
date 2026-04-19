@@ -201,3 +201,22 @@ export async function createWatchpoint(
     { expr, scope, watchType },
   ]);
 }
+
+/**
+ * Set command to execute when breakpoint is hit
+ */
+export async function setBreakpointCommand(
+  rpc: DlvRpcClient,
+  breakpointId: number,
+  command: string,
+): Promise<DlvBreakpoint> {
+  const breakpoints = await listBreakpoints(rpc);
+  const bp = breakpoints.find((b) => b.id === breakpointId);
+  if (!bp) {
+    throw new Error(`Breakpoint ${breakpointId} not found`);
+  }
+  return amendBreakpoint(rpc, {
+    ...bp,
+    on: command,
+  });
+}

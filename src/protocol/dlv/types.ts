@@ -105,6 +105,8 @@ export interface DlvBreakpoint {
   loadArgs: DlvLoadConfig | null;
   loadLocals: DlvLoadConfig | null;
   userData: unknown;
+  /** Command to execute when breakpoint is hit */
+  on?: string;
 }
 
 /** Breakpoint hit information */
@@ -127,6 +129,14 @@ export interface DlvLoadConfig {
 
 // ==================== Stack Types ====================
 
+/** Deferred call information */
+export interface DlvDeferredCall {
+  index: number;
+  function: DlvFunction | null;
+  location: DlvLocation;
+  unreadable: string;
+}
+
 /** Delve stack frame */
 export interface DlvStackFrame {
   file: string;
@@ -135,6 +145,8 @@ export interface DlvStackFrame {
   pc: number;
   goroutineID: number;
   systemStack: boolean;
+  /** Deferred calls in this frame */
+  defers?: DlvDeferredCall[];
 }
 
 /** Stack frame with additional info */
@@ -227,7 +239,9 @@ export type DlvCommandName =
   | "switchGoroutine"
   | "switchThread"
   | "rewind"
-  | "call";
+  | "call"
+  | "nextInstruction"
+  | "stepInstruction";
 
 /** Command request parameters */
 export interface DlvCommandParams {
@@ -332,6 +346,15 @@ export interface DlvCheckpoint {
   ID: number;
   When: string;
   Position: DlvLocation;
+}
+
+// ==================== Library Types ====================
+
+/** Dynamic library information */
+export interface DlvLibrary {
+  path: string;
+  address: number;
+  loaded: boolean;
 }
 
 // ==================== Helper Functions ====================

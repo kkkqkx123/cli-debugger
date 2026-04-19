@@ -20,12 +20,16 @@ import type {
   DlvGoroutine,
   DlvStackFrame,
   DlvVariable,
+  DlvDeferredCall,
+  DlvCheckpoint,
 } from "./types.js";
 import * as debuggerApi from "./api/debugger.js";
 import * as breakpointApi from "./api/breakpoint.js";
 import * as goroutineApi from "./api/goroutine.js";
 import * as stackApi from "./api/stack.js";
 import * as variableApi from "./api/variable.js";
+import * as infoApi from "./api/info.js";
+import * as advancedApi from "./api/advanced.js";
 
 /**
  * Delve Client
@@ -36,6 +40,7 @@ export class DlvClient implements DebugProtocol {
   private rpc: DlvRpcClient;
   private connected = false;
   private breakpointMap = new Map<string, DlvBreakpoint>();
+  private currentFrameIndex = 0;
 
   constructor(config: DebugConfig) {
     this.config = config;
@@ -444,5 +449,219 @@ export class DlvClient implements DebugProtocol {
       isPrimitive: variableApi.isPrimitive(v),
       isNull: variableApi.isNil(v),
     };
+  }
+
+  // ==================== Extended Methods ====================
+
+  /**
+   * Get function arguments
+   */
+  async args(threadId: string, frameIndex: number): Promise<Variable[]> {
+    this.ensureConnected();
+    const goroutineId = parseInt(threadId, 10);
+    const scope = variableApi.createEvalScope(goroutineId, frameIndex);
+    const vars = await variableApi.listFunctionArgs(this.rpc, scope);
+    return vars.map((v) => this.dlvVariableToVariable(v));
+  }
+
+  /**
+   * Navigate up in call stack
+   */
+  async frameUp(steps = 1): Promise<StackFrame | null> {
+    this.ensureConnected();
+    const state = await debuggerApi.getState(this.rpc);
+    const goroutineId = state.currentGoroutine?.id ?? 0;
+    const result = await stackApi.frameUp(
+      this.rpc,
+      goroutineId,
+      this.currentFrameIndex,
+      steps,
+    );
+    if (result) {
+      this.currentFrameIndex = result.index;
+      return this.stackFrameToStackFrame(result.frame, result.index);
+    }
+    return null;
+  }
+
+  /**
+   * Navigate down in call stack
+   */
+  async frameDown(steps = 1): Promise<StackFrame | null> {
+    this.ensureConnected();
+    const state = await debuggerApi.getState(this.rpc);
+    const goroutineId = state.currentGoroutine?.id ?? 0;
+    const result = await stackApi.frameDown(
+      this.rpc,
+      goroutineId,
+      this.currentFrameIndex,
+      steps,
+    );
+    if (result) {
+      this.currentFrameIndex = result.index;
+      return this.stackFrameToStackFrame(result.frame, result.index);
+    }
+    return null;
+  }
+
+  /**
+   * Set current frame
+   */
+  async setFrame(frameIndex: number): Promise<void> {
+    this.ensureConnected();
+    const state = await debuggerApi.getState(this.rpc);
+    const goroutineId = state.currentGoroutine?.id ?? 0;
+    await stackApi.setFrame(this.rpc, goroutineId, frameIndex);
+    this.currentFrameIndex = frameIndex;
+  }
+
+  /**
+   * Get deferred calls
+   */
+  async deferredCalls(
+    threadId: string,
+    frameIndex: number,
+  ): Promise<DlvDeferredCall[]> {
+    this.ensureConnected();
+    const goroutineId = parseInt(threadId, 10);
+    return stackApi.listDeferredCalls(this.rpc, goroutineId, frameIndex);
+  }
+
+  /**
+   * Instruction-level step
+   */
+  async stepInstruction(threadId: string): Promise<void> {
+    this.ensureConnected();
+    const goroutineId = parseInt(threadId, 10);
+    await debuggerApi.stepInstruction(this.rpc, goroutineId);
+  }
+
+  /**
+   * Instruction-level next
+   */
+  async nextInstruction(threadId: string): Promise<void> {
+    this.ensureConnected();
+    const goroutineId = parseInt(threadId, 10);
+    await debuggerApi.nextInstruction(this.rpc, goroutineId);
+  }
+
+  // ==================== Info Methods ====================
+
+  /**
+   * List functions
+   */
+  async listFunctions(filter?: string): Promise<string[]> {
+    this.ensureConnected();
+    const funcs = await infoApi.listFunctions(this.rpc, filter);
+    return funcs.map((f) => f.name);
+  }
+
+  /**
+   * List packages
+   */
+  async listPackages(filter?: string): Promise<string[]> {
+    this.ensureConnected();
+    return infoApi.listPackages(this.rpc, filter);
+  }
+
+  /**
+   * List source files
+   */
+  async listSources(filter?: string): Promise<string[]> {
+    this.ensureConnected();
+    return infoApi.listSources(this.rpc, filter);
+  }
+
+  /**
+   * List types
+   */
+  async listTypes(filter?: string): Promise<string[]> {
+    this.ensureConnected();
+    const types = await infoApi.listTypes(this.rpc, filter);
+    return types.map((t) => t.name);
+  }
+
+  /**
+   * List dynamic libraries
+   */
+  async listLibraries(): Promise<infoApi.DlvLibrary[]> {
+    this.ensureConnected();
+    return infoApi.listLibraries(this.rpc);
+  }
+
+  /**
+   * Show source code
+   */
+  async showSource(locspec?: string): Promise<infoApi.DlvSourceLocation> {
+    this.ensureConnected();
+    return infoApi.listSource(this.rpc, locspec);
+  }
+
+  // ==================== Advanced Methods ====================
+
+  /**
+   * Create checkpoint
+   */
+  async createCheckpoint(note?: string): Promise<DlvCheckpoint> {
+    this.ensureConnected();
+    return advancedApi.createCheckpoint(this.rpc, note);
+  }
+
+  /**
+   * List checkpoints
+   */
+  async listCheckpoints(): Promise<DlvCheckpoint[]> {
+    this.ensureConnected();
+    return advancedApi.listCheckpoints(this.rpc);
+  }
+
+  /**
+   * Clear checkpoint
+   */
+  async clearCheckpoint(id: number): Promise<void> {
+    this.ensureConnected();
+    await advancedApi.clearCheckpoint(this.rpc, id);
+  }
+
+  /**
+   * Get debugger config
+   */
+  async getConfig(): Promise<advancedApi.DlvDebuggerConfig> {
+    this.ensureConnected();
+    return advancedApi.getConfig(this.rpc);
+  }
+
+  /**
+   * Set debugger config
+   */
+  async setConfig(
+    config: Partial<advancedApi.DlvDebuggerConfig>,
+  ): Promise<void> {
+    this.ensureConnected();
+    await advancedApi.setConfig(this.rpc, config);
+  }
+
+  /**
+   * Dump core
+   */
+  async dumpCore(outputPath: string): Promise<void> {
+    this.ensureConnected();
+    await advancedApi.dumpCore(this.rpc, outputPath);
+  }
+
+  /**
+   * Rebuild target
+   */
+  async rebuild(): Promise<void> {
+    this.ensureConnected();
+    await advancedApi.rebuild(this.rpc);
+  }
+
+  /**
+   * Get target process info
+   */
+  async getTarget(): Promise<advancedApi.DlvTarget> {
+    this.ensureConnected();
+    return advancedApi.getTarget(this.rpc);
   }
 }

@@ -212,3 +212,33 @@ export async function detach(
 ): Promise<void> {
   await rpc.call("RPCServer.Detach", [{ kill }]);
 }
+
+// ==================== Instruction-Level Stepping ====================
+
+/**
+ * Step single CPU instruction (skip function calls)
+ */
+export async function nextInstruction(
+  rpc: DlvRpcClient,
+  goroutineId?: number,
+): Promise<DlvCommandResult> {
+  const params: DlvCommandParams = {
+    name: "nextInstruction",
+    goroutineID: goroutineId,
+  };
+  return command(rpc, params);
+}
+
+/**
+ * Step single CPU instruction
+ */
+export async function stepInstruction(
+  rpc: DlvRpcClient,
+  goroutineId?: number,
+): Promise<DlvCommandResult> {
+  const params: DlvCommandParams = {
+    name: "stepInstruction",
+    goroutineID: goroutineId,
+  };
+  return command(rpc, params);
+}

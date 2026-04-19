@@ -7,6 +7,8 @@ import type {
   DlvStackFrame,
   DlvStacktraceParams,
   DlvLocation,
+  DlvDebuggerState,
+  DlvDeferredCall,
 } from "../types.js";
 
 /**
@@ -156,4 +158,81 @@ export function formatStacktrace(frames: DlvStackFrame[]): string {
   return frames
     .map((frame, index) => formatStackFrame(frame, index))
     .join("\n");
+}
+
+// ==================== Frame Navigation ====================
+
+/**
+ * Move up in the call stack (towards caller)
+ */
+export async function frameUp(
+  rpc: DlvRpcClient,
+  goroutineId: number,
+  currentFrame: number,
+  steps = 1,
+): Promise<{ frame: DlvStackFrame; index: number } | null> {
+  const newIndex = currentFrame + steps;
+  const frames = await stacktraceGoroutine(rpc, goroutineId, newIndex + 1);
+  const frame = frames[newIndex];
+  if (!frame) {
+    return null;
+  }
+  return { frame, index: newIndex };
+}
+
+/**
+ * Move down in the call stack (towards callee)
+ */
+export async function frameDown(
+  rpc: DlvRpcClient,
+  goroutineId: number,
+  currentFrame: number,
+  steps = 1,
+): Promise<{ frame: DlvStackFrame; index: number } | null> {
+  const newIndex = currentFrame - steps;
+  if (newIndex < 0) {
+    return null;
+  }
+  const frames = await stacktraceGoroutine(rpc, goroutineId, currentFrame + 1);
+  const frame = frames[newIndex];
+  if (!frame) {
+    return null;
+  }
+  return { frame, index: newIndex };
+}
+
+/**
+ * Set current frame for subsequent operations
+ */
+export async function setFrame(
+  rpc: DlvRpcClient,
+  goroutineId: number,
+  frameIndex: number,
+): Promise<DlvDebuggerState> {
+  return rpc.call<DlvDebuggerState>("RPCServer.Frame", [
+    { goroutineID: goroutineId, frame: frameIndex },
+  ]);
+}
+
+// ==================== Deferred Calls ====================
+
+/**
+ * List deferred calls in current frame
+ */
+export async function listDeferredCalls(
+  rpc: DlvRpcClient,
+  goroutineId: number,
+  frameIndex: number,
+): Promise<DlvDeferredCall[]> {
+  const frames = await stacktraceWithDefers(rpc, goroutineId, frameIndex + 1);
+  const frame = frames[frameIndex];
+  if (!frame || !frame.defers) {
+    return [];
+  }
+  return frame.defers.map((d, i) => ({
+    index: i,
+    function: d.function,
+    location: d.location,
+    unreadable: d.unreadable ?? "",
+  }));
 }
