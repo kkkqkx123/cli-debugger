@@ -15,7 +15,26 @@ JDWP 协议的基础知识，包括：
 
 **适合**: 初次了解 JDWP 协议的开发者
 
-### 2. [线程管理](./thread-management.md)
+### 2. [命令参考](./commands-reference.md)
+
+JDWP 命令的完整参考文档，包括：
+- 所有命令集的详细说明
+- 每个命令的参数和返回值
+- 高级 API (DebugProtocol 接口)
+- 使用示例和代码片段
+
+**适合**: 需要查找特定命令用法的开发者
+
+### 3. [快速参考](./quick-reference.md)
+
+JDWP 命令的快速查找表，包括：
+- 命令集索引
+- 按功能分类的命令表
+- 常量参考
+
+**适合**: 快速定位所需功能的开发者
+
+### 4. [线程管理](./thread-management.md)
 
 JDWP 线程管理的详细说明，包括：
 - 线程生命周期和状态
@@ -26,7 +45,7 @@ JDWP 线程管理的详细说明，包括：
 
 **适合**: 需要理解线程挂起和栈帧获取机制的开发者
 
-### 3. [实现问题分析](./implementation-analysis.md)
+### 5. [实现问题分析](./implementation-analysis.md)
 
 当前 cli-debugger 实现的问题分析，包括：
 - 代码层面的问题
@@ -36,7 +55,7 @@ JDWP 线程管理的详细说明，包括：
 
 **适合**: 需要修复现有问题的开发者
 
-### 4. [测试失败分析](./test-failures-analysis.md)
+### 6. [测试失败分析](./test-failures-analysis.md)
 
 E2E 测试失败的根因分析，包括：
 - 失败测试的详细分析
@@ -46,7 +65,7 @@ E2E 测试失败的根因分析，包括：
 
 **适合**: 需要理解测试失败原因的开发者
 
-### 5. [最佳实践](./best-practices.md)
+### 7. [最佳实践](./best-practices.md)
 
 JDWP 调试的最佳实践，包括：
 - 连接管理
@@ -65,6 +84,8 @@ JDWP 调试的最佳实践，包括：
 ### 我想了解...
 
 - **JDWP 协议基础** → [协议概述](./protocol-overview.md)
+- **所有可用命令** → [命令参考](./commands-reference.md)
+- **快速查找命令** → [快速参考](./quick-reference.md)
 - **如何正确挂起线程** → [线程管理](./thread-management.md)
 - **为什么测试失败** → [测试失败分析](./test-failures-analysis.md)
 - **如何修复现有问题** → [实现问题分析](./implementation-analysis.md)
@@ -76,6 +97,29 @@ JDWP 调试的最佳实践，包括：
 - **连接被拒绝** → [测试失败分析](./test-failures-analysis.md#2-连接被拒绝)
 - **Hook 超时** → [测试失败分析](./test-failures-analysis.md#3-hook-超时)
 - **threads() 方法问题** → [实现问题分析](./implementation-analysis.md#问题-1-threads-方法的设计缺陷)
+
+## 命令集概览
+
+项目实现了以下 JDWP 命令集：
+
+| 命令集 | 编号 | 实现文件 | 主要功能 |
+|--------|------|----------|----------|
+| VirtualMachine | 1 | `vm.ts` | VM 生命周期、版本、能力 |
+| ReferenceType | 2 | `reference-type.ts` | 类结构、字段、方法 |
+| ClassType | 3 | `class-type.ts` | 继承、静态方法调用 |
+| Method | 5 | `method.ts` | 行号表、变量表、字节码 |
+| ObjectReference | 7 | `object-reference.ts` | 实例字段、方法调用 |
+| StringReference | 8 | `string-reference.ts` | 字符串值 |
+| ThreadReference | 11 | `thread.ts` | 线程控制、栈帧 |
+| ThreadGroupReference | 12 | `thread-group-reference.ts` | 线程组 |
+| ArrayReference | 13 | `array-reference.ts` | 数组操作 |
+| ClassLoaderReference | 14 | `class-loader-reference.ts` | 类加载器 |
+| EventRequest | 15 | `event.ts` | 事件请求 |
+| StackFrame | 16 | `stack-frame.ts` | 栈帧变量 |
+| ClassObjectReference | 17 | `class-object-reference.ts` | 类对象 |
+| ModuleReference | 18 | `module-reference.ts` | 模块 (Java 9+) |
+
+详细命令列表请参考 [命令参考](./commands-reference.md) 或 [快速参考](./quick-reference.md)。
 
 ## 核心问题总结
 
