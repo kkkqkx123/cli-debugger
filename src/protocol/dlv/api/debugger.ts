@@ -17,14 +17,30 @@ import type {
 export async function getVersion(
   rpc: DlvRpcClient,
 ): Promise<DlvVersion> {
-  return rpc.call<DlvVersion>("RPCServer.Version", []);
+  // Note: Some Delve versions don't support RPCServer.Version
+  // Try alternative method or return default
+  try {
+    return await rpc.call<DlvVersion>("RPCServer.Version", []);
+  } catch {
+    // Fallback: Return default version info
+    return {
+      DelveVersion: "unknown",
+      APIVersion: "2",
+    };
+  }
 }
 
 /**
  * Get current debugger state
  */
 export async function getState(rpc: DlvRpcClient): Promise<DlvDebuggerState> {
-  return rpc.call<DlvDebuggerState>("RPCServer.State", [false]);
+  // Delve expects an object parameter, not a boolean
+  const result = await rpc.call<{ State?: DlvDebuggerState } | DlvDebuggerState>("RPCServer.State", [{}]);
+  // Handle both direct return and wrapped return
+  if (result && "State" in result && result.State) {
+    return result.State;
+  }
+  return result as DlvDebuggerState;
 }
 
 /**
@@ -33,7 +49,13 @@ export async function getState(rpc: DlvRpcClient): Promise<DlvDebuggerState> {
 export async function getStateWithNext(
   rpc: DlvRpcClient,
 ): Promise<DlvDebuggerState> {
-  return rpc.call<DlvDebuggerState>("RPCServer.State", [true]);
+  // Delve expects an object parameter with Next field
+  const result = await rpc.call<{ State?: DlvDebuggerState } | DlvDebuggerState>("RPCServer.State", [{ Next: true }]);
+  // Handle both direct return and wrapped return
+  if (result && "State" in result && result.State) {
+    return result.State;
+  }
+  return result as DlvDebuggerState;
 }
 
 /**

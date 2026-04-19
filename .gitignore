@@ -1,5 +1,6 @@
 .translate
 **/*.class
+**/*.exe*
 
 # Dependencies
 node_modules/

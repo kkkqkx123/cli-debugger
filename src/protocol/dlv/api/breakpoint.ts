@@ -13,7 +13,8 @@ import type {
  * List all breakpoints
  */
 export async function listBreakpoints(rpc: DlvRpcClient): Promise<DlvBreakpoint[]> {
-  return rpc.call<DlvBreakpoint[]>("RPCServer.ListBreakpoints", []);
+  const result = await rpc.call<{ Breakpoints: DlvBreakpoint[] }>("RPCServer.ListBreakpoints", []);
+  return result.Breakpoints;
 }
 
 /**

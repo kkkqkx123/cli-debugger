@@ -84,17 +84,18 @@ export class DlvClient implements DebugProtocol {
       return;
     }
 
+    this.connected = false;
+    this.breakpointMap.clear();
+
     try {
       // Call Detach to properly clean up resources
-      // This ensures target process is handled correctly based on launch mode
+      // Use kill=false to keep the target process alive
       await debuggerApi.detach(this.rpc, false);
     } catch {
       // Ignore detach errors - connection might already be closed
     }
 
     await this.rpc.close();
-    this.connected = false;
-    this.breakpointMap.clear();
   }
 
   isConnected(): boolean {
@@ -147,7 +148,18 @@ export class DlvClient implements DebugProtocol {
     this.ensureConnected();
 
     // In Go, we use goroutines instead of threads
-    const goroutines = await goroutineApi.getAllGoroutines(this.rpc);
+    let goroutines = await goroutineApi.getAllGoroutines(this.rpc);
+
+    // If no goroutines found, try to get current goroutine from state
+    // This can happen when program is stopped at entry point
+    if (goroutines.length === 0) {
+      const state = await debuggerApi.getState(this.rpc);
+      if (state.currentGoroutine) {
+        goroutines = [state.currentGoroutine];
+      } else if (state.SelectedGoroutine) {
+        goroutines = [state.SelectedGoroutine];
+      }
+    }
 
     return goroutines.map((g) => this.goroutineToThreadInfo(g));
   }
@@ -734,8 +746,7 @@ export class DlvClient implements DebugProtocol {
    */
   async listFunctions(filter?: string): Promise<string[]> {
     this.ensureConnected();
-    const funcs = await infoApi.listFunctions(this.rpc, filter);
-    return funcs.map((f) => f.name);
+    return infoApi.listFunctions(this.rpc, filter);
   }
 
   /**

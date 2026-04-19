@@ -16,10 +16,16 @@ export interface DlvFunctionInfo {
 export async function listFunctions(
   rpc: DlvRpcClient,
   filter?: string,
-): Promise<DlvFunctionInfo[]> {
-  return rpc.call<DlvFunctionInfo[]>("RPCServer.ListFunctions", [
+): Promise<string[]> {
+  // Delve returns an array of function names directly, not objects
+  const result = await rpc.call<{ Funcs: string[] } | string[]>("RPCServer.ListFunctions", [
     { filter },
   ]);
+  // Handle both direct array and wrapped return
+  if (Array.isArray(result)) {
+    return result;
+  }
+  return result.Funcs || [];
 }
 
 // ==================== Package List ====================
@@ -28,7 +34,8 @@ export async function listPackages(
   rpc: DlvRpcClient,
   filter?: string,
 ): Promise<string[]> {
-  return rpc.call<string[]>("RPCServer.ListPackages", [{ filter }]);
+  const result = await rpc.call<{ Packages: string[] }>("RPCServer.ListPackages", [{ filter }]);
+  return result.Packages;
 }
 
 // ==================== Source File List ====================
@@ -37,7 +44,8 @@ export async function listSources(
   rpc: DlvRpcClient,
   filter?: string,
 ): Promise<string[]> {
-  return rpc.call<string[]>("RPCServer.ListSources", [{ filter }]);
+  const result = await rpc.call<{ Sources: string[] }>("RPCServer.ListSources", [{ filter }]);
+  return result.Sources;
 }
 
 // ==================== Type List ====================
@@ -52,7 +60,8 @@ export async function listTypes(
   rpc: DlvRpcClient,
   filter?: string,
 ): Promise<DlvTypeInfo[]> {
-  return rpc.call<DlvTypeInfo[]>("RPCServer.ListTypes", [{ filter }]);
+  const result = await rpc.call<{ Types: DlvTypeInfo[] }>("RPCServer.ListTypes", [{ filter }]);
+  return result.Types;
 }
 
 // ==================== Dynamic Libraries ====================
@@ -64,7 +73,8 @@ export interface DlvLibrary {
 }
 
 export async function listLibraries(rpc: DlvRpcClient): Promise<DlvLibrary[]> {
-  return rpc.call<DlvLibrary[]>("RPCServer.ListDynamicLibraries", []);
+  const result = await rpc.call<{ Libraries: DlvLibrary[] }>("RPCServer.ListDynamicLibraries", []);
+  return result.Libraries;
 }
 
 // ==================== Source Code ====================

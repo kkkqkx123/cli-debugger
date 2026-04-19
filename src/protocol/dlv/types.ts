@@ -68,6 +68,12 @@ export interface DlvGoroutine {
   goStatementLoc: DlvLocation;
   threadId: number;
   systemStack: boolean;
+  // Aliases for Delve's JSON field names (capitalized)
+  CurrentLoc?: DlvLocation;
+  UserCurrentLoc?: DlvLocation;
+  GoStatementLoc?: DlvLocation;
+  ThreadID?: number;
+  SystemStack?: boolean;
 }
 
 /** Goroutine list result with pagination */

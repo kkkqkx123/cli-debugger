@@ -18,9 +18,10 @@ export async function stacktrace(
   rpc: DlvRpcClient,
   depth = 50,
 ): Promise<DlvStackFrame[]> {
-  return rpc.call<DlvStackFrame[]>("RPCServer.Stacktrace", [
+  const result = await rpc.call<{ Frames: DlvStackFrame[] }>("RPCServer.Stacktrace", [
     { depth, full: false },
   ]);
+  return result.Frames;
 }
 
 /**
@@ -31,9 +32,10 @@ export async function stacktraceGoroutine(
   goroutineId: number,
   depth = 50,
 ): Promise<DlvStackFrame[]> {
-  return rpc.call<DlvStackFrame[]>("RPCServer.Stacktrace", [
+  const result = await rpc.call<{ Frames: DlvStackFrame[] }>("RPCServer.Stacktrace", [
     { goroutineID: goroutineId, depth, full: false },
   ]);
+  return result.Frames;
 }
 
 /**
@@ -51,7 +53,8 @@ export async function stacktraceFull(
   if (goroutineId !== undefined) {
     params.goroutineID = goroutineId;
   }
-  return rpc.call<DlvStackFrame[]>("RPCServer.Stacktrace", [params]);
+  const result = await rpc.call<{ Frames: DlvStackFrame[] }>("RPCServer.Stacktrace", [params]);
+  return result.Frames;
 }
 
 /**
@@ -69,7 +72,8 @@ export async function stacktraceWithDefers(
   if (goroutineId !== undefined) {
     params.goroutineID = goroutineId;
   }
-  return rpc.call<DlvStackFrame[]>("RPCServer.Stacktrace", [params]);
+  const result = await rpc.call<{ Frames: DlvStackFrame[] }>("RPCServer.Stacktrace", [params]);
+  return result.Frames;
 }
 
 /**
@@ -109,9 +113,10 @@ export async function ancestorStacktrace(
   ancestor: number,
   depth = 50,
 ): Promise<DlvStackFrame[]> {
-  return rpc.call<DlvStackFrame[]>("RPCServer.Ancestors", [
+  const result = await rpc.call<{ Frames: DlvStackFrame[] }>("RPCServer.Ancestors", [
     { goroutineID: goroutineId, ancestor, depth },
   ]);
+  return result.Frames;
 }
 
 /**

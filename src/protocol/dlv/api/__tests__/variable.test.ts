@@ -7,6 +7,7 @@ import * as variableApi from "../variable.js";
 import type { DlvRpcClient } from "../../rpc.js";
 import type { DlvVariable } from "../../types.js";
 import { VariableKind } from "../../types.js";
+import type { DlvRegister } from "../variable.js";
 
 const createMockRpc = (): { rpc: DlvRpcClient; call: ReturnType<typeof vi.fn> } => {
   const call = vi.fn();
@@ -286,7 +287,7 @@ describe("variable API", () => {
     });
 
     it("should call RPCServer.Registers with scope and includeFp", async () => {
-      const regs = [];
+      const regs: DlvRegister[] = [];
       mockRpc.call.mockResolvedValue(regs);
 
       await variableApi.registers(
@@ -386,8 +387,8 @@ describe("variable API", () => {
         ],
       });
       const result = variableApi.parseVariableValue(v) as Record<string, number>;
-      expect(result.X).toBe(1);
-      expect(result.Y).toBe(2);
+      expect(result["X"]).toBe(1);
+      expect(result["Y"]).toBe(2);
     });
 
     it("should parse nil interface", () => {

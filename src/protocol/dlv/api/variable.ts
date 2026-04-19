@@ -20,9 +20,10 @@ export async function listLocalVars(
   scope: DlvEvalScope,
   cfg?: DlvLoadConfig,
 ): Promise<DlvVariable[]> {
-  return rpc.call<DlvVariable[]>("RPCServer.ListLocalVars", [
+  const result = await rpc.call<{ Variables: DlvVariable[] }>("RPCServer.ListLocalVars", [
     { scope, cfg: cfg ?? getDefaultLoadConfig() },
   ]);
+  return result.Variables;
 }
 
 /**
@@ -33,9 +34,10 @@ export async function listFunctionArgs(
   scope: DlvEvalScope,
   cfg?: DlvLoadConfig,
 ): Promise<DlvVariable[]> {
-  return rpc.call<DlvVariable[]>("RPCServer.ListFunctionArgs", [
+  const result = await rpc.call<{ Args: DlvVariable[] }>("RPCServer.ListFunctionArgs", [
     { scope, cfg: cfg ?? getDefaultLoadConfig() },
   ]);
+  return result.Args;
 }
 
 /**
@@ -46,9 +48,10 @@ export async function listPackageVars(
   filter?: string,
   cfg?: DlvLoadConfig,
 ): Promise<DlvVariable[]> {
-  return rpc.call<DlvVariable[]>("RPCServer.ListPackageVars", [
+  const result = await rpc.call<{ Variables: DlvVariable[] }>("RPCServer.ListPackageVars", [
     { filter, cfg: cfg ?? getDefaultLoadConfig() },
   ]);
+  return result.Variables;
 }
 
 /**
@@ -59,9 +62,10 @@ export async function listPackageConstants(
   filter?: string,
   cfg?: DlvLoadConfig,
 ): Promise<DlvVariable[]> {
-  return rpc.call<DlvVariable[]>("RPCServer.ListPackageVars", [
+  const result = await rpc.call<{ Variables: DlvVariable[] }>("RPCServer.ListPackageVars", [
     { filter, cfg: cfg ?? getDefaultLoadConfig(), includeConstants: true },
   ]);
+  return result.Variables;
 }
 
 /**
@@ -316,7 +320,7 @@ interface DlvMemoryResult {
   IsLittleEndian: boolean;
 }
 
-interface DlvRegister {
+export interface DlvRegister {
   Name: string;
   Value: string;
   DwarfNumber: number;

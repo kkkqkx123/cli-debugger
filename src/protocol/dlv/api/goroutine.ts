@@ -8,7 +8,35 @@ import type {
   DlvGoroutinesResult,
   DlvListGoroutinesParams,
   DlvGroupBy,
+  DlvLocation,
 } from "../types.js";
+
+/**
+ * Normalize goroutine field names from Delve's JSON response
+ * Delve uses capitalized field names (Go convention)
+ */
+function normalizeGoroutine(g: Record<string, unknown>): DlvGoroutine {
+  return {
+    id: g["id"] as number,
+    currentLoc: (g["currentLoc"] ?? g["CurrentLoc"]) as DlvLocation,
+    userCurrentLoc: (g["userCurrentLoc"] ?? g["UserCurrentLoc"]) as DlvLocation,
+    goStatementLoc: (g["goStatementLoc"] ?? g["GoStatementLoc"]) as DlvLocation,
+    threadId: (g["threadId"] ?? g["ThreadID"] ?? 0) as number,
+    systemStack: (g["systemStack"] ?? g["SystemStack"] ?? false) as boolean,
+  };
+}
+
+/**
+ * Normalize goroutines result
+ */
+function normalizeGoroutinesResult(result: Record<string, unknown>): DlvGoroutinesResult {
+  const goroutines = (result["Goroutines"] ?? result["goroutines"] ?? []) as Record<string, unknown>[];
+  return {
+    Goroutines: goroutines.map(normalizeGoroutine),
+    Nextg: (result["Nextg"] ?? result["nextg"] ?? -1) as number,
+    GroupBy: (result["GroupBy"] ?? result["groupBy"]) as DlvGroupBy | null,
+  };
+}
 
 /**
  * List all goroutines
@@ -18,9 +46,10 @@ export async function listGoroutines(
   start = 0,
   count = 0,
 ): Promise<DlvGoroutinesResult> {
-  return rpc.call<DlvGoroutinesResult>("RPCServer.ListGoroutines", [
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.ListGoroutines", [
     { start, count },
   ]);
+  return normalizeGoroutinesResult(result);
 }
 
 /**
@@ -30,7 +59,8 @@ export async function listGoroutinesFiltered(
   rpc: DlvRpcClient,
   params: DlvListGoroutinesParams,
 ): Promise<DlvGoroutinesResult> {
-  return rpc.call<DlvGoroutinesResult>("RPCServer.ListGoroutines", [params]);
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.ListGoroutines", [params]);
+  return normalizeGoroutinesResult(result);
 }
 
 /**
@@ -63,9 +93,10 @@ export async function getGoroutine(
   rpc: DlvRpcClient,
   goroutineId: number,
 ): Promise<DlvGoroutine> {
-  return rpc.call<DlvGoroutine>("RPCServer.GetGoroutine", [
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.GetGoroutine", [
     { id: goroutineId },
   ]);
+  return normalizeGoroutine(result);
 }
 
 /**
@@ -75,9 +106,10 @@ export async function listGoroutinesGrouped(
   rpc: DlvRpcClient,
   groupBy: "userloc" | "curloc" | "goloc" | "startloc" | "running" | "user",
 ): Promise<DlvGoroutinesResult> {
-  return rpc.call<DlvGoroutinesResult>("RPCServer.ListGoroutines", [
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.ListGoroutines", [
     { groupBy },
   ]);
+  return normalizeGoroutinesResult(result);
 }
 
 /**
@@ -87,9 +119,10 @@ export async function listGoroutinesGroupedByLabel(
   rpc: DlvRpcClient,
   labelKey: string,
 ): Promise<DlvGoroutinesResult> {
-  return rpc.call<DlvGoroutinesResult>("RPCServer.ListGoroutines", [
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.ListGoroutines", [
     { groupBy: "label", groupByArg: labelKey },
   ]);
+  return normalizeGoroutinesResult(result);
 }
 
 /**
@@ -104,9 +137,10 @@ export async function listGoroutinesWithLabel(
   if (value !== undefined) {
     labels[key] = value;
   }
-  return rpc.call<DlvGoroutinesResult>("RPCServer.ListGoroutines", [
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.ListGoroutines", [
     { labels },
   ]);
+  return normalizeGoroutinesResult(result);
 }
 
 /**
@@ -116,9 +150,10 @@ export async function listGoroutinesOnChannel(
   rpc: DlvRpcClient,
   channelExpr: string,
 ): Promise<DlvGoroutinesResult> {
-  return rpc.call<DlvGoroutinesResult>("RPCServer.ListGoroutines", [
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.ListGoroutines", [
     { filter: { kind: "chan", arg: channelExpr } },
   ]);
+  return normalizeGoroutinesResult(result);
 }
 
 /**
@@ -127,9 +162,10 @@ export async function listGoroutinesOnChannel(
 export async function listRunningGoroutines(
   rpc: DlvRpcClient,
 ): Promise<DlvGoroutinesResult> {
-  return rpc.call<DlvGoroutinesResult>("RPCServer.ListGoroutines", [
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.ListGoroutines", [
     { filter: { kind: "running", arg: true } },
   ]);
+  return normalizeGoroutinesResult(result);
 }
 
 /**
@@ -138,9 +174,10 @@ export async function listRunningGoroutines(
 export async function listUserGoroutines(
   rpc: DlvRpcClient,
 ): Promise<DlvGoroutinesResult> {
-  return rpc.call<DlvGoroutinesResult>("RPCServer.ListGoroutines", [
+  const result = await rpc.call<Record<string, unknown>>("RPCServer.ListGoroutines", [
     { filter: { kind: "user", arg: true } },
   ]);
+  return normalizeGoroutinesResult(result);
 }
 
 /**

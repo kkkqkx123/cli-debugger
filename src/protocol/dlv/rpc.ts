@@ -264,47 +264,70 @@ export class DlvRpcClient {
    * Create APIError from JSON-RPC error
    * Maps Delve error codes to appropriate error types
    */
-  private createRpcError(error: JsonRpcError): APIError {
-    // Map JSON-RPC error codes to our error types
-    // Delve error codes:
-    // 1: Internal error
-    // 2: Parameter error
-    // 3: Not found
-    // 4: Not readable
-    // 5: Not supported
+  private createRpcError(error: JsonRpcError | string): APIError {
+    // Delve can return error as either a string or an object
+    // Handle both cases
     let errorType: ErrorType;
     let errorCode: number;
+    let errorMessage: string;
 
-    switch (error.code) {
-      case 1:
-        errorType = ErrorType.CommandError;
-        errorCode = ErrorCodes.InternalError;
-        break;
-      case 2:
-        errorType = ErrorType.InputError;
-        errorCode = ErrorCodes.InvalidInput;
-        break;
-      case 3:
-        errorType = ErrorType.CommandError;
-        errorCode = ErrorCodes.NotFound;
-        break;
-      case 4:
-        errorType = ErrorType.CommandError;
-        errorCode = ErrorCodes.NotReadable;
-        break;
-      case 5:
-        errorType = ErrorType.CommandError;
-        errorCode = ErrorCodes.NotSupported;
-        break;
-      default:
-        errorType = ErrorType.CommandError;
-        errorCode = ErrorCodes.InternalError;
+    if (typeof error === "string") {
+      // Error is a plain string
+      errorType = ErrorType.CommandError;
+      errorCode = ErrorCodes.InternalError;
+      errorMessage = error;
+    } else {
+      // Error is an object with code and message
+      // Map JSON-RPC error codes to our error types
+      // Delve error codes:
+      // 1: Internal error
+      // 2: Parameter error
+      // 3: Not found
+      // 4: Not readable
+      // 5: Not supported
+      // 5001: Process exited (custom Delve error)
+
+      // Handle undefined or null error code
+      const code = error.code ?? 1;
+
+      switch (code) {
+        case 1:
+          errorType = ErrorType.CommandError;
+          errorCode = ErrorCodes.InternalError;
+          break;
+        case 2:
+          errorType = ErrorType.InputError;
+          errorCode = ErrorCodes.InvalidInput;
+          break;
+        case 3:
+          errorType = ErrorType.CommandError;
+          errorCode = ErrorCodes.NotFound;
+          break;
+        case 4:
+          errorType = ErrorType.CommandError;
+          errorCode = ErrorCodes.NotReadable;
+          break;
+        case 5:
+          errorType = ErrorType.CommandError;
+          errorCode = ErrorCodes.NotSupported;
+          break;
+        case 5001:
+          // Process exited - this is expected when the debugged process terminates
+          errorType = ErrorType.CommandError;
+          errorCode = ErrorCodes.InternalError;
+          break;
+        default:
+          errorType = ErrorType.CommandError;
+          errorCode = ErrorCodes.InternalError;
+      }
+
+      errorMessage = error.message || `Delve error (code: ${code})`;
     }
 
     return new APIError(
       errorType,
       errorCode,
-      error.message,
+      errorMessage,
     );
   }
 
