@@ -205,3 +205,32 @@ export function groupByToMap(
   }
   return map;
 }
+
+// ==================== Batch Execution ====================
+
+/**
+ * Execute command on all goroutines matching filter
+ * Returns a map of goroutine ID to command result
+ */
+export async function execOnAllGoroutines(
+  rpc: DlvRpcClient,
+  commandFn: (goroutineId: number) => Promise<unknown>,
+  params?: DlvListGoroutinesParams,
+): Promise<Map<number, unknown>> {
+  const result = params
+    ? await listGoroutinesFiltered(rpc, params)
+    : await listGoroutines(rpc);
+
+  const results = new Map<number, unknown>();
+
+  for (const g of result.Goroutines) {
+    try {
+      const cmdResult = await commandFn(g.id);
+      results.set(g.id, cmdResult);
+    } catch (error) {
+      results.set(g.id, { error: String(error) });
+    }
+  }
+
+  return results;
+}

@@ -20,4 +20,6 @@ export * as goroutineApi from "./api/goroutine.js";
 export * as stackApi from "./api/stack.js";
 export * as variableApi from "./api/variable.js";
 export * as infoApi from "./api/info.js";
-export * as advancedApi from "./api/advanced.js";
+export * as checkpointApi from "./api/checkpoint.js";
+export * as configApi from "./api/config.js";
+export * as miscApi from "./api/misc.js";

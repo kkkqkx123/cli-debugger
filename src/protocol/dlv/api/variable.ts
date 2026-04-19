@@ -8,6 +8,7 @@ import type {
   DlvEvalParams,
   DlvEvalScope,
   DlvLoadConfig,
+  DlvDisplay,
 } from "../types.js";
 import { getDefaultLoadConfig, isPrimitiveKind } from "../types.js";
 
@@ -326,4 +327,33 @@ interface DlvLocation {
   PC: number;
   File: string;
   Line: number;
+}
+
+// ==================== Display Expressions ====================
+
+/**
+ * Add display expression (auto-print on each stop)
+ */
+export async function addDisplay(
+  rpc: DlvRpcClient,
+  expr: string,
+): Promise<DlvDisplay> {
+  return rpc.call<DlvDisplay>("RPCServer.Display", [{ expr }]);
+}
+
+/**
+ * Remove display expression
+ */
+export async function removeDisplay(
+  rpc: DlvRpcClient,
+  id: number,
+): Promise<void> {
+  await rpc.call("RPCServer.Display", [{ id, delete: true }]);
+}
+
+/**
+ * List all display expressions
+ */
+export async function listDisplays(rpc: DlvRpcClient): Promise<DlvDisplay[]> {
+  return rpc.call<DlvDisplay[]>("RPCServer.Display", [{}]);
 }

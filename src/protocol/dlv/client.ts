@@ -29,7 +29,9 @@ import * as goroutineApi from "./api/goroutine.js";
 import * as stackApi from "./api/stack.js";
 import * as variableApi from "./api/variable.js";
 import * as infoApi from "./api/info.js";
-import * as advancedApi from "./api/advanced.js";
+import * as checkpointApi from "./api/checkpoint.js";
+import * as configApi from "./api/config.js";
+import * as miscApi from "./api/misc.js";
 
 /**
  * Delve Client
@@ -597,14 +599,14 @@ export class DlvClient implements DebugProtocol {
     return infoApi.listSource(this.rpc, locspec);
   }
 
-  // ==================== Advanced Methods ====================
+  // ==================== Checkpoint Methods ====================
 
   /**
    * Create checkpoint
    */
   async createCheckpoint(note?: string): Promise<DlvCheckpoint> {
     this.ensureConnected();
-    return advancedApi.createCheckpoint(this.rpc, note);
+    return checkpointApi.createCheckpoint(this.rpc, note);
   }
 
   /**
@@ -612,7 +614,7 @@ export class DlvClient implements DebugProtocol {
    */
   async listCheckpoints(): Promise<DlvCheckpoint[]> {
     this.ensureConnected();
-    return advancedApi.listCheckpoints(this.rpc);
+    return checkpointApi.listCheckpoints(this.rpc);
   }
 
   /**
@@ -620,33 +622,37 @@ export class DlvClient implements DebugProtocol {
    */
   async clearCheckpoint(id: number): Promise<void> {
     this.ensureConnected();
-    await advancedApi.clearCheckpoint(this.rpc, id);
+    await checkpointApi.clearCheckpoint(this.rpc, id);
   }
+
+  // ==================== Config Methods ====================
 
   /**
    * Get debugger config
    */
-  async getConfig(): Promise<advancedApi.DlvDebuggerConfig> {
+  async getConfig(): Promise<configApi.DlvDebuggerConfig> {
     this.ensureConnected();
-    return advancedApi.getConfig(this.rpc);
+    return configApi.getConfig(this.rpc);
   }
 
   /**
    * Set debugger config
    */
   async setConfig(
-    config: Partial<advancedApi.DlvDebuggerConfig>,
+    config: Partial<configApi.DlvDebuggerConfig>,
   ): Promise<void> {
     this.ensureConnected();
-    await advancedApi.setConfig(this.rpc, config);
+    await configApi.setConfig(this.rpc, config);
   }
+
+  // ==================== Debug Operations ====================
 
   /**
    * Dump core
    */
   async dumpCore(outputPath: string): Promise<void> {
     this.ensureConnected();
-    await advancedApi.dumpCore(this.rpc, outputPath);
+    await miscApi.dumpCore(this.rpc, outputPath);
   }
 
   /**
@@ -654,14 +660,16 @@ export class DlvClient implements DebugProtocol {
    */
   async rebuild(): Promise<void> {
     this.ensureConnected();
-    await advancedApi.rebuild(this.rpc);
+    await miscApi.rebuild(this.rpc);
   }
+
+  // ==================== Target Methods ====================
 
   /**
    * Get target process info
    */
-  async getTarget(): Promise<advancedApi.DlvTarget> {
+  async getTarget(): Promise<miscApi.DlvTarget> {
     this.ensureConnected();
-    return advancedApi.getTarget(this.rpc);
+    return miscApi.getTarget(this.rpc);
   }
 }

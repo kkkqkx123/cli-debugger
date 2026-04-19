@@ -357,6 +357,14 @@ export interface DlvLibrary {
   loaded: boolean;
 }
 
+// ==================== Display Types ====================
+
+/** Display expression (auto-print on each stop) */
+export interface DlvDisplay {
+  id: number;
+  expr: string;
+}
+
 // ==================== Helper Functions ====================
 
 /**
