@@ -40,6 +40,11 @@ export const ErrorCodes = {
   InternalError: 5001,
   NotImplemented: 5002,
   Timeout: 5003,
+
+  // Delve-specific error codes (6xxx)
+  NotFound: 6001,
+  NotReadable: 6002,
+  NotSupported: 6003,
 } as const;
 
 /** Debugging API error */

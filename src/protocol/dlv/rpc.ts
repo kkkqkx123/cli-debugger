@@ -262,11 +262,44 @@ export class DlvRpcClient {
 
   /**
    * Create APIError from JSON-RPC error
+   * Maps Delve error codes to appropriate error types
    */
   private createRpcError(error: JsonRpcError): APIError {
     // Map JSON-RPC error codes to our error types
-    const errorType = ErrorType.CommandError;
-    const errorCode = ErrorCodes.InternalError;
+    // Delve error codes:
+    // 1: Internal error
+    // 2: Parameter error
+    // 3: Not found
+    // 4: Not readable
+    // 5: Not supported
+    let errorType: ErrorType;
+    let errorCode: number;
+
+    switch (error.code) {
+      case 1:
+        errorType = ErrorType.CommandError;
+        errorCode = ErrorCodes.InternalError;
+        break;
+      case 2:
+        errorType = ErrorType.InputError;
+        errorCode = ErrorCodes.InvalidInput;
+        break;
+      case 3:
+        errorType = ErrorType.CommandError;
+        errorCode = ErrorCodes.NotFound;
+        break;
+      case 4:
+        errorType = ErrorType.CommandError;
+        errorCode = ErrorCodes.NotReadable;
+        break;
+      case 5:
+        errorType = ErrorType.CommandError;
+        errorCode = ErrorCodes.NotSupported;
+        break;
+      default:
+        errorType = ErrorType.CommandError;
+        errorCode = ErrorCodes.InternalError;
+    }
 
     return new APIError(
       errorType,

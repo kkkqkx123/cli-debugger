@@ -22,7 +22,10 @@ import type {
   DlvVariable,
   DlvDeferredCall,
   DlvCheckpoint,
+  DlvLoadConfig,
+  DlvFilterKind,
 } from "./types.js";
+import { getDefaultLoadConfig } from "./types.js";
 import * as debuggerApi from "./api/debugger.js";
 import * as breakpointApi from "./api/breakpoint.js";
 import * as goroutineApi from "./api/goroutine.js";
@@ -43,10 +46,26 @@ export class DlvClient implements DebugProtocol {
   private connected = false;
   private breakpointMap = new Map<string, DlvBreakpoint>();
   private currentFrameIndex = 0;
+  private loadConfig: DlvLoadConfig;
 
-  constructor(config: DebugConfig) {
+  constructor(config: DebugConfig, loadConfig?: DlvLoadConfig) {
     this.config = config;
     this.rpc = new DlvRpcClient(config.timeout);
+    this.loadConfig = loadConfig ?? getDefaultLoadConfig();
+  }
+
+  /**
+   * Get current load configuration
+   */
+  getLoadConfig(): DlvLoadConfig {
+    return { ...this.loadConfig };
+  }
+
+  /**
+   * Set load configuration for variable inspection
+   */
+  setLoadConfig(config: Partial<DlvLoadConfig>): void {
+    this.loadConfig = { ...this.loadConfig, ...config };
   }
 
   // ==================== Lifecycle ====================
@@ -63,6 +82,14 @@ export class DlvClient implements DebugProtocol {
   async close(): Promise<void> {
     if (!this.connected) {
       return;
+    }
+
+    try {
+      // Call Detach to properly clean up resources
+      // This ensures target process is handled correctly based on launch mode
+      await debuggerApi.detach(this.rpc, false);
+    } catch {
+      // Ignore detach errors - connection might already be closed
     }
 
     await this.rpc.close();
@@ -134,6 +161,30 @@ export class DlvClient implements DebugProtocol {
     return frames.map((f, i) => this.stackFrameToStackFrame(f, i));
   }
 
+  /**
+   * Get stacktrace with deferred calls included
+   */
+  async stackWithDefers(threadId: string, depth = 50): Promise<StackFrame[]> {
+    this.ensureConnected();
+
+    const goroutineId = parseInt(threadId, 10);
+    const frames = await stackApi.stacktraceWithDefers(this.rpc, goroutineId, depth);
+
+    return frames.map((f, i) => this.stackFrameToStackFrame(f, i));
+  }
+
+  /**
+   * Get full stacktrace with variable information
+   */
+  async stackFull(threadId: string, depth = 50): Promise<StackFrame[]> {
+    this.ensureConnected();
+
+    const goroutineId = parseInt(threadId, 10);
+    const frames = await stackApi.stacktraceFull(this.rpc, goroutineId, depth);
+
+    return frames.map((f, i) => this.stackFrameToStackFrame(f, i));
+  }
+
   async threadState(threadId: string): Promise<string> {
     this.ensureConnected();
 
@@ -145,6 +196,89 @@ export class DlvClient implements DebugProtocol {
       return "running";
     }
     return "waiting";
+  }
+
+  /**
+   * List goroutines with pagination
+   */
+  async threadsPaginated(start = 0, count = 100): Promise<{
+    threads: ThreadInfo[];
+    nextIndex: number;
+    hasMore: boolean;
+  }> {
+    this.ensureConnected();
+
+    const result = await goroutineApi.listGoroutines(this.rpc, start, count);
+    const threads = result.Goroutines.map((g) => this.goroutineToThreadInfo(g));
+
+    return {
+      threads,
+      nextIndex: result.Nextg,
+      hasMore: result.Nextg >= 0,
+    };
+  }
+
+  /**
+   * List goroutines with filter
+   */
+  async threadsFiltered(params: {
+    start?: number;
+    count?: number;
+    labels?: Record<string, string>;
+    filter?: { kind: DlvFilterKind; arg: string | number | boolean };
+  }): Promise<ThreadInfo[]> {
+    this.ensureConnected();
+
+    const result = await goroutineApi.listGoroutinesFiltered(this.rpc, params);
+    return result.Goroutines.map((g) => this.goroutineToThreadInfo(g));
+  }
+
+  /**
+   * List goroutines grouped by location
+   */
+  async threadsGrouped(
+    groupBy: "userloc" | "curloc" | "goloc" | "startloc" | "running" | "user",
+  ): Promise<Map<string, ThreadInfo[]>> {
+    this.ensureConnected();
+
+    const result = await goroutineApi.listGoroutinesGrouped(this.rpc, groupBy);
+    const groupMap = goroutineApi.groupByToMap(result);
+
+    const resultMap = new Map<string, ThreadInfo[]>();
+    for (const [group, ids] of groupMap) {
+      const threads: ThreadInfo[] = [];
+      for (const id of ids) {
+        try {
+          const g = await goroutineApi.getGoroutine(this.rpc, id);
+          threads.push(this.goroutineToThreadInfo(g));
+        } catch {
+          // Skip if goroutine no longer exists
+        }
+      }
+      resultMap.set(group, threads);
+    }
+
+    return resultMap;
+  }
+
+  /**
+   * List running goroutines only
+   */
+  async runningThreads(): Promise<ThreadInfo[]> {
+    this.ensureConnected();
+
+    const result = await goroutineApi.listRunningGoroutines(this.rpc);
+    return result.Goroutines.map((g) => this.goroutineToThreadInfo(g));
+  }
+
+  /**
+   * Get goroutine labels
+   */
+  async getThreadLabels(threadId: string): Promise<Record<string, string>> {
+    this.ensureConnected();
+
+    const goroutineId = parseInt(threadId, 10);
+    return goroutineApi.getGoroutineLabels(this.rpc, goroutineId);
   }
 
   // ==================== Execution Control ====================
@@ -282,6 +416,32 @@ export class DlvClient implements DebugProtocol {
       }));
   }
 
+  /**
+   * Toggle breakpoint enabled state
+   */
+  async toggleBreakpoint(id: string): Promise<void> {
+    this.ensureConnected();
+
+    const bp = this.breakpointMap.get(id);
+    if (bp) {
+      const updated = await breakpointApi.toggleBreakpoint(this.rpc, bp.id, !bp.disabled);
+      this.breakpointMap.set(id, updated);
+    }
+  }
+
+  /**
+   * Set breakpoint condition
+   */
+  async setBreakpointCondition(id: string, condition: string): Promise<void> {
+    this.ensureConnected();
+
+    const bp = this.breakpointMap.get(id);
+    if (bp) {
+      const updated = await breakpointApi.setBreakpointCondition(this.rpc, bp.id, condition);
+      this.breakpointMap.set(id, updated);
+    }
+  }
+
   // ==================== Variable Inspection ====================
 
   async locals(threadId: string, frameIndex: number): Promise<Variable[]> {
@@ -289,7 +449,7 @@ export class DlvClient implements DebugProtocol {
 
     const goroutineId = parseInt(threadId, 10);
     const scope = variableApi.createEvalScope(goroutineId, frameIndex);
-    const vars = await variableApi.listLocalVars(this.rpc, scope);
+    const vars = await variableApi.listLocalVars(this.rpc, scope, this.loadConfig);
 
     return vars.map((v) => this.dlvVariableToVariable(v));
   }
@@ -454,6 +614,26 @@ export class DlvClient implements DebugProtocol {
   }
 
   // ==================== Extended Methods ====================
+
+  /**
+   * Evaluate expression in the context of a goroutine and frame
+   */
+  async eval(
+    expr: string,
+    threadId?: string,
+    frameIndex?: number,
+  ): Promise<Variable> {
+    this.ensureConnected();
+
+    let scope: { goroutineID: number; frame: number; deferredCall: number } | undefined;
+    if (threadId) {
+      const goroutineId = parseInt(threadId, 10);
+      scope = variableApi.createEvalScope(goroutineId, frameIndex ?? 0);
+    }
+
+    const result = await variableApi.evalExpr(this.rpc, expr, scope);
+    return this.dlvVariableToVariable(result);
+  }
 
   /**
    * Get function arguments
@@ -646,6 +826,16 @@ export class DlvClient implements DebugProtocol {
   }
 
   // ==================== Debug Operations ====================
+
+  /**
+   * Restart the debugged process
+   */
+  async restart(position?: string, resetArgs = false, newArgs?: string[]): Promise<void> {
+    this.ensureConnected();
+    await debuggerApi.restart(this.rpc, position, resetArgs, newArgs);
+    // Clear breakpoint map as restart may discard breakpoints
+    this.breakpointMap.clear();
+  }
 
   /**
    * Dump core
