@@ -50,10 +50,16 @@ export * as jdwp from "./jdwp/index.js";
 export { DlvClient } from "./dlv/client.js";
 export * as dlv from "./dlv/index.js";
 
+// LLDB protocol implementation
+export { LLDBClient } from "./lldb/client.js";
+export * as lldb from "./lldb/index.js";
+
 // Auto-register protocols
 import { registerProtocol } from "./client.js";
 import { JDWPClient } from "./jdwp/client.js";
 import { DlvClient } from "./dlv/client.js";
+import { LLDBClient } from "./lldb/client.js";
 
 registerProtocol("jdwp", (config) => new JDWPClient(config));
 registerProtocol("dlv", (config) => new DlvClient(config));
+registerProtocol("lldb", (config) => new LLDBClient(config));
