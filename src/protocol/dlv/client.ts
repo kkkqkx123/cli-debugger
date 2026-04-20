@@ -5,6 +5,7 @@
 
 import type { DebugProtocol } from "../base.js";
 import type { DebugConfig } from "../../types/config.js";
+import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
 import type {
   ThreadInfo,
@@ -49,8 +50,9 @@ export class DlvClient implements DebugProtocol {
   private loadConfig: DlvLoadConfig;
 
   constructor(config: DebugConfig, loadConfig?: DlvLoadConfig) {
-    this.config = config;
-    this.rpc = new DlvRpcClient(config.timeout);
+    // Validate configuration
+    this.config = DebugConfigSchema.parse(config);
+    this.rpc = new DlvRpcClient(this.config.timeout);
     this.loadConfig = loadConfig ?? getDefaultLoadConfig();
   }
 

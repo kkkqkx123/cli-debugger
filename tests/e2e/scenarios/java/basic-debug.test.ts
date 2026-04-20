@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { JDWPClient } from "../../../../src/protocol/jdwp/client.js";
+import { JDWPClient, createClientWithoutConnect } from "../../../../src/protocol/index.js";
 import {
   checkJavaAvailable,
   launchSimpleProgram,
@@ -46,7 +46,7 @@ describe("Basic Debug E2E", () => {
       // Launch JVM
       jvm = await launchSimpleProgram({ suspend: true });
 
-      // Connect debugger
+      // Connect debugger using factory function
       const config: DebugConfig = {
         protocol: "jdwp",
         host: "127.0.0.1",
@@ -54,7 +54,7 @@ describe("Basic Debug E2E", () => {
         timeout: 10000,
       };
 
-      client = new JDWPClient(config);
+      client = createClientWithoutConnect(config) as JDWPClient;
       await client.connect();
       expect(client.isConnected()).toBe(true);
 
@@ -93,7 +93,7 @@ describe("Basic Debug E2E", () => {
         timeout: 10000,
       };
 
-      client = new JDWPClient(config);
+      client = createClientWithoutConnect(config) as JDWPClient;
       await client.connect();
 
       const threads = await client.threads();
@@ -121,7 +121,7 @@ describe("Basic Debug E2E", () => {
         timeout: 10000,
       };
 
-      client = new JDWPClient(config);
+      client = createClientWithoutConnect(config) as JDWPClient;
 
       // Connect
       await client.connect();
@@ -134,7 +134,7 @@ describe("Basic Debug E2E", () => {
       // Resume the program to let it continue running
       // Note: After disconnect, we need to reconnect to resume
       try {
-        client = new JDWPClient(config);
+        client = createClientWithoutConnect(config) as JDWPClient;
         await client.connect();
         await client.resume();
       } catch {
@@ -155,7 +155,7 @@ describe("Basic Debug E2E", () => {
         timeout: 10000,
       };
 
-      client = new JDWPClient(config);
+      client = createClientWithoutConnect(config) as JDWPClient;
       await client.connect();
 
       // Version

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PacketReader, createReader } from '../reader.js';
+import { APIError, ErrorType, ErrorCodes } from '../../errors.js';
 
 describe('reader', () => {
   const data = Buffer.from([
@@ -41,7 +42,16 @@ describe('reader', () => {
     it('should read byte at end', () => {
       const reader = new PacketReader(data);
       reader.skip(16);
-      expect(reader.readByte()).toBe(0);
+      expect(() => reader.readByte()).toThrow(APIError);
+      try {
+        reader.readByte();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read int', () => {
@@ -52,7 +62,16 @@ describe('reader', () => {
     it('should read int at end', () => {
       const reader = new PacketReader(data);
       reader.skip(13);
-      expect(reader.readInt()).toBe(0);
+      expect(() => reader.readInt()).toThrow(APIError);
+      try {
+        reader.readInt();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read uint32', () => {
@@ -63,7 +82,16 @@ describe('reader', () => {
     it('should read uint32 at end', () => {
       const reader = new PacketReader(data);
       reader.skip(13);
-      expect(reader.readUint32()).toBe(0);
+      expect(() => reader.readUint32()).toThrow(APIError);
+      try {
+        reader.readUint32();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read int64', () => {
@@ -74,7 +102,16 @@ describe('reader', () => {
     it('should read int64 at end', () => {
       const reader = new PacketReader(data);
       reader.skip(9);
-      expect(reader.readInt64()).toBe(0n);
+      expect(() => reader.readInt64()).toThrow(APIError);
+      try {
+        reader.readInt64();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read uint64', () => {
@@ -85,7 +122,16 @@ describe('reader', () => {
     it('should read uint64 at end', () => {
       const reader = new PacketReader(data);
       reader.skip(9);
-      expect(reader.readUint64()).toBe(0n);
+      expect(() => reader.readUint64()).toThrow(APIError);
+      try {
+        reader.readUint64();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read id 4bytes', () => {
@@ -106,7 +152,16 @@ describe('reader', () => {
     it('should read id at end', () => {
       const reader = new PacketReader(data);
       reader.skip(16);
-      expect(reader.readID(4)).toBe('0');
+      expect(() => reader.readID(4)).toThrow(APIError);
+      try {
+        reader.readID(4);
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read string success', () => {
@@ -127,7 +182,16 @@ describe('reader', () => {
           Buffer.from('hello', 'utf8'),
         ]),
       );
-      expect(reader.readString()).toBe('');
+      expect(() => reader.readString()).toThrow(APIError);
+      try {
+        reader.readString();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read string insufficient data', () => {
@@ -137,7 +201,16 @@ describe('reader', () => {
           Buffer.from('hel', 'utf8'),
         ]),
       );
-      expect(reader.readString()).toBe('');
+      expect(() => reader.readString()).toThrow(APIError);
+      try {
+        reader.readString();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read bytes success', () => {
@@ -158,7 +231,16 @@ describe('reader', () => {
           Buffer.from([1, 2, 3, 4, 5]),
         ]),
       );
-      expect(reader.readBytes()).toEqual(Buffer.alloc(0));
+      expect(() => reader.readBytes()).toThrow(APIError);
+      try {
+        reader.readBytes();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read bytes insufficient data', () => {
@@ -168,7 +250,16 @@ describe('reader', () => {
           Buffer.from([1, 2, 3]),
         ]),
       );
-      expect(reader.readBytes()).toEqual(Buffer.alloc(0));
+      expect(() => reader.readBytes()).toThrow(APIError);
+      try {
+        reader.readBytes();
+      } catch (e) {
+        expect(e).toBeInstanceOf(APIError);
+        if (e instanceof APIError) {
+          expect(e.type).toBe(ErrorType.ProtocolError);
+          expect(e.code).toBe(ErrorCodes.DecodeError);
+        }
+      }
     });
 
     it('should read value byte', () => {
@@ -219,7 +310,7 @@ describe('reader', () => {
     });
 
     it('should read value boolean', () => {
-      const reader = new PacketReader(Buffer.from([0x01]));
+      const reader = new PacketReader(Buffer.from([0x01, 0x00]));
       expect(reader.readValue(0x5a, 8)).toBe(true);
       expect(reader.readValue(0x5a, 8)).toBe(false);
     });

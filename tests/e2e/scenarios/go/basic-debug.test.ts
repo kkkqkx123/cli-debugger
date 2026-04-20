@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
-import { DlvClient } from "../../../../src/protocol/dlv/client.js";
+import { DlvClient, createClientWithoutConnect } from "../../../../src/protocol/index.js";
 import {
   checkGoAvailable,
   checkDelveAvailable,
@@ -53,7 +53,7 @@ describe("Basic Debug E2E (Go)", () => {
       // Launch Delve
       delve = await launchSimpleProgram();
 
-      // Connect debugger
+      // Connect debugger using factory function
       const config: DebugConfig = {
         protocol: "dlv",
         host: "127.0.0.1",
@@ -61,7 +61,7 @@ describe("Basic Debug E2E (Go)", () => {
         timeout: 15000,
       };
 
-      client = new DlvClient(config);
+      client = createClientWithoutConnect(config) as DlvClient;
       await client.connect();
       
       // Verify connection state
@@ -98,7 +98,7 @@ describe("Basic Debug E2E (Go)", () => {
         timeout: 15000,
       };
 
-      client = new DlvClient(config);
+      client = createClientWithoutConnect(config) as DlvClient;
       await client.connect();
 
       const threads = await client.threads();
@@ -134,7 +134,7 @@ describe("Basic Debug E2E (Go)", () => {
         timeout: 15000,
       };
 
-      client = new DlvClient(config);
+      client = createClientWithoutConnect(config) as DlvClient;
       await client.connect();
 
       // Get goroutines - at entry point, may only have main goroutine
@@ -169,7 +169,7 @@ describe("Basic Debug E2E (Go)", () => {
         timeout: 15000,
       };
 
-      client = new DlvClient(config);
+      client = createClientWithoutConnect(config) as DlvClient;
 
       // Connect
       await client.connect();
@@ -195,7 +195,7 @@ describe("Basic Debug E2E (Go)", () => {
       };
 
       // First connection
-      client = new DlvClient(config);
+      client = createClientWithoutConnect(config) as DlvClient;
       await client.connect();
       expect(client.isConnected()).toBe(true);
 
@@ -224,7 +224,7 @@ describe("Basic Debug E2E (Go)", () => {
         timeout: 15000,
       };
 
-      client = new DlvClient(config);
+      client = createClientWithoutConnect(config) as DlvClient;
       await client.connect();
 
       // Version - verify actual values
@@ -261,7 +261,7 @@ describe("Basic Debug E2E (Go)", () => {
         timeout: 15000,
       };
 
-      client = new DlvClient(config);
+      client = createClientWithoutConnect(config) as DlvClient;
       await client.connect();
 
       // List functions
@@ -293,7 +293,7 @@ describe("Basic Debug E2E (Go)", () => {
         timeout: 15000,
       };
 
-      client = new DlvClient(config);
+      client = createClientWithoutConnect(config) as DlvClient;
       await client.connect();
 
       // List sources

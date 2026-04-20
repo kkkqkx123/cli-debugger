@@ -23,6 +23,7 @@ export function validateAppConfig(config: unknown): AppConfig {
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
         `Configuration validation failed:\n${messages.join("\n")}`,
+        undefined,
         error as Error,
       );
     }
@@ -46,6 +47,7 @@ export function validateGlobalConfig(config: unknown): GlobalConfig {
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
         `Global configuration validation failed:\n${messages.join("\n")}`,
+        undefined,
         error as Error,
       );
     }

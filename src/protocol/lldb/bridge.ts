@@ -81,6 +81,7 @@ export class LLDBBridge {
               ErrorType.ConnectionError,
               ErrorCodes.ConnectionFailed,
               `Failed to start Python bridge: ${err.message}`,
+              { pythonPath: this.pythonPath },
               err,
             ),
           );

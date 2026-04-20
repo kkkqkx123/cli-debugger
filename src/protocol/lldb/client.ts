@@ -5,6 +5,7 @@
 
 import type { DebugProtocol } from "../base.js";
 import type { DebugConfig } from "../../types/config.js";
+import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
 import type {
   ThreadInfo,
@@ -45,8 +46,10 @@ export class LLDBClient implements DebugProtocol {
   private breakpointMap = new Map<string, LLDBBreakpoint>();
 
   constructor(config: DebugConfig) {
-    // Validate and cast config
-    this.config = this.validateConfig(config);
+    // Validate base configuration
+    const validatedConfig = DebugConfigSchema.parse(config);
+    // Validate and cast to LLDB-specific config
+    this.config = this.validateLLDBConfig(validatedConfig);
     this.bridge = new LLDBBridge({
       pythonPath: this.config.pythonPath,
       timeout: this.config.timeout,
@@ -56,12 +59,13 @@ export class LLDBClient implements DebugProtocol {
   /**
    * Validate LLDB-specific config
    */
-  private validateConfig(config: DebugConfig): LLDBConfig {
+  private validateLLDBConfig(config: DebugConfig): LLDBConfig {
     if (config.protocol !== "lldb") {
       throw new APIError(
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
         `Expected protocol 'lldb', got '${config.protocol}'`,
+        { protocol: config.protocol },
       );
     }
 
@@ -70,6 +74,7 @@ export class LLDBClient implements DebugProtocol {
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
         "LLDB requires 'target' configuration",
+        { protocol: config.protocol },
       );
     }
 

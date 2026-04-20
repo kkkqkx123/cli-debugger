@@ -3,6 +3,8 @@
  * Utility for reading data from JDWP reply packets
  */
 
+import { APIError, ErrorType, ErrorCodes } from "../errors.js";
+
 /**
  * Packet reader for parsing JDWP reply data
  */
@@ -41,7 +43,12 @@ export class PacketReader {
    */
   readByte(): number {
     if (this.pos >= this.data.length) {
-      return 0;
+      throw new APIError(
+        ErrorType.ProtocolError,
+        ErrorCodes.DecodeError,
+        "Attempted to read byte beyond data bounds",
+        { position: this.pos, dataLength: this.data.length },
+      );
     }
     const b = this.data[this.pos] ?? 0;
     this.pos++;
@@ -53,7 +60,12 @@ export class PacketReader {
    */
   readInt(): number {
     if (this.pos + 4 > this.data.length) {
-      return 0;
+      throw new APIError(
+        ErrorType.ProtocolError,
+        ErrorCodes.DecodeError,
+        "Attempted to read int32 beyond data bounds",
+        { position: this.pos, dataLength: this.data.length, requiredBytes: 4 },
+      );
     }
     const val = this.data.readInt32BE(this.pos);
     this.pos += 4;
@@ -65,7 +77,12 @@ export class PacketReader {
    */
   readUint32(): number {
     if (this.pos + 4 > this.data.length) {
-      return 0;
+      throw new APIError(
+        ErrorType.ProtocolError,
+        ErrorCodes.DecodeError,
+        "Attempted to read uint32 beyond data bounds",
+        { position: this.pos, dataLength: this.data.length, requiredBytes: 4 },
+      );
     }
     const val = this.data.readUInt32BE(this.pos);
     this.pos += 4;
@@ -77,7 +94,12 @@ export class PacketReader {
    */
   readInt64(): bigint {
     if (this.pos + 8 > this.data.length) {
-      return BigInt(0);
+      throw new APIError(
+        ErrorType.ProtocolError,
+        ErrorCodes.DecodeError,
+        "Attempted to read int64 beyond data bounds",
+        { position: this.pos, dataLength: this.data.length, requiredBytes: 8 },
+      );
     }
     const val = this.data.readBigInt64BE(this.pos);
     this.pos += 8;
@@ -89,7 +111,12 @@ export class PacketReader {
    */
   readUint64(): bigint {
     if (this.pos + 8 > this.data.length) {
-      return BigInt(0);
+      throw new APIError(
+        ErrorType.ProtocolError,
+        ErrorCodes.DecodeError,
+        "Attempted to read uint64 beyond data bounds",
+        { position: this.pos, dataLength: this.data.length, requiredBytes: 8 },
+      );
     }
     const val = this.data.readBigUInt64BE(this.pos);
     this.pos += 8;
@@ -101,7 +128,12 @@ export class PacketReader {
    */
   readID(size: number): string {
     if (this.pos + size > this.data.length) {
-      return "0";
+      throw new APIError(
+        ErrorType.ProtocolError,
+        ErrorCodes.DecodeError,
+        "Attempted to read ID beyond data bounds",
+        { position: this.pos, dataLength: this.data.length, idSize: size },
+      );
     }
 
     let id: bigint;
@@ -128,7 +160,12 @@ export class PacketReader {
   readString(): string {
     const length = this.readInt();
     if (length < 0 || this.pos + length > this.data.length) {
-      return "";
+      throw new APIError(
+        ErrorType.ProtocolError,
+        ErrorCodes.DecodeError,
+        "Attempted to read string beyond data bounds",
+        { position: this.pos, dataLength: this.data.length, stringLength: length },
+      );
     }
     const str = this.data.subarray(this.pos, this.pos + length).toString("utf8");
     this.pos += length;
@@ -141,7 +178,12 @@ export class PacketReader {
   readBytes(): Buffer {
     const length = this.readInt();
     if (length < 0 || this.pos + length > this.data.length) {
-      return Buffer.alloc(0);
+      throw new APIError(
+        ErrorType.ProtocolError,
+        ErrorCodes.DecodeError,
+        "Attempted to read bytes beyond data bounds",
+        { position: this.pos, dataLength: this.data.length, bytesLength: length },
+      );
     }
     const data = this.data.subarray(this.pos, this.pos + length);
     this.pos += length;
@@ -162,7 +204,12 @@ export class PacketReader {
       case 0x44: {
         // D - double
         if (this.pos + 8 > this.data.length) {
-          return 0;
+          throw new APIError(
+            ErrorType.ProtocolError,
+            ErrorCodes.DecodeError,
+            "Attempted to read double beyond data bounds",
+            { position: this.pos, dataLength: this.data.length, requiredBytes: 8 },
+          );
         }
         const doubleVal = this.data.readDoubleBE(this.pos);
         this.pos += 8;
@@ -172,7 +219,12 @@ export class PacketReader {
       case 0x46: {
         // F - float
         if (this.pos + 4 > this.data.length) {
-          return 0;
+          throw new APIError(
+            ErrorType.ProtocolError,
+            ErrorCodes.DecodeError,
+            "Attempted to read float beyond data bounds",
+            { position: this.pos, dataLength: this.data.length, requiredBytes: 4 },
+          );
         }
         const floatVal = this.data.readFloatBE(this.pos);
         this.pos += 4;
@@ -195,7 +247,12 @@ export class PacketReader {
       case 0x53: {
         // S - short
         if (this.pos + 2 > this.data.length) {
-          return 0;
+          throw new APIError(
+            ErrorType.ProtocolError,
+            ErrorCodes.DecodeError,
+            "Attempted to read short beyond data bounds",
+            { position: this.pos, dataLength: this.data.length, requiredBytes: 2 },
+          );
         }
         const shortVal = this.data.readInt16BE(this.pos);
         this.pos += 2;

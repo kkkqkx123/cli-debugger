@@ -57,6 +57,7 @@ export class DlvRpcClient {
             ErrorType.ConnectionError,
             ErrorCodes.ConnectionFailed,
             `Failed to connect to ${host}:${port}`,
+            { host, port },
             err,
           ),
         );
@@ -70,6 +71,7 @@ export class DlvRpcClient {
             ErrorType.ConnectionError,
             ErrorCodes.ConnectionTimeout,
             `Connection to ${host}:${port} timed out`,
+            { host, port, timeout: this.defaultTimeout },
           ),
         );
       });
@@ -187,6 +189,7 @@ export class DlvRpcClient {
               ErrorType.ConnectionError,
               ErrorCodes.ConnectionClosed,
               `Failed to send request: ${method}`,
+              { method, id },
               err,
             ),
           );

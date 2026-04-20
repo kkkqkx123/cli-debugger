@@ -42,6 +42,7 @@ export async function performHandshake(
             ErrorType.ConnectionError,
             ErrorCodes.HandshakeFailed,
             "Failed to send handshake",
+            undefined,
             err,
           ),
         );
@@ -94,6 +95,7 @@ export async function performHandshake(
             ErrorType.ConnectionError,
             ErrorCodes.HandshakeFailed,
             "Handshake failed",
+            undefined,
             err,
           ),
         );

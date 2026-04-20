@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { JDWPClient } from "../../../src/protocol/jdwp/client.js";
+import { JDWPClient, createClientWithoutConnect } from "../../../src/protocol/index.js";
 import { MockJDWPServer } from "./fixtures/index.js";
 import type { DebugConfig } from "../../../src/types/config.js";
 
@@ -23,7 +23,7 @@ describe("Command Execution", () => {
       port,
       timeout: 5000,
     };
-    client = new JDWPClient(config);
+    client = createClientWithoutConnect(config) as JDWPClient;
     await client.connect();
   });
 

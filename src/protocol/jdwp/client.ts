@@ -6,6 +6,7 @@
 import * as net from "node:net";
 import type { DebugProtocol } from "../base.js";
 import type { DebugConfig } from "../../types/config.js";
+import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
 import type {
   ThreadInfo,
@@ -44,7 +45,8 @@ export class JDWPClient implements DebugProtocol {
   private packetBuffer: Buffer = Buffer.alloc(0);
 
   constructor(config: DebugConfig) {
-    this.config = config;
+    // Validate configuration
+    this.config = DebugConfigSchema.parse(config);
   }
 
   // ==================== Lifecycle ====================
@@ -66,6 +68,7 @@ export class JDWPClient implements DebugProtocol {
             ErrorType.ConnectionError,
             ErrorCodes.ConnectionFailed,
             `Failed to connect to ${address}`,
+            { host: this.config.host, port: this.config.port, phase: "connection" },
             err,
           ),
         );
@@ -78,6 +81,7 @@ export class JDWPClient implements DebugProtocol {
             ErrorType.ConnectionError,
             ErrorCodes.ConnectionTimeout,
             `Connection to ${address} timed out`,
+            { host: this.config.host, port: this.config.port, timeout: this.config.timeout, phase: "connection" },
           ),
         );
       });
@@ -89,6 +93,7 @@ export class JDWPClient implements DebugProtocol {
               ErrorType.ConnectionError,
               ErrorCodes.ConnectionClosed,
               "Socket not available",
+              { host: this.config.host, port: this.config.port, phase: "connection" },
             ),
           );
           return;
@@ -115,6 +120,8 @@ export class JDWPClient implements DebugProtocol {
           resolve();
         } catch (err) {
           this.socket?.destroy();
+          this.connected = false;
+          this.socket = null;
           reject(err);
         }
       });
@@ -237,9 +244,10 @@ export class JDWPClient implements DebugProtocol {
           await thread.suspendThread(executor, threadId);
         } else {
           throw new APIError(
-            ErrorType.CommandError,
+            ErrorType.InputError,
             ErrorCodes.ThreadNotSuspended,
             `Thread ${threadId} is not suspended. Use 'suspend' command first or set autoSuspend option.`,
+            { threadId },
           );
         }
       }
@@ -389,6 +397,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.CommandError,
           ErrorCodes.ResourceNotFound,
           `Class not found: ${className}`,
+          { className, location },
         );
       }
 
@@ -400,6 +409,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.CommandError,
           ErrorCodes.ResourceNotFound,
           `Method not found: ${methodName}`,
+          { className, methodName, location },
         );
       }
 
@@ -418,6 +428,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.CommandError,
           ErrorCodes.ResourceNotFound,
           `Line number not found: ${lineNumber}`,
+          { className, methodName, lineNumber, location },
         );
       }
 
@@ -455,6 +466,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.CommandError,
           ErrorCodes.ResourceNotFound,
           `Class not found: ${className}`,
+          { className, location },
         );
       }
 
@@ -466,6 +478,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.CommandError,
           ErrorCodes.ResourceNotFound,
           `Method not found: ${methodName}`,
+          { className, methodName, location },
         );
       }
 
@@ -509,6 +522,7 @@ export class JDWPClient implements DebugProtocol {
             ErrorType.CommandError,
             ErrorCodes.ResourceNotFound,
             `Exception class not found: ${exceptionClassName}`,
+            { exceptionClassName },
           );
         }
         exceptionRefTypeID = classInfo.refID;
@@ -548,6 +562,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.InputError,
           ErrorCodes.InvalidInput,
           `Invalid field location format: ${fieldLocation}. Expected: ClassName.fieldName`,
+          { fieldLocation, expectedFormat: "ClassName.fieldName" },
         );
       }
 
@@ -561,6 +576,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.CommandError,
           ErrorCodes.ResourceNotFound,
           `Class not found: ${className}`,
+          { className, fieldLocation },
         );
       }
 
@@ -572,6 +588,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.CommandError,
           ErrorCodes.ResourceNotFound,
           `Field not found: ${fieldName}`,
+          { className, fieldName, fieldLocation },
         );
       }
 
@@ -689,9 +706,10 @@ export class JDWPClient implements DebugProtocol {
       const { suspendStatus } = await thread.getThreadStatus(executor, threadId);
       if (suspendStatus === 0) {
         throw new APIError(
-          ErrorType.CommandError,
+          ErrorType.InputError,
           ErrorCodes.ThreadNotSuspended,
           `Thread ${threadId} is not suspended. Use 'suspend' command first.`,
+          { threadId },
         );
       }
 
@@ -702,6 +720,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.InputError,
           ErrorCodes.InvalidInput,
           `Invalid frame index: ${frameIndex}`,
+          { threadId, frameIndex, frameCount },
         );
       }
 
@@ -775,6 +794,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.InputError,
           ErrorCodes.InvalidObjectId,
           `Invalid object ID: ${objectId}`,
+          { objectId, expectedFormat: "tag:id" },
         );
       }
 
@@ -784,6 +804,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.InputError,
           ErrorCodes.InvalidInput,
           `Invalid object ID: ${objectId}`,
+          { objectId },
         );
       }
 
@@ -824,6 +845,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.InputError,
           ErrorCodes.InvalidObjectId,
           `Invalid object ID: ${objectId}`,
+          { objectId, expectedFormat: "tag:id" },
         );
       }
 
@@ -833,6 +855,7 @@ export class JDWPClient implements DebugProtocol {
           ErrorType.InputError,
           ErrorCodes.InvalidInput,
           `Invalid object ID: ${objectId}`,
+          { objectId },
         );
       }
 
@@ -845,12 +868,13 @@ export class JDWPClient implements DebugProtocol {
       // Check if field is static by getting field info
       const fields = await referenceType.getFields(executor, refTypeID);
       const targetField = fields.find((f) => f.fieldID === fieldId);
-      
+
       if (!targetField) {
         throw new APIError(
           ErrorType.CommandError,
           ErrorCodes.ResourceNotFound,
           `Field not found: ${fieldId}`,
+          { objectId, fieldId },
         );
       }
 
@@ -895,6 +919,7 @@ export class JDWPClient implements DebugProtocol {
         ErrorType.ConnectionError,
         ErrorCodes.ConnectionClosed,
         "Not connected",
+        { host: this.config.host, port: this.config.port, connected: this.connected, hasSocket: !!this.socket, hasIDSizes: !!this.idSizes },
       );
     }
 
@@ -913,6 +938,7 @@ export class JDWPClient implements DebugProtocol {
         ErrorType.ConnectionError,
         ErrorCodes.ConnectionClosed,
         "Socket not available",
+        { host: this.config.host, port: this.config.port, phase: "send" },
       );
     }
     const socket = this.socket;
@@ -924,6 +950,7 @@ export class JDWPClient implements DebugProtocol {
               ErrorType.ConnectionError,
               ErrorCodes.ConnectionClosed,
               "Failed to send packet",
+              { host: this.config.host, port: this.config.port, packetLength: packet.length, phase: "send" },
               err,
             ),
           );
@@ -944,6 +971,7 @@ export class JDWPClient implements DebugProtocol {
         ErrorType.ConnectionError,
         ErrorCodes.ConnectionClosed,
         "Socket not available",
+        { host: this.config.host, port: this.config.port, phase: "read" },
       );
     }
     const socket = this.socket;
@@ -954,6 +982,7 @@ export class JDWPClient implements DebugProtocol {
             ErrorType.ConnectionError,
             ErrorCodes.Timeout,
             "Read timeout",
+            { host: this.config.host, port: this.config.port, timeout: this.config.timeout, phase: "read" },
           ),
         );
       }, this.config.timeout);
@@ -1010,6 +1039,7 @@ export class JDWPClient implements DebugProtocol {
             ErrorType.ConnectionError,
             ErrorCodes.ConnectionClosed,
             "Connection error",
+            { host: this.config.host, port: this.config.port, phase: "read" },
             err,
           ),
         );
@@ -1022,6 +1052,7 @@ export class JDWPClient implements DebugProtocol {
             ErrorType.ConnectionError,
             ErrorCodes.ConnectionClosed,
             "Connection closed",
+            { host: this.config.host, port: this.config.port, phase: "read" },
           ),
         );
       };
@@ -1046,6 +1077,7 @@ export class JDWPClient implements DebugProtocol {
         ErrorType.ConnectionError,
         ErrorCodes.ConnectionClosed,
         "ID sizes not available",
+        { host: this.config.host, port: this.config.port },
       );
     }
     const startTime = Date.now();
@@ -1101,6 +1133,7 @@ export class JDWPClient implements DebugProtocol {
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
         `Invalid location format: ${location}. Expected: ClassName.methodName:lineNumber`,
+        { location, expectedFormat: "ClassName.methodName:lineNumber" },
       );
     }
 
@@ -1113,6 +1146,7 @@ export class JDWPClient implements DebugProtocol {
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
         `Invalid line number: ${location.substring(lastColon + 1)}`,
+        { location, lineNumber: location.substring(lastColon + 1) },
       );
     }
 
@@ -1131,6 +1165,7 @@ export class JDWPClient implements DebugProtocol {
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
         `Invalid method location format: ${location}. Expected: ClassName.methodName`,
+        { location, expectedFormat: "ClassName.methodName" },
       );
     }
 
@@ -1142,6 +1177,7 @@ export class JDWPClient implements DebugProtocol {
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
         `Invalid method name in: ${location}`,
+        { location, methodName },
       );
     }
 

@@ -8,6 +8,7 @@ import {
   type ReplyPacket,
   getErrorMessage,
 } from "./protocol/index.js";
+import { APIError, ErrorType, ErrorCodes } from "../errors.js";
 
 // Packet ID counter (global)
 let packetIdCounter = 1;
@@ -93,7 +94,12 @@ export function createCommandPacketWithData(
  */
 export function decodeReplyPacket(data: Buffer): ReplyPacket {
   if (data.length < 7) {
-    throw new Error("Packet too short");
+    throw new APIError(
+      ErrorType.ProtocolError,
+      ErrorCodes.DecodeError,
+      "Packet too short",
+      { packetLength: data.length },
+    );
   }
 
   // Read ID
@@ -104,7 +110,12 @@ export function decodeReplyPacket(data: Buffer): ReplyPacket {
 
   // Check flag
   if (flags !== REPLY_FLAG) {
-    throw new Error("Invalid reply packet flag");
+    throw new APIError(
+      ErrorType.ProtocolError,
+      ErrorCodes.InvalidPacket,
+      "Invalid reply packet flag",
+      { expectedFlag: REPLY_FLAG, actualFlag: flags },
+    );
   }
 
   // Read error code
@@ -155,12 +166,22 @@ export function encodeString(str: string): Buffer {
  */
 export function decodeString(data: Buffer): { value: string; remaining: Buffer } {
   if (data.length < 4) {
-    throw new Error("String data too short");
+    throw new APIError(
+      ErrorType.ProtocolError,
+      ErrorCodes.DecodeError,
+      "String data too short",
+      { dataLength: data.length },
+    );
   }
 
   const length = data.readUInt32BE(0);
   if (data.length < 4 + length) {
-    throw new Error("Insufficient data for string");
+    throw new APIError(
+      ErrorType.ProtocolError,
+      ErrorCodes.DecodeError,
+      "Insufficient data for string",
+      { dataLength: data.length, requiredLength: 4 + length, stringLength: length },
+    );
   }
 
   const value = data.subarray(4, 4 + length).toString("utf8");
