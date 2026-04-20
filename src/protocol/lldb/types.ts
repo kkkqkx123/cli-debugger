@@ -148,6 +148,83 @@ export interface LLDBTargetInfo {
   byteOrder: string;
 }
 
+// ==================== P2 Feature Types ====================
+
+/** LLDB breakpoint location (P2) */
+export interface LLDBBreakpointLocation {
+  id: number;
+  address: number;
+  file: string | null;
+  line: number;
+  column: number;
+  enabled: boolean;
+  resolved: boolean;
+}
+
+/** Target metadata (P2) */
+export interface LLDBTargetMetadata {
+  executable: string;
+  triple: string;
+  numModules: number;
+  numSections: number;
+  numSymbols: number;
+}
+
+/** Module info (P2) */
+export interface LLDBModuleInfo {
+  name: string;
+  file: string;
+  uuid: string;
+  numSections: number;
+  numSymbols: number;
+}
+
+/** Symbol info (P2) */
+export interface LLDBSymbolInfo {
+  name: string;
+  type: "code" | "data" | "debug" | "other";
+  address: number;
+  size: number;
+  module: string | null;
+}
+
+/** Type info (P2) */
+export interface LLDBTypeInfo {
+  name: string;
+  basicType: string;
+  byteSize: number;
+  isPointer: boolean;
+  isReference: boolean;
+  isArray: boolean;
+  isStruct: boolean;
+  isTypedef: boolean;
+  numChildren: number;
+}
+
+/** Thread batch info (P2) */
+export interface LLDBThreadBatchInfo {
+  addresses: number[];
+  modules: string[];
+  symbols: string[];
+  files: string[];
+  lines: number[];
+  functions: string[];
+}
+
+/** Process I/O result (P2) */
+export interface LLDBProcessIOResult {
+  bytesRead: number;
+  data: string; // Base64 encoded
+}
+
+/** Regex breakpoint options (P2) */
+export interface LLDBRegexBreakpointOptions {
+  pattern: string;
+  file?: string;
+  condition?: string;
+  ignoreCount?: number;
+}
+
 // ==================== Bridge Types ====================
 
 /** Bridge request */
@@ -197,3 +274,15 @@ export const BridgeErrorCodes = {
 
 export type BridgeErrorCode =
   (typeof BridgeErrorCodes)[keyof typeof BridgeErrorCodes];
+
+/** P2 Bridge error codes */
+export const P2BridgeErrorCodes = {
+  MODULE_NOT_FOUND: "MODULE_NOT_FOUND",
+  SYMBOL_NOT_FOUND: "SYMBOL_NOT_FOUND",
+  TYPE_NOT_FOUND: "TYPE_NOT_FOUND",
+  IO_ERROR: "IO_ERROR",
+  REGEX_INVALID: "REGEX_INVALID",
+} as const;
+
+export type P2BridgeErrorCode =
+  (typeof P2BridgeErrorCodes)[keyof typeof P2BridgeErrorCodes];

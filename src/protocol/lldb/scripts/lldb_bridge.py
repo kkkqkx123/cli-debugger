@@ -15,20 +15,36 @@ import lldb
 import json
 import sys
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
+
+# Add current directory to path for imports
+sys.path.insert(0, os.path.dirname(__file__))
+
+from utils.errors import LLDBError
+from utils.converters import get_process_state
+from handlers import (
+    ConnectionHandler,
+    MetadataHandler,
+    ThreadHandler,
+    StackHandler,
+    ExecutionHandler,
+    BreakpointHandler,
+    VariableHandler,
+    RegisterHandler,
+    SelectionHandler,
+    ProcessInfoHandler,
+    ExpressionHandler,
+    TargetInfoHandler,
+    EventHandler,
+    ModuleHandler,
+    TypeHandler,
+    IOHandler,
+    BatchHandler,
+)
 
 
-class LLDBError(Exception):
-    """Custom error for LLDB operations"""
-
-    def __init__(self, code: str, message: str):
-        self.code = code
-        self.message = message
-        super().__init__(message)
-
-
-class LLDBBridge:
-    """Bridge between JSON-RPC and LLDB Python API"""
+class LLDBState:
+    """Shared state for LLDB bridge"""
 
     def __init__(self):
         self.debugger: Optional[lldb.SBDebugger] = None
@@ -38,7 +54,7 @@ class LLDBBridge:
         self.breakpoint_map: Dict[str, lldb.SBBreakpoint] = {}
         self._initialized = False
 
-    def _ensure_initialized(self) -> None:
+    def ensure_initialized(self) -> None:
         """Ensure debugger is initialized"""
         if not self._initialized:
             self.debugger = lldb.SBDebugger.Create()
@@ -46,21 +62,21 @@ class LLDBBridge:
             self.listener = lldb.SBListener("bridge_listener")
             self._initialized = True
 
-    def _ensure_target(self) -> lldb.SBTarget:
+    def ensure_target(self) -> lldb.SBTarget:
         """Ensure target exists"""
         if not self.target:
             raise LLDBError("NO_TARGET", "No target loaded")
         return self.target
 
-    def _ensure_process(self) -> lldb.SBProcess:
+    def ensure_process(self) -> lldb.SBProcess:
         """Ensure process exists and is valid"""
         if not self.process or not self.process.IsValid():
             raise LLDBError("NO_PROCESS", "No process running")
         return self.process
 
-    def _get_thread_by_id(self, thread_id: Union[str, int]) -> lldb.SBThread:
+    def get_thread_by_id(self, thread_id: Union[str, int]) -> lldb.SBThread:
         """Get thread by ID"""
-        process = self._ensure_process()
+        process = self.ensure_process()
         tid = int(thread_id)
 
         for i in range(process.GetNumThreads()):
@@ -70,833 +86,79 @@ class LLDBBridge:
 
         raise LLDBError("THREAD_NOT_FOUND", f"Thread {thread_id} not found")
 
-    # ==================== Connection Methods ====================
-
-    def handle_connect(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Connect to debug target
-
-        Params:
-            target: Path to executable
-            coreFile: Optional core dump file
-            attachPid: Optional PID to attach
-            waitFor: Wait for process to launch (for attach)
-        """
-        self._ensure_initialized()
-
-        target_path = params.get("target")
-        if not target_path:
-            raise LLDBError("INVALID_INPUT", "Target path required")
-
-        if not os.path.exists(target_path):
-            raise LLDBError("TARGET_NOT_FOUND", f"Target not found: {target_path}")
-
-        error = lldb.SBError()
-
-        # Create target
-        self.target = self.debugger.CreateTarget(
-            target_path, None, None, False, error
-        )
-
-        if error.Fail():
-            raise LLDBError("CREATE_TARGET_FAILED", str(error))
-
-        core_file = params.get("coreFile")
-        attach_pid = params.get("attachPid")
-        wait_for = params.get("waitFor", False)
-
-        if core_file:
-            # Load core dump
-            self.process = self.target.LoadCore(core_file, error)
-            if error.Fail():
-                raise LLDBError("LOAD_CORE_FAILED", str(error))
-        elif attach_pid:
-            # Attach to running process
-            self.process = self.target.AttachToProcessWithID(
-                self.listener, attach_pid, error
-            )
-            if error.Fail():
-                raise LLDBError("ATTACH_FAILED", str(error))
-        elif wait_for:
-            # Wait for process to launch
-            self.process = self.target.AttachToProcessWithName(
-                self.listener, os.path.basename(target_path), True, error
-            )
-            if error.Fail():
-                raise LLDBError("WAIT_FOR_PROCESS_FAILED", str(error))
-
-        return {
-            "success": True,
-            "targetId": str(self.target.GetFileSpec()),
-            "triple": self.target.GetTriple(),
-        }
-
-    def handle_disconnect(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Disconnect from debug target"""
-        if self.process:
-            # Detach or kill process
-            keep_alive = params.get("keepAlive", False)
-            if keep_alive:
-                self.process.Detach()
-            else:
-                self.process.Kill()
-            self.process = None
-
-        if self.target:
-            self.debugger.DeleteTarget(self.target)
-            self.target = None
-
-        self.breakpoint_map.clear()
-        return {"success": True}
-
-    def handle_launch(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Launch the target process
-
-        Params:
-            args: List of arguments
-            env: Environment variables
-            stopAtEntry: Stop at program entry
-            workingDir: Working directory
-        """
-        target = self._ensure_target()
-
-        args = params.get("args", [])
-        env = params.get("env", {})
-        stop_at_entry = params.get("stopAtEntry", False)
-        working_dir = params.get("workingDir")
-
-        error = lldb.SBError()
-
-        # Build launch info
-        launch_info = lldb.SBLaunchInfo(args)
-        launch_info.SetLaunchFlags(lldb.eLaunchFlagStopAtEntry if stop_at_entry else 0)
-
-        if working_dir:
-            launch_info.SetWorkingDirectory(working_dir)
-
-        if env:
-            env_list = [f"{k}={v}" for k, v in env.items()]
-            launch_info.SetEnvironmentEntries(env_list, True)
-
-        self.process = target.Launch(launch_info, error)
-
-        if error.Fail():
-            raise LLDBError("LAUNCH_FAILED", str(error))
-
-        return {
-            "success": True,
-            "pid": self.process.GetProcessID(),
-            "state": self._get_process_state(),
-        }
-
-    # ==================== Metadata Methods ====================
-
-    def handle_version(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get LLDB version info"""
-        self._ensure_initialized()
-        return {
-            "lldbVersion": self.debugger.GetVersionString(),
-            "pythonVersion": sys.version,
-        }
-
-    def handle_capabilities(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get debugger capabilities"""
-        return {
-            "supportsThreads": True,
-            "supportsStack": True,
-            "supportsLocals": True,
-            "supportsBreakpoints": True,
-            "supportsSuspend": True,
-            "supportsResume": True,
-            "supportsStep": True,
-            "supportsEvents": True,
-            "supportsWatchpoints": True,
-            "supportsExpressions": True,
-        }
-
-    # ==================== Thread Methods ====================
-
-    def handle_threads(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get all threads"""
-        process = self._ensure_process()
-
-        threads = []
-        for i in range(process.GetNumThreads()):
-            thread = process.GetThreadAtIndex(i)
-            threads.append(
-                {
-                    "id": thread.GetThreadID(),
-                    "name": thread.GetName() or f"thread-{thread.GetThreadID()}",
-                    "state": self._get_thread_state(thread),
-                    "stopReason": self._get_stop_reason(thread),
-                    "numFrames": thread.GetNumFrames(),
-                }
-            )
-
-        return threads
-
-    def handle_thread_state(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get thread state"""
-        thread_id = params.get("threadId")
-        thread = self._get_thread_by_id(thread_id)
-
-        return {
-            "id": thread.GetThreadID(),
-            "state": self._get_thread_state(thread),
-            "stopReason": self._get_stop_reason(thread),
-            "stopDescription": thread.GetStopDescription(256),
-        }
-
-    def _get_thread_state(self, thread: lldb.SBThread) -> str:
-        """Convert LLDB state to string"""
-        state_map = {
-            lldb.eStateInvalid: "invalid",
-            lldb.eStateUnloaded: "unloaded",
-            lldb.eStateConnected: "connected",
-            lldb.eStateAttaching: "attaching",
-            lldb.eStateLaunching: "launching",
-            lldb.eStateStopped: "stopped",
-            lldb.eStateRunning: "running",
-            lldb.eStateStepping: "stepping",
-            lldb.eStateCrashed: "crashed",
-            lldb.eStateDetached: "detached",
-            lldb.eStateResuming: "resuming",
-            lldb.eStateSuspended: "suspended",
-        }
-        return state_map.get(thread.GetState(), "unknown")
-
-    def _get_stop_reason(self, thread: lldb.SBThread) -> str:
-        """Convert LLDB stop reason to string"""
-        reason_map = {
-            lldb.eStopReasonInvalid: "invalid",
-            lldb.eStopReasonNone: "none",
-            lldb.eStopReasonTrace: "trace",
-            lldb.eStopReasonBreakpoint: "breakpoint",
-            lldb.eStopReasonWatchpoint: "watchpoint",
-            lldb.eStopReasonSignal: "signal",
-            lldb.eStopReasonException: "exception",
-            lldb.eStopReasonExec: "exec",
-            lldb.eStopReasonPlanComplete: "planComplete",
-            lldb.eStopReasonThreadExiting: "threadExiting",
-        }
-        return reason_map.get(thread.GetStopReason(), "unknown")
-
-    # ==================== Stack Methods ====================
-
-    def handle_stack(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get call stack for a thread"""
-        thread_id = params.get("threadId")
-        depth = params.get("depth", 50)
-
-        thread = self._get_thread_by_id(thread_id)
-
-        frames = []
-        num_frames = min(thread.GetNumFrames(), depth)
-
-        for i in range(num_frames):
-            frame = thread.GetFrameAtIndex(i)
-            frames.append(self._frame_to_dict(frame, i))
-
-        return frames
-
-    def _frame_to_dict(self, frame: lldb.SBFrame, index: int) -> Dict[str, Any]:
-        """Convert frame to dict"""
-        line_entry = frame.GetLineEntry()
-        file_spec = line_entry.GetFileSpec()
-
-        return {
-            "id": index,
-            "location": (
-                f"{file_spec.filename}:{line_entry.line}" if file_spec else "<unknown>"
-            ),
-            "file": file_spec.fullpath if file_spec else None,
-            "line": line_entry.line,
-            "column": line_entry.column,
-            "method": frame.GetFunctionName() or "<unknown>",
-            "module": (
-                frame.GetModule().GetFileSpec().filename if frame.GetModule() else None
-            ),
-            "address": frame.GetPC(),
-            "isInlined": frame.IsInlined(),
-        }
-
-    # ==================== Execution Control Methods ====================
-
-    def handle_suspend(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Suspend execution (process or thread level)"""
-        thread_id = params.get("threadId")
-
-        if thread_id:
-            # Thread-level suspend
-            thread = self._get_thread_by_id(thread_id)
-            thread.Suspend()
-            return {"success": True, "level": "thread", "threadId": thread_id}
-        else:
-            # Process-level stop
-            process = self._ensure_process()
-            process.Stop()
-            return {"success": True, "level": "process", "state": self._get_process_state()}
-
-    def handle_resume(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Resume execution (process or thread level)"""
-        thread_id = params.get("threadId")
-
-        if thread_id:
-            # Thread-level resume
-            thread = self._get_thread_by_id(thread_id)
-            thread.Resume()
-            return {"success": True, "level": "thread", "threadId": thread_id}
-        else:
-            # Process-level continue
-            process = self._ensure_process()
-            process.Continue()
-            return {"success": True, "level": "process"}
-
-    def handle_step_into(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Step into"""
-        thread_id = params.get("threadId")
-        thread = self._get_thread_by_id(thread_id)
-        thread.StepInto()
-        return {"success": True}
-
-    def handle_step_over(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Step over"""
-        thread_id = params.get("threadId")
-        thread = self._get_thread_by_id(thread_id)
-        thread.StepOver()
-        return {"success": True}
-
-    def handle_step_out(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Step out"""
-        thread_id = params.get("threadId")
-        thread = self._get_thread_by_id(thread_id)
-        thread.StepOut()
-        return {"success": True}
-
-    def _get_process_state(self) -> str:
+    def get_process_state(self) -> str:
         """Get process state string"""
-        if not self.process:
-            return "none"
+        return get_process_state(self.process)
 
-        state_map = {
-            lldb.eStateInvalid: "invalid",
-            lldb.eStateUnloaded: "unloaded",
-            lldb.eStateConnected: "connected",
-            lldb.eStateAttaching: "attaching",
-            lldb.eStateLaunching: "launching",
-            lldb.eStateStopped: "stopped",
-            lldb.eStateRunning: "running",
-            lldb.eStateStepping: "stepping",
-            lldb.eStateCrashed: "crashed",
-            lldb.eStateDetached: "detached",
-            lldb.eStateResuming: "resuming",
-            lldb.eStateSuspended: "suspended",
+
+class LLDBBridge:
+    """Bridge between JSON-RPC and LLDB Python API"""
+
+    def __init__(self):
+        self.state = LLDBState()
+
+        # Initialize handlers
+        self._handlers = {
+            # Connection
+            "connect": ConnectionHandler(self.state),
+            "disconnect": ConnectionHandler(self.state),
+            "launch": ConnectionHandler(self.state),
+            # Metadata
+            "version": MetadataHandler(self.state),
+            "capabilities": MetadataHandler(self.state),
+            # Thread
+            "threads": ThreadHandler(self.state),
+            "thread_state": ThreadHandler(self.state),
+            # Stack
+            "stack": StackHandler(self.state),
+            # Execution
+            "suspend": ExecutionHandler(self.state),
+            "resume": ExecutionHandler(self.state),
+            "step_into": ExecutionHandler(self.state),
+            "step_over": ExecutionHandler(self.state),
+            "step_out": ExecutionHandler(self.state),
+            # Breakpoint
+            "set_breakpoint": BreakpointHandler(self.state),
+            "remove_breakpoint": BreakpointHandler(self.state),
+            "clear_breakpoints": BreakpointHandler(self.state),
+            "breakpoints": BreakpointHandler(self.state),
+            "enable_breakpoint": BreakpointHandler(self.state),
+            "disable_breakpoint": BreakpointHandler(self.state),
+            "get_breakpoint_locations": BreakpointHandler(self.state),
+            "set_breakpoint_by_regex": BreakpointHandler(self.state),
+            # Variable
+            "locals": VariableHandler(self.state),
+            "fields": VariableHandler(self.state),
+            "get_variable_by_path": VariableHandler(self.state),
+            # Register
+            "registers": RegisterHandler(self.state),
+            # Selection
+            "get_selected_thread": SelectionHandler(self.state),
+            "set_selected_thread": SelectionHandler(self.state),
+            "get_selected_frame": SelectionHandler(self.state),
+            "set_selected_frame": SelectionHandler(self.state),
+            # Process Info
+            "get_exit_info": ProcessInfoHandler(self.state),
+            "get_stop_description": ProcessInfoHandler(self.state),
+            # Expression
+            "eval": ExpressionHandler(self.state),
+            # Target Info
+            "get_target_info": TargetInfoHandler(self.state),
+            # Event
+            "wait_for_event": EventHandler(self.state),
+            # Module
+            "get_target_metadata": ModuleHandler(self.state),
+            "get_modules": ModuleHandler(self.state),
+            "get_symbol": ModuleHandler(self.state),
+            # Type
+            "get_type_info": TypeHandler(self.state),
+            # IO
+            "put_stdin": IOHandler(self.state),
+            "get_stdout": IOHandler(self.state),
+            "get_stderr": IOHandler(self.state),
+            # Batch
+            "get_thread_batch_info": BatchHandler(self.state),
         }
-        return state_map.get(self.process.GetState(), "unknown")
-
-    # ==================== Breakpoint Methods ====================
-
-    def handle_set_breakpoint(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Set a breakpoint"""
-        target = self._ensure_target()
-
-        location = params.get("location")
-        condition = params.get("condition")
-        ignore_count = params.get("ignoreCount", 0)
-        address = params.get("address")
-        source_regex = params.get("sourceRegex")
-        source_file = params.get("sourceFile")
-
-        bp = None
-
-        # Priority: address > source_regex > location
-        if address is not None:
-            # Set breakpoint by address
-            bp = target.BreakpointCreateByAddress(int(address))
-        elif source_regex and source_file:
-            # Set breakpoint by source regex
-            bp = target.BreakpointCreateBySourceRegex(source_regex, source_file)
-        elif location:
-            # Parse location: "file:line" or "function"
-            if ":" in location and location.split(":")[-1].isdigit():
-                parts = location.rsplit(":", 1)
-                file_name = parts[0]
-                line_num = int(parts[1])
-                bp = target.BreakpointCreateByLocation(file_name, line_num)
-            else:
-                # Function name
-                bp = target.BreakpointCreateByName(location)
-        else:
-            raise LLDBError(
-                "INVALID_INPUT",
-                "Breakpoint location, address, or sourceRegex required"
-            )
-
-        if not bp or not bp.IsValid():
-            raise LLDBError(
-                "BREAKPOINT_FAILED",
-                f"Failed to create breakpoint at {location or address or source_regex}"
-            )
-
-        if condition:
-            bp.SetCondition(condition)
-
-        if ignore_count > 0:
-            bp.SetIgnoreCount(ignore_count)
-
-        bp_id = f"lldb_bp_{bp.GetID()}"
-        self.breakpoint_map[bp_id] = bp
-
-        return {
-            "id": bp_id,
-            "internalId": bp.GetID(),
-            "location": location or f"0x{address:x}" if address else source_regex,
-            "enabled": bp.IsEnabled(),
-            "hitCount": bp.GetHitCount(),
-        }
-
-    def handle_remove_breakpoint(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Remove a breakpoint"""
-        target = self._ensure_target()
-
-        bp_id = params.get("id")
-        if bp_id not in self.breakpoint_map:
-            raise LLDBError("BREAKPOINT_NOT_FOUND", f"Breakpoint {bp_id} not found")
-
-        bp = self.breakpoint_map[bp_id]
-        target.BreakpointDelete(bp.GetID())
-        del self.breakpoint_map[bp_id]
-
-        return {"success": True}
-
-    def handle_clear_breakpoints(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Clear all breakpoints"""
-        target = self._ensure_target()
-        target.DeleteAllBreakpoints()
-        self.breakpoint_map.clear()
-        return {"success": True}
-
-    def handle_breakpoints(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """List all breakpoints"""
-        target = self._ensure_target()
-
-        breakpoints = []
-        for i in range(target.GetNumBreakpoints()):
-            bp = target.GetBreakpointAtIndex(i)
-            if bp.IsValid():
-                # Get location info
-                locations = []
-                for j in range(bp.GetNumLocations()):
-                    loc = bp.GetLocationAtIndex(j)
-                    addr = loc.GetAddress()
-                    line_entry = addr.GetLineEntry()
-                    if line_entry:
-                        file_spec = line_entry.GetFileSpec()
-                        locations.append(f"{file_spec.filename}:{line_entry.line}")
-
-                breakpoints.append(
-                    {
-                        "id": f"lldb_bp_{bp.GetID()}",
-                        "internalId": bp.GetID(),
-                        "locations": locations,
-                        "enabled": bp.IsEnabled(),
-                        "hitCount": bp.GetHitCount(),
-                        "ignoreCount": bp.GetIgnoreCount(),
-                        "condition": bp.GetCondition() or None,
-                    }
-                )
-
-        return breakpoints
-
-    # ==================== Variable Methods ====================
-
-    def handle_locals(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get local variables"""
-        thread_id = params.get("threadId")
-        frame_index = params.get("frameIndex", 0)
-
-        thread = self._get_thread_by_id(thread_id)
-
-        if frame_index >= thread.GetNumFrames():
-            raise LLDBError("FRAME_NOT_FOUND", f"Frame {frame_index} not found")
-
-        frame = thread.GetFrameAtIndex(frame_index)
-        variables = []
-
-        # Get arguments
-        for i in range(frame.GetNumArguments()):
-            var = frame.GetArgumentAtIndex(i)
-            variables.append(self._variable_to_dict(var, "arg"))
-
-        # Get local variables
-        for i in range(frame.GetNumVariables()):
-            var = frame.GetVariableAtIndex(i)
-            variables.append(self._variable_to_dict(var, "local"))
-
-        return variables
-
-    def handle_fields(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get object/struct fields"""
-        thread_id = params.get("threadId")
-        frame_index = params.get("frameIndex", 0)
-        var_name = params.get("varName")
-
-        thread = self._get_thread_by_id(thread_id)
-        frame = thread.GetFrameAtIndex(frame_index)
-
-        # Find the variable
-        var = frame.FindVariable(var_name)
-        if not var.IsValid():
-            raise LLDBError("VARIABLE_NOT_FOUND", f"Variable {var_name} not found")
-
-        # Get children (fields/elements)
-        fields = []
-        for i in range(var.GetNumChildren()):
-            child = var.GetChildAtIndex(i)
-            fields.append(self._variable_to_dict(child, "field"))
-
-        return fields
-
-    def handle_eval(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Evaluate an expression"""
-        expression = params.get("expression")
-        thread_id = params.get("threadId")
-        frame_index = params.get("frameIndex", 0)
-
-        if not expression:
-            raise LLDBError("INVALID_INPUT", "Expression required")
-
-        if thread_id:
-            thread = self._get_thread_by_id(thread_id)
-            frame = thread.GetFrameAtIndex(frame_index)
-            result = frame.EvaluateExpression(expression)
-        else:
-            target = self._ensure_target()
-            result = target.EvaluateExpression(expression)
-
-        if not result.IsValid():
-            raise LLDBError("EVAL_FAILED", "Expression evaluation failed")
-
-        return self._variable_to_dict(result, "result")
-
-    def _variable_to_dict(
-        self, var: lldb.SBValue, kind: str
-    ) -> Dict[str, Any]:
-        """Convert variable to dict"""
-        type_obj = var.GetType()
-
-        return {
-            "name": var.GetName() or "<anonymous>",
-            "type": type_obj.GetName() or "<unknown>",
-            "value": self._get_value_string(var),
-            "kind": kind,
-            "isPointer": type_obj.IsPointerType(),
-            "isArray": type_obj.IsArrayType(),
-            "isStruct": type_obj.IsStructType(),
-            "numChildren": var.GetNumChildren(),
-            "isNil": (
-                var.GetValueAsUnsigned() == 0 if type_obj.IsPointerType() else False
-            ),
-        }
-
-    def _get_value_string(self, var: lldb.SBValue) -> str:
-        """Get value as string"""
-        # Try to get summary first (for containers, etc.)
-        summary = var.GetSummary()
-        if summary:
-            return summary
-
-        # Get value
-        value = var.GetValue()
-        if value:
-            return value
-
-        # For complex types, show type name
-        return f"<{var.GetType().GetName()}>"
-
-    # ==================== Register Methods ====================
-
-    def handle_registers(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get register sets for a frame"""
-        thread_id = params.get("threadId")
-        frame_index = params.get("frameIndex", 0)
-
-        thread = self._get_thread_by_id(thread_id)
-
-        if frame_index >= thread.GetNumFrames():
-            raise LLDBError("FRAME_NOT_FOUND", f"Frame {frame_index} not found")
-
-        frame = thread.GetFrameAtIndex(frame_index)
-        register_sets = frame.GetRegisters()
-
-        result = []
-        for i in range(register_sets.GetSize()):
-            reg_set = register_sets.GetValueAtIndex(i).CastToBasicType(
-                lldb.eBasicTypeVoid
-            )
-            # Get register set as SBValue
-            reg_set_value = register_sets.GetValueAtIndex(i)
-
-            registers = []
-            for j in range(reg_set_value.GetNumChildren()):
-                reg = reg_set_value.GetChildAtIndex(j)
-                registers.append({
-                    "name": reg.GetName() or f"reg_{j}",
-                    "value": reg.GetValue() or "",
-                    "type": reg.GetType().GetName() if reg.GetType() else None,
-                    "size": reg.GetByteSize(),
-                })
-
-            result.append({
-                "name": reg_set_value.GetName() or f"set_{i}",
-                "registers": registers,
-            })
-
-        return result
-
-    # ==================== Thread Selection Methods ====================
-
-    def handle_get_selected_thread(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get the currently selected thread"""
-        process = self._ensure_process()
-        thread = process.GetSelectedThread()
-
-        if not thread.IsValid():
-            raise LLDBError("THREAD_NOT_FOUND", "No selected thread")
-
-        return {
-            "id": thread.GetThreadID(),
-            "name": thread.GetName() or f"thread-{thread.GetThreadID()}",
-            "state": self._get_thread_state(thread),
-            "stopReason": self._get_stop_reason(thread),
-            "numFrames": thread.GetNumFrames(),
-        }
-
-    def handle_set_selected_thread(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Set the selected thread"""
-        process = self._ensure_process()
-        thread_id = params.get("threadId")
-
-        if not thread_id:
-            raise LLDBError("INVALID_INPUT", "threadId required")
-
-        success = process.SetSelectedThreadByID(int(thread_id))
-        if not success:
-            raise LLDBError("THREAD_NOT_FOUND", f"Thread {thread_id} not found")
-
-        return {"success": True, "threadId": thread_id}
-
-    # ==================== Frame Selection Methods ====================
-
-    def handle_get_selected_frame(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get the currently selected frame for a thread"""
-        thread_id = params.get("threadId")
-        thread = self._get_thread_by_id(thread_id)
-
-        frame = thread.GetSelectedFrame()
-        if not frame.IsValid():
-            raise LLDBError("FRAME_NOT_FOUND", "No selected frame")
-
-        return self._frame_to_dict(frame, frame.GetFrameID())
-
-    def handle_set_selected_frame(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Set the selected frame for a thread"""
-        thread_id = params.get("threadId")
-        frame_index = params.get("frameIndex")
-
-        if frame_index is None:
-            raise LLDBError("INVALID_INPUT", "frameIndex required")
-
-        thread = self._get_thread_by_id(thread_id)
-        thread.SetSelectedFrame(int(frame_index))
-
-        return {"success": True, "threadId": thread_id, "frameIndex": frame_index}
-
-    # ==================== Process Info Methods ====================
-
-    def handle_get_exit_info(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get process exit information"""
-        process = self._ensure_process()
-
-        state = process.GetState()
-        if state != lldb.eStateExited:
-            return {"status": None, "description": None, "state": self._get_process_state()}
-
-        return {
-            "status": process.GetExitStatus(),
-            "description": process.GetExitDescription(),
-            "state": "exited",
-        }
-
-    def handle_get_stop_description(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get thread stop description"""
-        thread_id = params.get("threadId")
-        max_length = params.get("maxLength", 256)
-
-        thread = self._get_thread_by_id(thread_id)
-        description = thread.GetStopDescription(max_length)
-
-        return {
-            "threadId": thread_id,
-            "description": description,
-            "stopReason": self._get_stop_reason(thread),
-        }
-
-    # ==================== Variable Path Methods ====================
-
-    def handle_get_variable_by_path(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get variable by path (e.g., 'obj->field', 'array[0]')"""
-        thread_id = params.get("threadId")
-        frame_index = params.get("frameIndex", 0)
-        path = params.get("path")
-
-        if not path:
-            raise LLDBError("INVALID_INPUT", "Variable path required")
-
-        thread = self._get_thread_by_id(thread_id)
-
-        if frame_index >= thread.GetNumFrames():
-            raise LLDBError("FRAME_NOT_FOUND", f"Frame {frame_index} not found")
-
-        frame = thread.GetFrameAtIndex(frame_index)
-        var = frame.GetValueForVariablePath(path)
-
-        if not var.IsValid():
-            raise LLDBError("VARIABLE_NOT_FOUND", f"Variable path '{path}' not found")
-
-        return self._variable_to_dict(var, "field")
-
-    # ==================== Breakpoint Enable/Disable Methods ====================
-
-    def handle_enable_breakpoint(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Enable a breakpoint"""
-        bp_id = params.get("id")
-        if bp_id not in self.breakpoint_map:
-            raise LLDBError("BREAKPOINT_NOT_FOUND", f"Breakpoint {bp_id} not found")
-
-        bp = self.breakpoint_map[bp_id]
-        bp.SetEnabled(True)
-
-        return {"success": True, "id": bp_id, "enabled": True}
-
-    def handle_disable_breakpoint(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Disable a breakpoint"""
-        bp_id = params.get("id")
-        if bp_id not in self.breakpoint_map:
-            raise LLDBError("BREAKPOINT_NOT_FOUND", f"Breakpoint {bp_id} not found")
-
-        bp = self.breakpoint_map[bp_id]
-        bp.SetEnabled(False)
-
-        return {"success": True, "id": bp_id, "enabled": False}
-
-    # ==================== Expression Options Methods ====================
-
-    def handle_eval(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Evaluate an expression with optional options"""
-        expression = params.get("expression")
-        thread_id = params.get("threadId")
-        frame_index = params.get("frameIndex", 0)
-        timeout_ms = params.get("timeout")
-        unwind_on_error = params.get("unwindOnError", True)
-        ignore_breakpoints = params.get("ignoreBreakpoints", False)
-
-        if not expression:
-            raise LLDBError("INVALID_INPUT", "Expression required")
-
-        # Create expression options
-        options = lldb.SBExpressionOptions()
-
-        if timeout_ms is not None:
-            options.SetTimeoutInMicroseconds(int(timeout_ms) * 1000)
-
-        options.SetUnwindOnError(unwind_on_error)
-        options.SetIgnoreBreakpoints(ignore_breakpoints)
-
-        if thread_id:
-            thread = self._get_thread_by_id(thread_id)
-            frame = thread.GetFrameAtIndex(frame_index)
-            result = frame.EvaluateExpression(expression, options)
-        else:
-            target = self._ensure_target()
-            result = target.EvaluateExpression(expression, options)
-
-        if not result.IsValid():
-            error = result.GetError()
-            if error.Fail():
-                raise LLDBError("EVAL_FAILED", error.GetCString() or "Expression evaluation failed")
-            raise LLDBError("EVAL_FAILED", "Expression evaluation failed")
-
-        return self._variable_to_dict(result, "result")
-
-    # ==================== Target Info Methods ====================
-
-    def handle_get_target_info(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get target information"""
-        target = self._ensure_target()
-
-        exe_spec = target.GetExecutable()
-        num_modules = target.GetNumModules()
-        num_breakpoints = target.GetNumBreakpoints()
-
-        return {
-            "executable": exe_spec.fullpath if exe_spec else None,
-            "triple": target.GetTriple(),
-            "numModules": num_modules,
-            "numBreakpoints": num_breakpoints,
-            "byteOrder": str(target.GetByteOrder()),
-        }
-
-    # ==================== Event Methods ====================
-
-    def handle_wait_for_event(
-        self, params: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """Wait for a debug event"""
-        timeout = params.get("timeout", 30)
-
-        process = self._ensure_process()
-
-        # Use listener to wait for event
-        event = lldb.SBEvent()
-        if self.listener.WaitForEventForBroadcasterClassName(
-            timeout, "SBProcess", event
-        ):
-            return self._event_to_dict(event)
-
-        return None
-
-    def _event_to_dict(self, event: lldb.SBEvent) -> Dict[str, Any]:
-        """Convert event to dict"""
-        return {
-            "type": self._get_event_type(event),
-            "state": self._get_process_state(),
-            "description": event.GetDescription(),
-        }
-
-    def _get_event_type(self, event: lldb.SBEvent) -> str:
-        """Get event type string"""
-        if lldb.SBProcess.GetRestartedFromEvent(event):
-            return "restarted"
-        if (
-            lldb.SBProcess.GetProcessFromEvent(event).GetState()
-            == lldb.eStateCrashed
-        ):
-            return "crashed"
-        if (
-            lldb.SBProcess.GetProcessFromEvent(event).GetState()
-            == lldb.eStateStopped
-        ):
-            return "stopped"
-        if (
-            lldb.SBProcess.GetProcessFromEvent(event).GetState()
-            == lldb.eStateExited
-        ):
-            return "exited"
-        return "unknown"
-
-    # ==================== Main Loop ====================
 
     def run(self) -> None:
         """Main loop: read JSON commands from stdin"""
@@ -911,12 +173,14 @@ class LLDBBridge:
                 method = request.get("method", "")
                 params = request.get("params", {})
 
-                handler_name = f"handle_{method}"
-                handler = getattr(self, handler_name, None)
-
+                handler = self._handlers.get(method)
                 if handler:
-                    result = handler(params)
-                    self._send_response(req_id, result)
+                    handler_method = getattr(handler, f"handle_{method}", None)
+                    if handler_method:
+                        result = handler_method(params)
+                        self._send_response(req_id, result)
+                    else:
+                        self._send_error(req_id, "UNKNOWN_METHOD", f"Unknown method: {method}")
                 else:
                     self._send_error(req_id, "UNKNOWN_METHOD", f"Unknown method: {method}")
 

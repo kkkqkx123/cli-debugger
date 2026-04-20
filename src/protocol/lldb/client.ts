@@ -25,6 +25,13 @@ import type {
   LLDBExitInfo,
   LLDBEvalOptions,
   LLDBTargetInfo,
+  LLDBTargetMetadata,
+  LLDBModuleInfo,
+  LLDBSymbolInfo,
+  LLDBTypeInfo,
+  LLDBThreadBatchInfo,
+  LLDBProcessIOResult,
+  LLDBBreakpointLocation,
 } from "./types.js";
 
 /**
@@ -602,6 +609,151 @@ export class LLDBClient implements DebugProtocol {
   async getTargetInfo(): Promise<LLDBTargetInfo> {
     this.ensureConnected();
     return await this.bridge.call<LLDBTargetInfo>("getTargetInfo", {});
+  }
+
+  // ==================== P2 Feature Methods ====================
+
+  /**
+   * Set breakpoint by source regex (P2)
+   * Creates breakpoints at all locations matching the regex pattern
+   */
+  async setBreakpointBySourceRegex(
+    pattern: string,
+    file?: string,
+    condition?: string,
+    ignoreCount?: number,
+  ): Promise<string> {
+    this.ensureConnected();
+
+    const result = await this.bridge.call<LLDBBreakpoint>(
+      "setBreakpointByRegex",
+      {
+        pattern,
+        file,
+        condition,
+        ignoreCount,
+      },
+    );
+
+    this.breakpointMap.set(result.id, result);
+    return result.id;
+  }
+
+  /**
+   * Get target metadata (P2)
+   * Returns detailed information about the target including modules and symbols count
+   */
+  async getTargetMetadata(): Promise<LLDBTargetMetadata> {
+    this.ensureConnected();
+    return await this.bridge.call<LLDBTargetMetadata>("getTargetMetadata", {});
+  }
+
+  /**
+   * Get all modules (P2)
+   * Returns list of all loaded modules with their details
+   */
+  async getModules(): Promise<LLDBModuleInfo[]> {
+    this.ensureConnected();
+    return await this.bridge.call<LLDBModuleInfo[]>("getModules", {});
+  }
+
+  /**
+   * Get symbol at frame position (P2)
+   * Useful for debugging without debug information
+   */
+  async getSymbol(
+    threadId: string,
+    frameIndex: number,
+  ): Promise<LLDBSymbolInfo> {
+    this.ensureConnected();
+
+    return await this.bridge.call<LLDBSymbolInfo>("getSymbol", {
+      threadId: parseInt(threadId, 10),
+      frameIndex,
+    });
+  }
+
+  /**
+   * Get detailed type information (P2)
+   * Can lookup by type name or from a variable
+   */
+  async getTypeInfo(options: {
+    typeName?: string;
+    varName?: string;
+    threadId?: string;
+    frameIndex?: number;
+  }): Promise<LLDBTypeInfo> {
+    this.ensureConnected();
+
+    return await this.bridge.call<LLDBTypeInfo>("getTypeInfo", {
+      typeName: options.typeName,
+      varName: options.varName,
+      threadId: options.threadId ? parseInt(options.threadId, 10) : undefined,
+      frameIndex: options.frameIndex,
+    });
+  }
+
+  /**
+   * Get batch information for a thread (P2)
+   * Returns addresses, modules, symbols, files, lines, and functions for all frames
+   */
+  async getThreadBatchInfo(threadId: string): Promise<LLDBThreadBatchInfo> {
+    this.ensureConnected();
+
+    return await this.bridge.call<LLDBThreadBatchInfo>("getThreadBatchInfo", {
+      threadId: parseInt(threadId, 10),
+    });
+  }
+
+  /**
+   * Write data to process stdin (P2)
+   * Data should be provided as base64 encoded string
+   */
+  async putStdin(data: string): Promise<{ bytesWritten: number }> {
+    this.ensureConnected();
+
+    return await this.bridge.call<{ bytesWritten: number }>("putStdin", {
+      data,
+    });
+  }
+
+  /**
+   * Read data from process stdout (P2)
+   * Returns base64 encoded data
+   */
+  async getStdout(size?: number): Promise<LLDBProcessIOResult> {
+    this.ensureConnected();
+
+    return await this.bridge.call<LLDBProcessIOResult>("getStdout", {
+      size: size ?? 1024,
+    });
+  }
+
+  /**
+   * Read data from process stderr (P2)
+   * Returns base64 encoded data
+   */
+  async getStderr(size?: number): Promise<LLDBProcessIOResult> {
+    this.ensureConnected();
+
+    return await this.bridge.call<LLDBProcessIOResult>("getStderr", {
+      size: size ?? 1024,
+    });
+  }
+
+  /**
+   * Get detailed breakpoint locations (P2)
+   * Returns all locations where a breakpoint is set
+   */
+  async getBreakpointLocations(
+    breakpointId: string,
+  ): Promise<LLDBBreakpointLocation[]> {
+    this.ensureConnected();
+
+    return await this.bridge.call<LLDBBreakpointLocation[]>(
+      "getBreakpointLocations",
+      { id: breakpointId },
+    );
   }
 
   // ==================== Private Methods ====================

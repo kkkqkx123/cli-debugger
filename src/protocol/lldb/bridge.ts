@@ -18,6 +18,14 @@ import {
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 /**
+ * Convert camelCase method name to snake_case
+ * This is needed because TS uses camelCase but Python handlers use snake_case
+ */
+function camelToSnake(method: string): string {
+  return method.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+/**
  * LLDB Python bridge
  * Manages communication with the Python subprocess
  */
@@ -128,7 +136,9 @@ export class LLDBBridge {
     }
 
     const id = ++this.requestId;
-    const request = createRequest(id, method, params);
+    // Convert camelCase to snake_case for Python handlers
+    const pythonMethod = camelToSnake(method);
+    const request = createRequest(id, pythonMethod, params);
     const actualTimeout = timeout ?? this.defaultTimeout;
 
     return new Promise((resolve, reject) => {
