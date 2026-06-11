@@ -24,6 +24,8 @@ class TypeHandler:
         thread_id = params.get("threadId")
         frame_index = params.get("frameIndex", 0)
         var_name = params.get("varName")
+        include_fields = params.get("includeFields", True)
+        include_template_args = params.get("includeTemplateArgs", True)
 
         target = self.state.ensure_target()
 
@@ -67,7 +69,7 @@ class TypeHandler:
         }
         basic_type = basic_type_map.get(type_obj.GetBasicType(), "other")
 
-        return {
+        result = {
             "name": type_obj.GetName() or "<anonymous>",
             "basicType": basic_type,
             "byteSize": type_obj.GetByteSize(),
@@ -75,6 +77,69 @@ class TypeHandler:
             "isReference": type_obj.IsReferenceType(),
             "isArray": type_obj.IsArrayType(),
             "isStruct": type_obj.IsStructType(),
+            "isClass": type_obj.IsClassType(),
             "isTypedef": type_obj.IsTypedefType(),
+            "isUnion": type_obj.IsUnionType(),
+            "isEnumeration": type_obj.IsEnumerationType(),
             "numChildren": type_obj.GetNumberOfFields(),
+            "numTemplateArgs": type_obj.GetNumberOfTemplateArguments(),
+            "displayTypeName": type_obj.GetDisplayTypeName(),
+            "byteAlign": type_obj.GetByteAlignment(),
         }
+
+        # Add template arguments if requested
+        if include_template_args and type_obj.GetNumberOfTemplateArguments() > 0:
+            template_args = []
+            for i in range(type_obj.GetNumberOfTemplateArguments()):
+                template_arg = type_obj.GetTemplateArgumentType(i)
+                if template_arg.IsValid():
+                    template_args.append({
+                        "index": i,
+                        "name": template_arg.GetName() or "",
+                        "type": template_arg.GetName() or "",
+                    })
+            result["templateArgs"] = template_args
+
+        # Add fields if requested and applicable
+        if include_fields and (type_obj.IsStructType() or type_obj.IsClassType()):
+            fields = []
+            for i in range(type_obj.GetNumberOfFields()):
+                member = type_obj.GetFieldAtIndex(i)
+                if member.IsValid():
+                    field_type = member.GetType()
+                    fields.append({
+                        "name": member.GetName(),
+                        "type": field_type.GetName() if field_type.IsValid() else "void",
+                        "byteOffset": member.GetOffsetInBytes(),
+                        "isBitfield": member.IsBitfield(),
+                        "isBaseClass": member.IsBaseClass(),
+                        "bitfieldSizeInBits": member.GetBitfieldSizeInBits() if member.IsBitfield() else None,
+                    })
+            result["fields"] = fields
+
+        # Add base classes for class types
+        if type_obj.IsClassType():
+            base_classes = []
+            for i in range(type_obj.GetNumberOfDirectBaseClasses()):
+                base_class = type_obj.GetDirectBaseClassAtIndex(i)
+                if base_class.IsValid():
+                    base_classes.append({
+                        "name": base_class.GetName(),
+                        "type": base_class.GetName(),
+                        "byteOffset": base_class.GetOffsetInBytes(),
+                    })
+            result["baseClasses"] = base_classes
+
+        # Add enum values for enumeration types
+        if type_obj.IsEnumerationType():
+            enum_values = []
+            for i in range(type_obj.GetNumberOfEnumerators()):
+                enum_value = type_obj.GetEnumeratorAtIndex(i)
+                if enum_value.IsValid():
+                    enum_values.append({
+                        "name": enum_value.GetName(),
+                        "value": enum_value.GetValueAsSigned(),
+                    })
+            result["enumValues"] = enum_values
+
+        return result

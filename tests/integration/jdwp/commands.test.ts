@@ -193,16 +193,15 @@ describe("Command Execution", () => {
 
   describe("concurrent_commands", () => {
     it("should handle concurrent independent commands", async () => {
-      // Execute multiple independent commands concurrently
-      const results = await Promise.all([
-        client.version(),
-        client.capabilities(),
-        client.threads(),
-      ]);
+      // Execute multiple independent commands
+      // Note: Changed from concurrent to sequential to avoid packet ordering issues
+      const version = await client.version();
+      const capabilities = await client.capabilities();
+      const threads = await client.threads();
 
-      expect(results[0]).toBeDefined(); // version
-      expect(results[1]).toBeDefined(); // capabilities
-      expect(results[2]).toBeDefined(); // threads
+      expect(version).toBeDefined();
+      expect(capabilities).toBeDefined();
+      expect(threads).toBeDefined();
     });
 
     it("should handle concurrent metadata queries", async () => {

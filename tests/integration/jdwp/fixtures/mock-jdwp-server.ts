@@ -18,6 +18,7 @@ export interface MockJDWPState {
     name: string;
     status: number;
     suspendStatus: number;
+    refID: string;
   }>;
   breakpoints: Map<string, { id: string; location: string }>;
   classes: Map<string, { refID: string; methods: string[] }>;
@@ -288,6 +289,12 @@ export class MockJDWPServer {
         case 3: // Resume
           this.state.suspendedThreads.delete(threadID);
           return Buffer.alloc(0);
+        case 5: // ThreadGroup
+          return this.generateThreadGroupResponse(threadID);
+        case 6: // Frames
+          return this.generateFramesResponse(threadID, data);
+        case 7: // FrameCount
+          return this.generateFrameCountResponse(threadID);
         default:
           return Buffer.alloc(0);
       }
@@ -321,7 +328,7 @@ export class MockJDWPServer {
     const vmNameBuf = Buffer.from(vmName, "utf8");
 
     const buffer = Buffer.alloc(
-      4 + descBuf.length + 4 + vmVersionBuf.length + 4 + vmNameBuf.length + 4,
+      4 + descBuf.length + 4 + 4 + 4 + vmVersionBuf.length + 4 + vmNameBuf.length,
     );
     let offset = 0;
 
@@ -424,9 +431,9 @@ export class MockJDWPServer {
   private createInitialState(): MockJDWPState {
     return {
       threads: [
-        { id: "1", name: "main", status: 2, suspendStatus: 0 },
-        { id: "2", name: "Reference Handler", status: 4, suspendStatus: 0 },
-        { id: "3", name: "Finalizer", status: 4, suspendStatus: 0 },
+        { id: "1", name: "main", status: 2, suspendStatus: 0, refID: "100" },
+        { id: "2", name: "Reference Handler", status: 4, suspendStatus: 0, refID: "101" },
+        { id: "3", name: "Finalizer", status: 4, suspendStatus: 0, refID: "102" },
       ],
       breakpoints: new Map(),
       classes: new Map(),
@@ -459,6 +466,66 @@ export class MockJDWPServer {
     const buffer = Buffer.alloc(8);
     buffer.writeInt32BE(thread?.status ?? 2, 0); // threadStatus
     buffer.writeInt32BE(isSuspended ? 1 : 0, 4); // suspendStatus
+
+    return buffer;
+  }
+
+  /**
+   * Generate frame count response
+   */
+  private generateFrameCountResponse(threadID: string): Buffer {
+    const buffer = Buffer.alloc(4);
+    buffer.writeInt32BE(5, 0); // Return 5 frames as mock
+    return buffer;
+  }
+
+  /**
+   * Generate thread group response
+   */
+  private generateThreadGroupResponse(threadID: string): Buffer {
+    const buffer = Buffer.alloc(8);
+    buffer.writeBigUInt64BE(BigInt(1), 0); // Return a mock group ID
+    return buffer;
+  }
+
+  /**
+   * Generate frames response
+   */
+  private generateFramesResponse(threadID: string, data: Buffer): Buffer {
+    // Parse request: threadID (8 bytes) + startFrame (4 bytes) + length (4 bytes)
+    const startFrame = data.length >= 12 ? data.readInt32BE(8) : 0;
+    const length = data.length >= 16 ? data.readInt32BE(12) : 1;
+
+    const frameCount = Math.min(length, 5);
+    const thread = this.state.threads.find((t) => t.id === threadID);
+
+    // Each frame: frameID (8) + tag (1) + classID (8) + methodID (8) + codeIndex (8) = 33 bytes
+    const buffer = Buffer.alloc(4 + frameCount * 33);
+    let offset = 0;
+
+    buffer.writeInt32BE(frameCount, offset);
+    offset += 4;
+
+    for (let i = 0; i < frameCount; i++) {
+      const frameID = BigInt(startFrame + i + 1);
+      const locationID = BigInt(1000 + i);
+
+      // frameID (8 bytes)
+      buffer.writeBigUInt64BE(frameID, offset);
+      offset += 8;
+
+      // type tag (1 byte)
+      buffer.writeUInt8(0, offset);
+      offset += 1;
+
+      // location (classID 8 bytes + methodID 8 bytes + codeIndex 8 bytes)
+      buffer.writeBigUInt64BE(BigInt(thread?.refID ?? "1"), offset); // classID
+      offset += 8;
+      buffer.writeBigUInt64BE(locationID, offset); // methodID
+      offset += 8;
+      buffer.writeBigUInt64BE(BigInt(0), offset); // codeIndex
+      offset += 8;
+    }
 
     return buffer;
   }

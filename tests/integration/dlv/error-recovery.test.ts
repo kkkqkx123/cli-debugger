@@ -145,7 +145,7 @@ describe("Delve Error Recovery", () => {
     it("should handle connection timeout", async () => {
       const client = new DlvClient({
         protocol: "dlv",
-        host: "192.0.2.1", // Non-routable IP
+        host: "10.255.255.1", // Non-routable IP that will cause timeout
         port: 5005,
         timeout: 1000,
       });

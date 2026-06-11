@@ -60,41 +60,121 @@ class ModuleHandler:
         return modules
 
     def handle_get_symbol(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get symbol at current frame position (for debugging without debug info)"""
+        """Get symbol - can query by name (with fuzzy matching) or get symbol at current frame"""
         import lldb
+        import fnmatch
 
         thread_id = params.get("threadId")
         frame_index = params.get("frameIndex", 0)
+        symbol_name = params.get("symbolName")
+        fuzzy_match = params.get("fuzzyMatch", False)
 
-        thread = self.state.get_thread_by_id(thread_id)
+        # If symbol name is provided, search for it
+        if symbol_name:
+            target = self.state.ensure_target()
 
-        if frame_index >= thread.GetNumFrames():
-            raise LLDBError("FRAME_NOT_FOUND", f"Frame {frame_index} not found")
+            # Search through all modules for symbols matching the name
+            matches = []
 
-        frame = thread.GetFrameAtIndex(frame_index)
-        symbol = frame.GetSymbol()
+            for i in range(target.GetNumModules()):
+                module = target.GetModuleAtIndex(i)
+                for j in range(module.GetNumSymbols()):
+                    symbol = module.GetSymbolAtIndex(j)
+                    if symbol.IsValid():
+                        sym_name = symbol.GetName()
+                        if sym_name:
+                            # Exact match or fuzzy match
+                            if fuzzy_match:
+                                if fnmatch.fnmatch(sym_name.lower(), symbol_name.lower()):
+                                    matches.append(symbol)
+                            else:
+                                if sym_name == symbol_name:
+                                    matches.append(symbol)
 
-        if not symbol.IsValid():
-            raise LLDBError("SYMBOL_NOT_FOUND", "No symbol at this location")
+            if not matches:
+                # Try case-insensitive exact match
+                for i in range(target.GetNumModules()):
+                    module = target.GetModuleAtIndex(i)
+                    for j in range(module.GetNumSymbols()):
+                        symbol = module.GetSymbolAtIndex(j)
+                        if symbol.IsValid():
+                            sym_name = symbol.GetName()
+                            if sym_name and sym_name.lower() == symbol_name.lower():
+                                matches.append(symbol)
 
-        # Determine symbol type
-        sym_type = symbol.GetType()
-        if symbol.IsSynthetic():
-            type_str = "other"
-        elif sym_type == lldb.eSymbolTypeCode:
-            type_str = "code"
-        elif sym_type == lldb.eSymbolTypeData:
-            type_str = "data"
-        elif sym_type == lldb.eSymbolTypeDebug:
-            type_str = "debug"
+            if not matches:
+                raise LLDBError("SYMBOL_NOT_FOUND", f"Symbol '{symbol_name}' not found")
+
+            # Return the first match (or could return all matches in the future)
+            symbol = matches[0]
+
+            # Determine symbol type
+            sym_type = symbol.GetType()
+            if symbol.IsSynthetic():
+                type_str = "other"
+            elif sym_type == lldb.eSymbolTypeCode:
+                type_str = "code"
+            elif sym_type == lldb.eSymbolTypeData:
+                type_str = "data"
+            elif sym_type == lldb.eSymbolTypeDebug:
+                type_str = "debug"
+            else:
+                type_str = "other"
+
+            return {
+                "name": symbol.GetName() or "<unknown>",
+                "type": type_str,
+                "address": symbol.GetStartAddress().GetLoadAddress(self.state.target),
+                "size": symbol.GetEndAddress().GetLoadAddress(self.state.target) -
+                        symbol.GetStartAddress().GetLoadAddress(self.state.target),
+                "module": symbol.GetModule().GetFileSpec().filename if symbol.GetModule() else None,
+                "numMatches": len(matches),
+            }
+
+        # Otherwise, get symbol at current frame position
         else:
-            type_str = "other"
+            if not thread_id:
+                raise LLDBError("INVALID_INPUT", "Either symbolName or threadId must be provided")
 
-        return {
-            "name": symbol.GetName() or "<unknown>",
-            "type": type_str,
-            "address": symbol.GetStartAddress().GetLoadAddress(self.state.target),
-            "size": symbol.GetEndAddress().GetLoadAddress(self.state.target) -
-                    symbol.GetStartAddress().GetLoadAddress(self.state.target),
-            "module": symbol.GetModule().GetFileSpec().filename if symbol.GetModule() else None,
-        }
+            thread = self.state.get_thread_by_id(thread_id)
+
+            if frame_index >= thread.GetNumFrames():
+                raise LLDBError("FRAME_NOT_FOUND", f"Frame {frame_index} not found")
+
+            frame = thread.GetFrameAtIndex(frame_index)
+            symbol = frame.GetSymbol()
+
+            if not symbol.IsValid():
+                # If no symbol at this location, try to get from PC address
+                pc_address = frame.GetPCAddress()
+                if pc_address.IsValid():
+                    module = pc_address.GetModule()
+                    if module and module.IsValid():
+                        symbol = module.ResolveSymbolContextForAddress(
+                            pc_address, lldb.eSymbolContextSymbol
+                        ).GetSymbol()
+
+            if not symbol or not symbol.IsValid():
+                raise LLDBError("SYMBOL_NOT_FOUND", "No symbol at this location")
+
+            # Determine symbol type
+            sym_type = symbol.GetType()
+            if symbol.IsSynthetic():
+                type_str = "other"
+            elif sym_type == lldb.eSymbolTypeCode:
+                type_str = "code"
+            elif sym_type == lldb.eSymbolTypeData:
+                type_str = "data"
+            elif sym_type == lldb.eSymbolTypeDebug:
+                type_str = "debug"
+            else:
+                type_str = "other"
+
+            return {
+                "name": symbol.GetName() or "<unknown>",
+                "type": type_str,
+                "address": symbol.GetStartAddress().GetLoadAddress(self.state.target),
+                "size": symbol.GetEndAddress().GetLoadAddress(self.state.target) -
+                        symbol.GetStartAddress().GetLoadAddress(self.state.target),
+                "module": symbol.GetModule().GetFileSpec().filename if symbol.GetModule() else None,
+            }

@@ -244,8 +244,21 @@ export class DlvRpcClient {
     let response: JsonRpcResponse;
     try {
       response = JSON.parse(message);
-    } catch {
-      // Invalid JSON, ignore
+    } catch (error) {
+      // Invalid JSON - reject all pending requests since we can't match them
+      for (const pending of this.pendingRequests.values()) {
+        clearTimeout(pending.timeout);
+        pending.reject(
+          new APIError(
+            ErrorType.ProtocolError,
+            ErrorCodes.DecodeError,
+            "Invalid JSON response from server",
+            { rawMessage: message },
+            error instanceof Error ? error : undefined,
+          ),
+        );
+      }
+      this.pendingRequests.clear();
       return;
     }
 

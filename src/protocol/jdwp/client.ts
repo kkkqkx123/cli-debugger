@@ -1217,4 +1217,110 @@ export class JDWPClient implements DebugProtocol {
       tag === 0x5a // Z - boolean
     );
   }
+
+  // ==================== Extended Interface ====================
+
+  async eval(_threadId: string, _frameIndex: number, _expression: string, _options?: EvalOptions): Promise<EvalResult> {
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "JDWP does not support expression evaluation",
+    );
+  }
+
+  async enableBreakpoint(_id: string): Promise<void> {
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "JDWP does not support enable/disable breakpoint",
+    );
+  }
+
+  async disableBreakpoint(_id: string): Promise<void> {
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "JDWP does not support enable/disable breakpoint",
+    );
+  }
+
+  async getBreakpointInfo(id: string): Promise<ExtendedBreakpointInfo> {
+    this.ensureConnected();
+    const bp = this.breakpointMap.get(id);
+    if (!bp) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Breakpoint ${id} not found`,
+        { id },
+      );
+    }
+
+    return {
+      id: id,
+      location: `${bp.location.className}:${bp.location.lineNumber}`,
+      enabled: bp.enabled,
+      hitCount: bp.hitCount || 0,
+      ignoreCount: 0,
+      condition: bp.condition || null,
+    };
+  }
+
+  async getTypeInfo(_typeName: string, _includeFields?: boolean, _includeTemplateArgs?: boolean): Promise<TypeInfo> {
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "JDWP does not support detailed type information query",
+    );
+  }
+
+  async getSymbol(_threadId: string, _frameIndex: number, _symbolName?: string, _fuzzyMatch?: boolean): Promise<SymbolInfo> {
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "JDWP does not support symbol query",
+    );
+  }
+
+  async getTargetMetadata(): Promise<TargetMetadata> {
+    this.ensureConnected();
+    
+    // JDWP provides limited target metadata
+    return {
+      executable: "java",
+      triple: "java-unknown",
+      numModules: 0,
+      numSections: 0,
+      numSymbols: 0,
+    };
+  }
+
+  async getThreadBatchInfo(_threadId: string): Promise<ThreadBatchInfo> {
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "JDWP does not support batch thread information query",
+    );
+  }
+
+  supportsFeature(feature: FeatureName): boolean {
+    switch (feature) {
+      case "eval":
+        return false;
+      case "enableDisableBreakpoint":
+        return false;
+      case "extendedBreakpointInfo":
+        return true;
+      case "targetMetadata":
+        return true;
+      case "typeInfo":
+        return false;
+      case "symbolInfo":
+        return false;
+      case "threadBatchInfo":
+        return false;
+      default:
+        return false;
+    }
+  }
 }

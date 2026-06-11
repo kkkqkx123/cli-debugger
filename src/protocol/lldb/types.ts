@@ -137,6 +137,8 @@ export interface LLDBEvalOptions {
   timeout?: number; // milliseconds
   unwindOnError?: boolean;
   ignoreBreakpoints?: boolean;
+  useDynamicTypes?: boolean; // Use dynamic type resolution
+  tryAllThreads?: boolean; // Try evaluating in all threads
 }
 
 /** Target information */
@@ -186,6 +188,7 @@ export interface LLDBSymbolInfo {
   address: number;
   size: number;
   module: string | null;
+  numMatches?: number; // Number of matches when using fuzzy search
 }
 
 /** Type info (P2) */
@@ -197,8 +200,36 @@ export interface LLDBTypeInfo {
   isReference: boolean;
   isArray: boolean;
   isStruct: boolean;
+  isClass: boolean;
+  isUnion: boolean;
   isTypedef: boolean;
+  isEnumeration: boolean;
   numChildren: number;
+  numTemplateArgs: number;
+  displayTypeName: string;
+  byteAlign: number;
+  templateArgs?: Array<{
+    index: number;
+    name: string;
+    type: string;
+  }>;
+  fields?: Array<{
+    name: string;
+    type: string;
+    byteOffset: number;
+    isBitfield: boolean;
+    isBaseClass: boolean;
+    bitfieldSizeInBits: number | null;
+  }>;
+  baseClasses?: Array<{
+    name: string;
+    type: string;
+    byteOffset: number;
+  }>;
+  enumValues?: Array<{
+    name: string;
+    value: number;
+  }>;
 }
 
 /** Thread batch info (P2) */

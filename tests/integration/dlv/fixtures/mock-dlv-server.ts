@@ -388,7 +388,9 @@ export class MockDlvServer {
     }
 
     if (method === "RPCServer.ListBreakpoints") {
-      return Array.from(this.state.breakpoints.values());
+      return {
+        Breakpoints: Array.from(this.state.breakpoints.values())
+      };
     }
 
     // Stack API
@@ -454,18 +456,24 @@ export class MockDlvServer {
     }
 
     if (method === "RPCServer.ListPackages") {
-      return ["main", "fmt", "os"];
+      return {
+        Packages: ["main", "fmt", "os"]
+      };
     }
 
     if (method === "RPCServer.ListSources") {
-      return ["main.go", "helper.go"];
+      return {
+        Sources: ["main.go", "helper.go"]
+      };
     }
 
     if (method === "RPCServer.ListTypes") {
-      return [
-        { name: "main.MyStruct", size: 0, kind: 0 },
-        { name: "int", size: 8, kind: 0 },
-      ];
+      return {
+        Types: [
+          { name: "main.MyStruct", size: 0, kind: 0 },
+          { name: "int", size: 8, kind: 0 },
+        ]
+      };
     }
 
     // Default: return empty result

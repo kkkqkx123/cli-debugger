@@ -181,7 +181,7 @@ describe("Delve Connection Lifecycle", () => {
     it("should handle connection timeout gracefully", async () => {
       const client = new DlvClient({
         protocol: "dlv",
-        host: "192.0.2.1", // Non-routable IP (should timeout)
+        host: "10.255.255.1", // Non-routable IP that will cause timeout
         port: 5005,
         timeout: 1000, // Short timeout
       });
@@ -196,7 +196,7 @@ describe("Delve Connection Lifecycle", () => {
       // First try invalid address
       const client1 = new DlvClient({
         protocol: "dlv",
-        host: "192.0.2.1",
+        host: "10.255.255.1",
         port: 5005,
         timeout: 1000,
       });

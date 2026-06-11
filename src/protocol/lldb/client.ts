@@ -4,6 +4,7 @@
  */
 
 import type { DebugProtocol } from "../base.js";
+import type { ExtendedDebugProtocol, EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FeatureName } from "../extended.js";
 import type { DebugConfig } from "../../types/config.js";
 import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
@@ -37,19 +38,32 @@ import type {
 
 /**
  * LLDB Client
- * Implements DebugProtocol for native debugging via LLDB
+ * Implements ExtendedDebugProtocol for native debugging via LLDB
  */
-export class LLDBClient implements DebugProtocol {
+export class LLDBClient implements ExtendedDebugProtocol {
   private config: LLDBConfig;
   private bridge: LLDBBridge;
   private connected = false;
   private breakpointMap = new Map<string, LLDBBreakpoint>();
 
   constructor(config: DebugConfig) {
+    // Extract extra fields before validation
+    const extraConfig = config as Record<string, unknown>;
+    const target = extraConfig["target"] as string | undefined;
+
+    if (!target) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        "LLDB requires 'target' configuration",
+        { protocol: config.protocol },
+      );
+    }
+
     // Validate base configuration
     const validatedConfig = DebugConfigSchema.parse(config);
     // Validate and cast to LLDB-specific config
-    this.config = this.validateLLDBConfig(validatedConfig);
+    this.config = this.validateLLDBConfig(validatedConfig, extraConfig);
     this.bridge = new LLDBBridge({
       pythonPath: this.config.pythonPath,
       timeout: this.config.timeout,
@@ -59,7 +73,7 @@ export class LLDBClient implements DebugProtocol {
   /**
    * Validate LLDB-specific config
    */
-  private validateLLDBConfig(config: DebugConfig): LLDBConfig {
+  private validateLLDBConfig(config: DebugConfig, extra: Record<string, unknown>): LLDBConfig {
     if (config.protocol !== "lldb") {
       throw new APIError(
         ErrorType.InputError,
@@ -69,7 +83,8 @@ export class LLDBClient implements DebugProtocol {
       );
     }
 
-    if (!("target" in config) || !config.target) {
+    const target = extra["target"] as string | undefined;
+    if (!target) {
       throw new APIError(
         ErrorType.InputError,
         ErrorCodes.InvalidInput,
@@ -79,10 +94,9 @@ export class LLDBClient implements DebugProtocol {
     }
 
     // Build LLDBConfig with defaults
-    const extra = config as Record<string, unknown>;
     return {
       protocol: "lldb",
-      target: config.target as string,
+      target: target,
       coreFile: extra["coreFile"] as string | undefined,
       pythonPath: extra["pythonPath"] as string | undefined,
       attachPid: extra["attachPid"] as number | undefined,
@@ -490,6 +504,8 @@ export class LLDBClient implements DebugProtocol {
       timeout: options?.timeout,
       unwindOnError: options?.unwindOnError,
       ignoreBreakpoints: options?.ignoreBreakpoints,
+      useDynamicTypes: options?.useDynamicTypes,
+      tryAllThreads: options?.tryAllThreads,
     });
 
     return this.lldbVariableToVariable(result);
@@ -667,14 +683,20 @@ export class LLDBClient implements DebugProtocol {
    * Useful for debugging without debug information
    */
   async getSymbol(
-    threadId: string,
-    frameIndex: number,
+    threadId?: string,
+    frameIndex?: number,
+    options?: {
+      symbolName?: string;
+      fuzzyMatch?: boolean;
+    },
   ): Promise<LLDBSymbolInfo> {
     this.ensureConnected();
 
     return await this.bridge.call<LLDBSymbolInfo>("getSymbol", {
-      threadId: parseInt(threadId, 10),
+      threadId: threadId ? parseInt(threadId, 10) : undefined,
       frameIndex,
+      symbolName: options?.symbolName,
+      fuzzyMatch: options?.fuzzyMatch,
     });
   }
 
@@ -817,6 +839,142 @@ export class LLDBClient implements DebugProtocol {
         return "terminated";
       default:
         return "breakpoint";
+    }
+  }
+
+  // ==================== Extended Features ====================
+
+  async eval(
+    expression: string,
+    threadId: string,
+    frameIndex: number,
+    options?: EvalOptions,
+  ): Promise<EvalResult> {
+    const lldbOptions: LLDBEvalOptions = {
+      timeout: options?.timeout,
+      unwindOnError: options?.unwindOnError,
+      ignoreBreakpoints: options?.ignoreBreakpoints,
+    };
+
+    const result = await this.bridge.call<{ value: unknown; type: string; error?: string }>("eval", {
+      expression,
+      threadId,
+      frameIndex,
+      options: lldbOptions,
+    });
+
+    return {
+      value: result.value,
+      type: result.type,
+      error: result.error,
+    };
+  }
+
+  async enableBreakpoint(id: string): Promise<void> {
+    await this.bridge.call("enableBreakpoint", { id });
+  }
+
+  async disableBreakpoint(id: string): Promise<void> {
+    await this.bridge.call("disableBreakpoint", { id });
+  }
+
+  async getBreakpointInfo(id: string): Promise<ExtendedBreakpointInfo> {
+    const bp = await this.bridge.call<LLDBBreakpoint>("getBreakpoint", { id });
+
+    return {
+      id: bp.id,
+      location: bp.locations[0],
+      enabled: bp.enabled,
+      hitCount: bp.hitCount,
+      ignoreCount: bp.ignoreCount,
+      condition: bp.condition,
+    };
+  }
+
+  async getTypeInfo(typeName: string, includeFields?: boolean, includeTemplateArgs?: boolean): Promise<TypeInfo> {
+    const result = await this.bridge.call<LLDBTypeInfo>("getTypeInfo", {
+      typeName,
+      includeFields,
+      includeTemplateArgs,
+    });
+
+    return {
+      name: result.name,
+      byteSize: result.byteSize,
+      isPointer: result.isPointer,
+      isArray: result.isArray,
+      isStruct: result.isStruct,
+      isClass: result.isClass || false,
+      isUnion: result.isUnion || false,
+      isEnumeration: result.isEnumeration || false,
+      numTemplateArgs: result.numTemplateArgs || 0,
+      templateArgs: result.templateArgs || [],
+      fields: result.fields || [],
+      baseClasses: result.baseClasses || [],
+      enumValues: result.enumValues || [],
+    };
+  }
+
+  async getSymbol(threadId: string, frameIndex: number, symbolName?: string, fuzzyMatch?: boolean): Promise<SymbolInfo> {
+    const result = await this.bridge.call<LLDBSymbolInfo>("getSymbol", {
+      threadId,
+      frameIndex,
+      symbolName,
+      fuzzyMatch,
+    });
+
+    return {
+      name: result.name,
+      type: result.type,
+      address: result.address,
+      size: result.size,
+      module: result.module,
+    };
+  }
+
+  async getTargetMetadata(): Promise<TargetMetadata> {
+    const result = await this.bridge.call<LLDBTargetMetadata>("getTargetMetadata", {});
+
+    return {
+      executable: result.executable,
+      triple: result.triple,
+      numModules: result.numModules,
+      numSections: result.numSections || 0,
+      numSymbols: result.numSymbols || 0,
+    };
+  }
+
+  async getThreadBatchInfo(threadId: string): Promise<ThreadBatchInfo> {
+    const result = await this.bridge.call<LLDBThreadBatchInfo>("getThreadBatchInfo", { threadId });
+
+    return {
+      threadId: result.threadId,
+      functions: result.functions,
+      files: result.files,
+      lines: result.lines,
+      addresses: result.addresses,
+      modules: result.modules,
+    };
+  }
+
+  supportsFeature(feature: FeatureName): boolean {
+    switch (feature) {
+      case "eval":
+        return true;
+      case "enableDisableBreakpoint":
+        return true;
+      case "extendedBreakpointInfo":
+        return true;
+      case "typeInfo":
+        return true;
+      case "symbolInfo":
+        return true;
+      case "targetMetadata":
+        return true;
+      case "threadBatchInfo":
+        return true;
+      default:
+        return false;
     }
   }
 }

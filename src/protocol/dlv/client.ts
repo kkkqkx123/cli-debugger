@@ -4,6 +4,7 @@
  */
 
 import type { DebugProtocol } from "../base.js";
+import type { ExtendedDebugProtocol, EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FeatureName } from "../extended.js";
 import type { DebugConfig } from "../../types/config.js";
 import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
@@ -39,9 +40,9 @@ import * as miscApi from "./api/misc.js";
 
 /**
  * Delve Client
- * Implements DebugProtocol for Go debugging via Delve
+ * Implements ExtendedDebugProtocol for Go debugging via Delve
  */
-export class DlvClient implements DebugProtocol {
+export class DlvClient implements ExtendedDebugProtocol {
   private config: DebugConfig;
   private rpc: DlvRpcClient;
   private connected = false;
@@ -172,7 +173,7 @@ export class DlvClient implements DebugProtocol {
     const goroutineId = parseInt(threadId, 10);
     const frames = await stackApi.stacktraceGoroutine(this.rpc, goroutineId);
 
-    return frames.map((f, i) => this.stackFrameToStackFrame(f, i));
+    return (frames || []).map((f, i) => this.stackFrameToStackFrame(f, i));
   }
 
   /**
@@ -419,7 +420,7 @@ export class DlvClient implements DebugProtocol {
 
     const bps = await breakpointApi.listBreakpoints(this.rpc);
 
-    return bps
+    return (bps || [])
       .filter((bp) => bp.id >= 0) // Filter internal breakpoints
       .map((bp) => ({
         id: `dlv_bp_${bp.id}`,
@@ -773,7 +774,7 @@ export class DlvClient implements DebugProtocol {
   async listTypes(filter?: string): Promise<string[]> {
     this.ensureConnected();
     const types = await infoApi.listTypes(this.rpc, filter);
-    return types.map((t) => t.name);
+    return (types || []).map((t) => t.name);
   }
 
   /**
@@ -874,5 +875,145 @@ export class DlvClient implements DebugProtocol {
   async getTarget(): Promise<miscApi.DlvTarget> {
     this.ensureConnected();
     return miscApi.getTarget(this.rpc);
+  }
+
+  // ==================== Extended Features ====================
+
+  async eval(
+    expression: string,
+    threadId: string,
+    frameIndex: number,
+    options?: EvalOptions,
+  ): Promise<EvalResult> {
+    this.ensureConnected();
+    const result = await variableApi.eval(this.rpc, expression, this.loadConfig);
+
+    return {
+      value: result.value,
+      type: result.type,
+    };
+  }
+
+  async enableBreakpoint(id: string): Promise<void> {
+    this.ensureConnected();
+    const bp = this.breakpointMap.get(id);
+    if (!bp) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Breakpoint ${id} not found`,
+        { id },
+      );
+    }
+
+    await breakpointApi.amendBreakpoint(this.rpc, {
+      id: bp.id,
+      enabled: true,
+    });
+
+    bp.enabled = true;
+  }
+
+  async disableBreakpoint(id: string): Promise<void> {
+    this.ensureConnected();
+    const bp = this.breakpointMap.get(id);
+    if (!bp) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Breakpoint ${id} not found`,
+        { id },
+      );
+    }
+
+    await breakpointApi.amendBreakpoint(this.rpc, {
+      id: bp.id,
+      enabled: false,
+    });
+
+    bp.enabled = false;
+  }
+
+  async getBreakpointInfo(id: string): Promise<ExtendedBreakpointInfo> {
+    this.ensureConnected();
+    const bp = this.breakpointMap.get(id);
+    if (!bp) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Breakpoint ${id} not found`,
+        { id },
+      );
+    }
+
+    return {
+      id: id,
+      location: `${bp.file}:${bp.line}`,
+      enabled: bp.enabled,
+      hitCount: bp.totalHitCount,
+      ignoreCount: 0,
+      condition: bp.condition || null,
+    };
+  }
+
+  async getTypeInfo(_typeName: string, _includeFields?: boolean, _includeTemplateArgs?: boolean): Promise<TypeInfo> {
+    this.ensureConnected();
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "DLV does not support detailed type information query",
+    );
+  }
+
+  async getSymbol(_threadId: string, _frameIndex: number, _symbolName?: string, _fuzzyMatch?: boolean): Promise<SymbolInfo> {
+    this.ensureConnected();
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "DLV does not support symbol query",
+    );
+  }
+
+  async getTargetMetadata(): Promise<TargetMetadata> {
+    this.ensureConnected();
+    const target = await miscApi.getTarget(this.rpc);
+
+    return {
+      executable: target.target,
+      triple: target.GOOS + "-" + target.GOARCH,
+      numModules: target.DWGOMods,
+      numSections: 0,
+      numSymbols: 0,
+    };
+  }
+
+  async getThreadBatchInfo(_threadId: string): Promise<ThreadBatchInfo> {
+    this.ensureConnected();
+    throw new APIError(
+      ErrorType.UnsupportedOperation,
+      ErrorCodes.UnsupportedOperation,
+      "DLV does not support batch thread information query",
+    );
+  }
+
+  supportsFeature(feature: FeatureName): boolean {
+    switch (feature) {
+      case "eval":
+        return true;
+      case "enableDisableBreakpoint":
+        return true;
+      case "extendedBreakpointInfo":
+        return true;
+      case "targetMetadata":
+        return true;
+      case "typeInfo":
+        return false;
+      case "symbolInfo":
+        return false;
+      case "threadBatchInfo":
+        return false;
+      default:
+        return false;
+    }
   }
 }
