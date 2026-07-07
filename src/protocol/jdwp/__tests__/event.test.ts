@@ -119,6 +119,10 @@ describe('event', () => {
         Buffer.from([EventType.Breakpoint]),
         Buffer.from([0, 0, 0, 1]),
         Buffer.from([0, 0, 0, 0, 0, 0, 0, 1]),
+        Buffer.from([0]), // type tag
+        Buffer.from([0, 0, 0, 0, 0, 0, 0, 1]), // classID
+        Buffer.from([0, 0, 0, 0, 0, 0, 0, 1]), // methodID
+        Buffer.from([0, 0, 0, 0, 0, 0, 0, 0]), // codeIndex
       ]);
       const event = parseEvent(data, mockExecutor.idSizes);
       expect(event).not.toBeNull();
@@ -133,6 +137,10 @@ describe('event', () => {
         Buffer.from([EventType.SingleStep]),
         Buffer.from([0, 0, 0, 1]),
         Buffer.from([0, 0, 0, 0, 0, 0, 0, 1]),
+        Buffer.from([0]), // type tag
+        Buffer.from([0, 0, 0, 0, 0, 0, 0, 1]), // classID
+        Buffer.from([0, 0, 0, 0, 0, 0, 0, 1]), // methodID
+        Buffer.from([0, 0, 0, 0, 0, 0, 0, 0]), // codeIndex
       ]);
       const event = parseEvent(data, mockExecutor.idSizes);
       expect(event).not.toBeNull();

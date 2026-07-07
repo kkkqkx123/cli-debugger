@@ -6,6 +6,7 @@
 import * as net from "node:net";
 import type { DebugProtocol } from "../base.js";
 import type { DebugConfig } from "../../types/config.js";
+import type { EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FeatureName } from "../extended.js";
 import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
 import type {
@@ -1222,30 +1223,36 @@ export class JDWPClient implements DebugProtocol {
 
   async eval(_threadId: string, _frameIndex: number, _expression: string, _options?: EvalOptions): Promise<EvalResult> {
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "JDWP does not support expression evaluation",
     );
   }
 
   async enableBreakpoint(_id: string): Promise<void> {
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "JDWP does not support enable/disable breakpoint",
     );
   }
 
   async disableBreakpoint(_id: string): Promise<void> {
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "JDWP does not support enable/disable breakpoint",
     );
   }
 
   async getBreakpointInfo(id: string): Promise<ExtendedBreakpointInfo> {
-    this.ensureConnected();
+    if (!this.isConnected()) {
+      throw new APIError(
+        ErrorType.ConnectionError,
+        ErrorCodes.ConnectionClosed,
+        "Not connected",
+      );
+    }
     const bp = this.breakpointMap.get(id);
     if (!bp) {
       throw new APIError(
@@ -1258,32 +1265,38 @@ export class JDWPClient implements DebugProtocol {
 
     return {
       id: id,
-      location: `${bp.location.className}:${bp.location.lineNumber}`,
+      location: bp.location,
       enabled: bp.enabled,
       hitCount: bp.hitCount || 0,
       ignoreCount: 0,
-      condition: bp.condition || null,
+      condition: null,
     };
   }
 
   async getTypeInfo(_typeName: string, _includeFields?: boolean, _includeTemplateArgs?: boolean): Promise<TypeInfo> {
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "JDWP does not support detailed type information query",
     );
   }
 
   async getSymbol(_threadId: string, _frameIndex: number, _symbolName?: string, _fuzzyMatch?: boolean): Promise<SymbolInfo> {
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "JDWP does not support symbol query",
     );
   }
 
   async getTargetMetadata(): Promise<TargetMetadata> {
-    this.ensureConnected();
+    if (!this.isConnected()) {
+      throw new APIError(
+        ErrorType.ConnectionError,
+        ErrorCodes.ConnectionClosed,
+        "Not connected",
+      );
+    }
     
     // JDWP provides limited target metadata
     return {
@@ -1297,8 +1310,8 @@ export class JDWPClient implements DebugProtocol {
 
   async getThreadBatchInfo(_threadId: string): Promise<ThreadBatchInfo> {
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "JDWP does not support batch thread information query",
     );
   }

@@ -39,7 +39,7 @@ describe("stack API", () => {
   describe("stacktrace", () => {
     it("should call RPCServer.Stacktrace with default depth", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.stacktrace(mockRpc.rpc);
 
@@ -51,7 +51,7 @@ describe("stack API", () => {
 
     it("should call RPCServer.Stacktrace with custom depth", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.stacktrace(mockRpc.rpc, 100);
 
@@ -65,7 +65,7 @@ describe("stack API", () => {
   describe("stacktraceGoroutine", () => {
     it("should call RPCServer.Stacktrace for specific goroutine", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.stacktraceGoroutine(mockRpc.rpc, 1);
 
@@ -77,7 +77,7 @@ describe("stack API", () => {
 
     it("should call RPCServer.Stacktrace with custom depth", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.stacktraceGoroutine(mockRpc.rpc, 1, 100);
 
@@ -91,7 +91,7 @@ describe("stack API", () => {
   describe("stacktraceFull", () => {
     it("should call RPCServer.Stacktrace with full=true", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.stacktraceFull(mockRpc.rpc);
 
@@ -103,7 +103,7 @@ describe("stack API", () => {
 
     it("should call RPCServer.Stacktrace for specific goroutine", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.stacktraceFull(mockRpc.rpc, 1, 100);
 
@@ -117,7 +117,7 @@ describe("stack API", () => {
   describe("stacktraceWithDefers", () => {
     it("should call RPCServer.Stacktrace with defers=true", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.stacktraceWithDefers(mockRpc.rpc);
 
@@ -129,7 +129,7 @@ describe("stack API", () => {
 
     it("should call RPCServer.Stacktrace for specific goroutine", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.stacktraceWithDefers(mockRpc.rpc, 1, 100);
 
@@ -143,7 +143,7 @@ describe("stack API", () => {
   describe("getStackFrameCount", () => {
     it("should return frame count", async () => {
       const frames = [createMockFrame(0), createMockFrame(1)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const count = await stackApi.getStackFrameCount(mockRpc.rpc);
 
@@ -152,7 +152,7 @@ describe("stack API", () => {
 
     it("should return frame count for specific goroutine", async () => {
       const frames = [createMockFrame(0), createMockFrame(1), createMockFrame(2)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const count = await stackApi.getStackFrameCount(mockRpc.rpc, 1);
 
@@ -166,7 +166,7 @@ describe("stack API", () => {
   describe("getFrame", () => {
     it("should return frame at index", async () => {
       const frames = [createMockFrame(0), createMockFrame(1)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.getFrame(mockRpc.rpc, 1, 1);
 
@@ -175,7 +175,7 @@ describe("stack API", () => {
 
     it("should return null if index out of bounds", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.getFrame(mockRpc.rpc, 1, 5);
 
@@ -186,7 +186,7 @@ describe("stack API", () => {
   describe("ancestorStacktrace", () => {
     it("should call RPCServer.Ancestors", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.ancestorStacktrace(mockRpc.rpc, 1, 1);
 
@@ -198,7 +198,7 @@ describe("stack API", () => {
 
     it("should call RPCServer.Ancestors with custom depth", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.ancestorStacktrace(mockRpc.rpc, 1, 1, 100);
 
@@ -212,7 +212,7 @@ describe("stack API", () => {
   describe("currentLocation", () => {
     it("should return location from stacktrace for specific goroutine", async () => {
       const frame = createMockFrame(0);
-      mockRpc.call.mockResolvedValue([frame]);
+      mockRpc.call.mockResolvedValue({ Frames: [frame] });
 
       const result = await stackApi.currentLocation(mockRpc.rpc, 1);
 
@@ -225,7 +225,7 @@ describe("stack API", () => {
     });
 
     it("should return null if no frames", async () => {
-      mockRpc.call.mockResolvedValue([]);
+      mockRpc.call.mockResolvedValue({ Frames: [] });
 
       const result = await stackApi.currentLocation(mockRpc.rpc, 1);
 
@@ -288,7 +288,7 @@ describe("stack API", () => {
   describe("frameUp", () => {
     it("should move up in stack", async () => {
       const frames = [createMockFrame(0), createMockFrame(1), createMockFrame(2)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.frameUp(mockRpc.rpc, 1, 0, 1);
 
@@ -297,7 +297,7 @@ describe("stack API", () => {
 
     it("should return null if out of bounds", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.frameUp(mockRpc.rpc, 1, 0, 1);
 
@@ -308,7 +308,7 @@ describe("stack API", () => {
   describe("frameDown", () => {
     it("should move down in stack", async () => {
       const frames = [createMockFrame(0), createMockFrame(1)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.frameDown(mockRpc.rpc, 1, 1, 1);
 
@@ -317,7 +317,7 @@ describe("stack API", () => {
 
     it("should return null if index < 0", async () => {
       const frames = [createMockFrame(0)];
-      mockRpc.call.mockResolvedValue(frames);
+      mockRpc.call.mockResolvedValue({ Frames: frames });
 
       const result = await stackApi.frameDown(mockRpc.rpc, 1, 0, 1);
 
@@ -357,7 +357,7 @@ describe("stack API", () => {
           },
         ],
       };
-      mockRpc.call.mockResolvedValue([frame]);
+      mockRpc.call.mockResolvedValue({ Frames: [frame] });
 
       const result = await stackApi.listDeferredCalls(mockRpc.rpc, 1, 0);
 
@@ -367,7 +367,7 @@ describe("stack API", () => {
 
     it("should return empty array if no defers", async () => {
       const frame = createMockFrame(0);
-      mockRpc.call.mockResolvedValue([frame]);
+      mockRpc.call.mockResolvedValue({ Frames: [frame] });
 
       const result = await stackApi.listDeferredCalls(mockRpc.rpc, 1, 0);
 
@@ -375,7 +375,7 @@ describe("stack API", () => {
     });
 
     it("should return empty array if no frame", async () => {
-      mockRpc.call.mockResolvedValue([]);
+      mockRpc.call.mockResolvedValue({ Frames: [] });
 
       const result = await stackApi.listDeferredCalls(mockRpc.rpc, 1, 0);
 

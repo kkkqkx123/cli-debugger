@@ -7,7 +7,6 @@
  */
 
 import type { DebugProtocol } from "./base.js";
-import type { DebugConfig } from "../types/config.js";
 
 /**
  * Expression evaluation options

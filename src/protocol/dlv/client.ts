@@ -3,7 +3,6 @@
  * Implements DebugProtocol interface for Go Delve debugger
  */
 
-import type { DebugProtocol } from "../base.js";
 import type { ExtendedDebugProtocol, EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FeatureName } from "../extended.js";
 import type { DebugConfig } from "../../types/config.js";
 import { DebugConfigSchema } from "../../types/config.js";
@@ -631,26 +630,6 @@ export class DlvClient implements ExtendedDebugProtocol {
   // ==================== Extended Methods ====================
 
   /**
-   * Evaluate expression in the context of a goroutine and frame
-   */
-  async eval(
-    expr: string,
-    threadId?: string,
-    frameIndex?: number,
-  ): Promise<Variable> {
-    this.ensureConnected();
-
-    let scope: { goroutineID: number; frame: number; deferredCall: number } | undefined;
-    if (threadId) {
-      const goroutineId = parseInt(threadId, 10);
-      scope = variableApi.createEvalScope(goroutineId, frameIndex ?? 0);
-    }
-
-    const result = await variableApi.evalExpr(this.rpc, expr, scope);
-    return this.dlvVariableToVariable(result);
-  }
-
-  /**
    * Get function arguments
    */
   async args(threadId: string, frameIndex: number): Promise<Variable[]> {
@@ -881,12 +860,12 @@ export class DlvClient implements ExtendedDebugProtocol {
 
   async eval(
     expression: string,
-    threadId: string,
-    frameIndex: number,
-    options?: EvalOptions,
+    _threadId: string,
+    _frameIndex: number,
+    _options?: EvalOptions,
   ): Promise<EvalResult> {
     this.ensureConnected();
-    const result = await variableApi.eval(this.rpc, expression, this.loadConfig);
+    const result = await variableApi.evalExpr(this.rpc, expression);
 
     return {
       value: result.value,
@@ -907,11 +886,11 @@ export class DlvClient implements ExtendedDebugProtocol {
     }
 
     await breakpointApi.amendBreakpoint(this.rpc, {
-      id: bp.id,
-      enabled: true,
+      ...bp,
+      disabled: false,
     });
 
-    bp.enabled = true;
+    bp.disabled = false;
   }
 
   async disableBreakpoint(id: string): Promise<void> {
@@ -927,11 +906,11 @@ export class DlvClient implements ExtendedDebugProtocol {
     }
 
     await breakpointApi.amendBreakpoint(this.rpc, {
-      id: bp.id,
-      enabled: false,
+      ...bp,
+      disabled: true,
     });
 
-    bp.enabled = false;
+    bp.disabled = true;
   }
 
   async getBreakpointInfo(id: string): Promise<ExtendedBreakpointInfo> {
@@ -949,18 +928,18 @@ export class DlvClient implements ExtendedDebugProtocol {
     return {
       id: id,
       location: `${bp.file}:${bp.line}`,
-      enabled: bp.enabled,
-      hitCount: bp.totalHitCount,
+      enabled: !bp.disabled,
+      hitCount: bp.hitCount,
       ignoreCount: 0,
-      condition: bp.condition || null,
+      condition: bp.Cond || null,
     };
   }
 
   async getTypeInfo(_typeName: string, _includeFields?: boolean, _includeTemplateArgs?: boolean): Promise<TypeInfo> {
     this.ensureConnected();
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "DLV does not support detailed type information query",
     );
   }
@@ -968,8 +947,8 @@ export class DlvClient implements ExtendedDebugProtocol {
   async getSymbol(_threadId: string, _frameIndex: number, _symbolName?: string, _fuzzyMatch?: boolean): Promise<SymbolInfo> {
     this.ensureConnected();
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "DLV does not support symbol query",
     );
   }
@@ -979,9 +958,9 @@ export class DlvClient implements ExtendedDebugProtocol {
     const target = await miscApi.getTarget(this.rpc);
 
     return {
-      executable: target.target,
-      triple: target.GOOS + "-" + target.GOARCH,
-      numModules: target.DWGOMods,
+      executable: target.cmd[0] || "",
+      triple: "unknown",
+      numModules: 0,
       numSections: 0,
       numSymbols: 0,
     };
@@ -990,8 +969,8 @@ export class DlvClient implements ExtendedDebugProtocol {
   async getThreadBatchInfo(_threadId: string): Promise<ThreadBatchInfo> {
     this.ensureConnected();
     throw new APIError(
-      ErrorType.UnsupportedOperation,
-      ErrorCodes.UnsupportedOperation,
+      ErrorType.InternalError,
+      ErrorCodes.NotImplemented,
       "DLV does not support batch thread information query",
     );
   }

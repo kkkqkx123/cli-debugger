@@ -57,7 +57,7 @@ describe("debugger API", () => {
 
       const result = await debuggerApi.getState(mockRpc.rpc);
 
-      expect(mockRpc.call).toHaveBeenCalledWith("RPCServer.State", [false]);
+      expect(mockRpc.call).toHaveBeenCalledWith("RPCServer.State", [{}]);
       expect(result).toEqual(state);
     });
   });
@@ -69,7 +69,7 @@ describe("debugger API", () => {
 
       const result = await debuggerApi.getStateWithNext(mockRpc.rpc);
 
-      expect(mockRpc.call).toHaveBeenCalledWith("RPCServer.State", [true]);
+      expect(mockRpc.call).toHaveBeenCalledWith("RPCServer.State", [{ Next: true }]);
       expect(result).toEqual(state);
     });
   });

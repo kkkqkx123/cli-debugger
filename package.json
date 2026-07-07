@@ -5,6 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "dap": "./dist/cli/index.js"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -13,10 +16,14 @@
     "./protocol": {
       "import": "./dist/protocol/index.js",
       "types": "./dist/protocol/index.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/cli/index.js",
+      "types": "./dist/cli/index.d.ts"
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc --watch",
     "clean": "rimraf dist",
     "test": "vitest run",

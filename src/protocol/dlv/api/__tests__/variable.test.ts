@@ -54,7 +54,7 @@ describe("variable API", () => {
   describe("listLocalVars", () => {
     it("should call RPCServer.ListLocalVars", async () => {
       const vars = [createMockVariable()];
-      mockRpc.call.mockResolvedValue(vars);
+      mockRpc.call.mockResolvedValue({ Variables: vars });
 
       const result = await variableApi.listLocalVars(mockRpc.rpc, {
         goroutineID: 1,
@@ -81,7 +81,7 @@ describe("variable API", () => {
   describe("listFunctionArgs", () => {
     it("should call RPCServer.ListFunctionArgs", async () => {
       const vars = [createMockVariable({ name: "arg" })];
-      mockRpc.call.mockResolvedValue(vars);
+      mockRpc.call.mockResolvedValue({ Args: vars });
 
       const result = await variableApi.listFunctionArgs(mockRpc.rpc, {
         goroutineID: 1,
@@ -108,7 +108,7 @@ describe("variable API", () => {
   describe("listPackageVars", () => {
     it("should call RPCServer.ListPackageVars", async () => {
       const vars = [createMockVariable()];
-      mockRpc.call.mockResolvedValue(vars);
+      mockRpc.call.mockResolvedValue({ Variables: vars });
 
       const result = await variableApi.listPackageVars(mockRpc.rpc, "main");
 
@@ -131,7 +131,7 @@ describe("variable API", () => {
   describe("listPackageConstants", () => {
     it("should call RPCServer.ListPackageVars with includeConstants", async () => {
       const vars = [createMockVariable()];
-      mockRpc.call.mockResolvedValue(vars);
+      mockRpc.call.mockResolvedValue({ Variables: vars });
 
       const result = await variableApi.listPackageConstants(mockRpc.rpc, "main");
 

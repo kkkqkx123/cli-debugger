@@ -34,7 +34,7 @@ function normalizeGoroutinesResult(result: Record<string, unknown>): DlvGoroutin
   return {
     Goroutines: goroutines.map(normalizeGoroutine),
     Nextg: (result["Nextg"] ?? result["nextg"] ?? -1) as number,
-    GroupBy: (result["GroupBy"] ?? result["groupBy"]) as DlvGroupBy | null,
+    GroupBy: (result["GroupBy"] ?? result["groupBy"] ?? null) as DlvGroupBy | null,
   };
 }
 

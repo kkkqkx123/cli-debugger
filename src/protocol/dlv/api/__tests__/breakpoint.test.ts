@@ -51,7 +51,7 @@ describe("breakpoint API", () => {
   describe("listBreakpoints", () => {
     it("should call RPCServer.ListBreakpoints", async () => {
       const bps = [createMockBreakpoint()];
-      mockRpc.call.mockResolvedValue(bps);
+      mockRpc.call.mockResolvedValue({ Breakpoints: bps });
 
       const result = await breakpointApi.listBreakpoints(mockRpc.rpc);
 
@@ -221,7 +221,7 @@ describe("breakpoint API", () => {
       const bp = createMockBreakpoint({ id: 1, disabled: false });
       const updatedBp = createMockBreakpoint({ id: 1, disabled: true });
       mockRpc.call
-        .mockResolvedValueOnce([bp]) // listBreakpoints
+        .mockResolvedValueOnce({ Breakpoints: [bp] }) // listBreakpoints
         .mockResolvedValueOnce(updatedBp); // amendBreakpoint
 
       const result = await breakpointApi.toggleBreakpoint(mockRpc.rpc, 1, true);
@@ -230,7 +230,7 @@ describe("breakpoint API", () => {
     });
 
     it("should throw if breakpoint not found", async () => {
-      mockRpc.call.mockResolvedValueOnce([]);
+      mockRpc.call.mockResolvedValueOnce({ Breakpoints: [] });
 
       await expect(
         breakpointApi.toggleBreakpoint(mockRpc.rpc, 999, true)
@@ -243,7 +243,7 @@ describe("breakpoint API", () => {
       const bp = createMockBreakpoint({ id: 1 });
       const updatedBp = createMockBreakpoint({ id: 1, Cond: "x > 0" });
       mockRpc.call
-        .mockResolvedValueOnce([bp]) // listBreakpoints
+        .mockResolvedValueOnce({ Breakpoints: [bp] }) // listBreakpoints
         .mockResolvedValueOnce(updatedBp); // amendBreakpoint
 
       const result = await breakpointApi.setBreakpointCondition(
@@ -256,7 +256,7 @@ describe("breakpoint API", () => {
     });
 
     it("should throw if breakpoint not found", async () => {
-      mockRpc.call.mockResolvedValueOnce([]);
+      mockRpc.call.mockResolvedValueOnce({ Breakpoints: [] });
 
       await expect(
         breakpointApi.setBreakpointCondition(mockRpc.rpc, 999, "x > 0")
@@ -269,7 +269,7 @@ describe("breakpoint API", () => {
       const bp = createMockBreakpoint({ id: 1 });
       const updatedBp = createMockBreakpoint({ id: 1, Cond: "hit > 5" });
       mockRpc.call
-        .mockResolvedValueOnce([bp]) // listBreakpoints
+        .mockResolvedValueOnce({ Breakpoints: [bp] }) // listBreakpoints
         .mockResolvedValueOnce(updatedBp); // amendBreakpoint
 
       const result = await breakpointApi.setBreakpointHitCondition(
@@ -310,7 +310,7 @@ describe("breakpoint API", () => {
         createMockBreakpoint({ id: -1 }), // internal breakpoint
       ];
       mockRpc.call
-        .mockResolvedValueOnce(bps) // listBreakpoints
+        .mockResolvedValueOnce({ Breakpoints: bps }) // listBreakpoints
         .mockResolvedValue(undefined) // clearBreakpoint 1
         .mockResolvedValue(undefined); // clearBreakpoint 2
 
@@ -344,7 +344,7 @@ describe("breakpoint API", () => {
       const bp = createMockBreakpoint({ id: 1 });
       const updatedBp = createMockBreakpoint({ id: 1, on: "print x" });
       mockRpc.call
-        .mockResolvedValueOnce([bp]) // listBreakpoints
+        .mockResolvedValueOnce({ Breakpoints: [bp] }) // listBreakpoints
         .mockResolvedValueOnce(updatedBp); // amendBreakpoint
 
       const result = await breakpointApi.setBreakpointCommand(
@@ -357,7 +357,7 @@ describe("breakpoint API", () => {
     });
 
     it("should throw if breakpoint not found", async () => {
-      mockRpc.call.mockResolvedValueOnce([]);
+      mockRpc.call.mockResolvedValueOnce({ Breakpoints: [] });
 
       await expect(
         breakpointApi.setBreakpointCommand(mockRpc.rpc, 999, "print x")

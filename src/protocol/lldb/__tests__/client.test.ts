@@ -122,11 +122,12 @@ describe("LLDBClient", () => {
         () =>
           new LLDBClient({
             protocol: "jdwp",
+            target: "/path/to/binary",
             host: "localhost",
             port: 5005,
             timeout: 30000,
           }),
-      ).toThrow("Expected protocol 'lldb'");
+      ).toThrow(/Expected protocol .lldb/);
     });
 
     it("should throw error if target is missing", () => {
@@ -589,13 +590,15 @@ describe("LLDBClient", () => {
       const result = await client.eval("x + 1", "1", 0, { timeout: 5000 });
 
       expect(result.value).toBe("42");
-      expect(mockCall).toHaveBeenCalledWith("eval", {
+      expect(mockCall).toHaveBeenLastCalledWith("eval", {
         expression: "x + 1",
-        threadId: 1,
+        threadId: "1",
         frameIndex: 0,
-        timeout: 5000,
-        unwindOnError: undefined,
-        ignoreBreakpoints: undefined,
+        options: {
+          timeout: 5000,
+          unwindOnError: undefined,
+          ignoreBreakpoints: undefined,
+        },
       });
     });
   });

@@ -55,7 +55,7 @@ describe("info API", () => {
   describe("listPackages", () => {
     it("should call RPCServer.ListPackages", async () => {
       const pkgs = ["main", "fmt"];
-      mockRpc.call.mockResolvedValue(pkgs);
+      mockRpc.call.mockResolvedValue({ Packages: pkgs });
 
       const result = await infoApi.listPackages(mockRpc.rpc);
 
@@ -67,7 +67,7 @@ describe("info API", () => {
 
     it("should call RPCServer.ListPackages with filter", async () => {
       const pkgs = ["main"];
-      mockRpc.call.mockResolvedValue(pkgs);
+      mockRpc.call.mockResolvedValue({ Packages: pkgs });
 
       const result = await infoApi.listPackages(mockRpc.rpc, "main");
 
@@ -81,7 +81,7 @@ describe("info API", () => {
   describe("listSources", () => {
     it("should call RPCServer.ListSources", async () => {
       const sources = ["main.go", "lib.go"];
-      mockRpc.call.mockResolvedValue(sources);
+      mockRpc.call.mockResolvedValue({ Sources: sources });
 
       const result = await infoApi.listSources(mockRpc.rpc);
 
@@ -93,7 +93,7 @@ describe("info API", () => {
 
     it("should call RPCServer.ListSources with filter", async () => {
       const sources = ["main.go"];
-      mockRpc.call.mockResolvedValue(sources);
+      mockRpc.call.mockResolvedValue({ Sources: sources });
 
       const result = await infoApi.listSources(mockRpc.rpc, "main");
 
@@ -107,7 +107,7 @@ describe("info API", () => {
   describe("listTypes", () => {
     it("should call RPCServer.ListTypes", async () => {
       const types = [{ name: "int", size: 8, kind: 0 }];
-      mockRpc.call.mockResolvedValue(types);
+      mockRpc.call.mockResolvedValue({ Types: types });
 
       const result = await infoApi.listTypes(mockRpc.rpc);
 
@@ -119,7 +119,7 @@ describe("info API", () => {
 
     it("should call RPCServer.ListTypes with filter", async () => {
       const types = [{ name: "main.MyType", size: 16, kind: 7 }];
-      mockRpc.call.mockResolvedValue(types);
+      mockRpc.call.mockResolvedValue({ Types: types });
 
       const result = await infoApi.listTypes(mockRpc.rpc, "main");
 
@@ -133,7 +133,7 @@ describe("info API", () => {
   describe("listLibraries", () => {
     it("should call RPCServer.ListDynamicLibraries", async () => {
       const libs = [{ path: "/lib/libc.so", address: 0x1000, loaded: true }];
-      mockRpc.call.mockResolvedValue(libs);
+      mockRpc.call.mockResolvedValue({ Libraries: libs });
 
       const result = await infoApi.listLibraries(mockRpc.rpc);
 

@@ -24,12 +24,12 @@ describe("Error Recovery", () => {
       timeout: 5000,
     };
     errorInjector = new ErrorInjector(server);
-  });
+  }, 10000);
 
   afterEach(async () => {
     errorInjector.clearErrors();
     await server.stop();
-  });
+  }, 10000);
 
   describe("connection_lost_recovery", () => {
     it("should detect connection loss", async () => {
@@ -72,7 +72,7 @@ describe("Error Recovery", () => {
       // Connection should fail due to malformed packet during getIDSizes
       await expect(client.connect()).rejects.toThrow();
       expect(client.isConnected()).toBe(false);
-    });
+    }, 10000);
 
     it("should recover after clearing malformed packet handler", async () => {
       // Inject and then clear

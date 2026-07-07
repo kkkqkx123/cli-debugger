@@ -3,7 +3,6 @@
  * Implements DebugProtocol interface for LLDB debugger
  */
 
-import type { DebugProtocol } from "../base.js";
 import type { ExtendedDebugProtocol, EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FeatureName } from "../extended.js";
 import type { DebugConfig } from "../../types/config.js";
 import { DebugConfigSchema } from "../../types/config.js";
@@ -487,31 +486,6 @@ export class LLDBClient implements ExtendedDebugProtocol {
   // ==================== Extended Methods ====================
 
   /**
-   * Evaluate an expression
-   */
-  async eval(
-    expression: string,
-    threadId?: string,
-    frameIndex?: number,
-    options?: LLDBEvalOptions,
-  ): Promise<Variable> {
-    this.ensureConnected();
-
-    const result = await this.bridge.call<LLDBVariable>("eval", {
-      expression,
-      threadId: threadId ? parseInt(threadId, 10) : undefined,
-      frameIndex,
-      timeout: options?.timeout,
-      unwindOnError: options?.unwindOnError,
-      ignoreBreakpoints: options?.ignoreBreakpoints,
-      useDynamicTypes: options?.useDynamicTypes,
-      tryAllThreads: options?.tryAllThreads,
-    });
-
-    return this.lldbVariableToVariable(result);
-  }
-
-  /**
    * Get register sets for a frame
    */
   async registers(
@@ -661,75 +635,12 @@ export class LLDBClient implements ExtendedDebugProtocol {
   }
 
   /**
-   * Get target metadata (P2)
-   * Returns detailed information about the target including modules and symbols count
-   */
-  async getTargetMetadata(): Promise<LLDBTargetMetadata> {
-    this.ensureConnected();
-    return await this.bridge.call<LLDBTargetMetadata>("getTargetMetadata", {});
-  }
-
-  /**
    * Get all modules (P2)
    * Returns list of all loaded modules with their details
    */
   async getModules(): Promise<LLDBModuleInfo[]> {
     this.ensureConnected();
     return await this.bridge.call<LLDBModuleInfo[]>("getModules", {});
-  }
-
-  /**
-   * Get symbol at frame position (P2)
-   * Useful for debugging without debug information
-   */
-  async getSymbol(
-    threadId?: string,
-    frameIndex?: number,
-    options?: {
-      symbolName?: string;
-      fuzzyMatch?: boolean;
-    },
-  ): Promise<LLDBSymbolInfo> {
-    this.ensureConnected();
-
-    return await this.bridge.call<LLDBSymbolInfo>("getSymbol", {
-      threadId: threadId ? parseInt(threadId, 10) : undefined,
-      frameIndex,
-      symbolName: options?.symbolName,
-      fuzzyMatch: options?.fuzzyMatch,
-    });
-  }
-
-  /**
-   * Get detailed type information (P2)
-   * Can lookup by type name or from a variable
-   */
-  async getTypeInfo(options: {
-    typeName?: string;
-    varName?: string;
-    threadId?: string;
-    frameIndex?: number;
-  }): Promise<LLDBTypeInfo> {
-    this.ensureConnected();
-
-    return await this.bridge.call<LLDBTypeInfo>("getTypeInfo", {
-      typeName: options.typeName,
-      varName: options.varName,
-      threadId: options.threadId ? parseInt(options.threadId, 10) : undefined,
-      frameIndex: options.frameIndex,
-    });
-  }
-
-  /**
-   * Get batch information for a thread (P2)
-   * Returns addresses, modules, symbols, files, lines, and functions for all frames
-   */
-  async getThreadBatchInfo(threadId: string): Promise<LLDBThreadBatchInfo> {
-    this.ensureConnected();
-
-    return await this.bridge.call<LLDBThreadBatchInfo>("getThreadBatchInfo", {
-      threadId: parseInt(threadId, 10),
-    });
   }
 
   /**
@@ -870,20 +781,12 @@ export class LLDBClient implements ExtendedDebugProtocol {
     };
   }
 
-  async enableBreakpoint(id: string): Promise<void> {
-    await this.bridge.call("enableBreakpoint", { id });
-  }
-
-  async disableBreakpoint(id: string): Promise<void> {
-    await this.bridge.call("disableBreakpoint", { id });
-  }
-
   async getBreakpointInfo(id: string): Promise<ExtendedBreakpointInfo> {
     const bp = await this.bridge.call<LLDBBreakpoint>("getBreakpoint", { id });
 
     return {
       id: bp.id,
-      location: bp.locations[0],
+      location: bp.locations[0] ?? "",
       enabled: bp.enabled,
       hitCount: bp.hitCount,
       ignoreCount: bp.ignoreCount,
@@ -908,10 +811,19 @@ export class LLDBClient implements ExtendedDebugProtocol {
       isUnion: result.isUnion || false,
       isEnumeration: result.isEnumeration || false,
       numTemplateArgs: result.numTemplateArgs || 0,
-      templateArgs: result.templateArgs || [],
-      fields: result.fields || [],
-      baseClasses: result.baseClasses || [],
-      enumValues: result.enumValues || [],
+      templateArgs: (result.templateArgs || []).map(t => t.name),
+      fields: (result.fields || []).map(f => ({
+        name: f.name,
+        typeName: f.type,
+        offset: f.byteOffset,
+        byteSize: 0,
+        isStatic: false,
+      })),
+      baseClasses: (result.baseClasses || []).map(bc => bc.name),
+      enumValues: (result.enumValues || []).map(ev => ({
+        name: ev.name,
+        value: BigInt(ev.value),
+      })),
     };
   }
 
@@ -948,11 +860,11 @@ export class LLDBClient implements ExtendedDebugProtocol {
     const result = await this.bridge.call<LLDBThreadBatchInfo>("getThreadBatchInfo", { threadId });
 
     return {
-      threadId: result.threadId,
+      threadId: threadId,
       functions: result.functions,
       files: result.files,
       lines: result.lines,
-      addresses: result.addresses,
+      addresses: result.addresses.map(a => BigInt(a)),
       modules: result.modules,
     };
   }
