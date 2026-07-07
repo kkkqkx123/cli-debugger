@@ -6,7 +6,7 @@
 import * as net from "node:net";
 import type { DebugProtocol } from "../base.js";
 import type { DebugConfig } from "../../types/config.js";
-import type { EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FeatureName } from "../extended.js";
+import type { EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FieldInfo, FeatureName } from "../extended.js";
 import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
 import type {
@@ -1221,12 +1221,256 @@ export class JDWPClient implements DebugProtocol {
 
   // ==================== Extended Interface ====================
 
-  async eval(_threadId: string, _frameIndex: number, _expression: string, _options?: EvalOptions): Promise<EvalResult> {
+  async eval(threadId: string, frameIndex: number, expression: string, _options?: EvalOptions): Promise<EvalResult> {
+    return this.executeCommand(async (executor) => {
+      // Check if thread is suspended
+      const { suspendStatus } = await thread.getThreadStatus(executor, threadId);
+      if (suspendStatus === 0) {
+        throw new APIError(
+          ErrorType.InputError,
+          ErrorCodes.ThreadNotSuspended,
+          `Thread ${threadId} is not suspended. Suspend the thread before evaluation.`,
+          { threadId },
+        );
+      }
+
+      // Get frame count and frames
+      const frameCount = await thread.getThreadFrameCount(executor, threadId);
+      if (frameIndex >= frameCount) {
+        throw new APIError(
+          ErrorType.InputError,
+          ErrorCodes.InvalidInput,
+          `Invalid frame index: ${frameIndex}`,
+          { threadId, frameIndex, frameCount },
+        );
+      }
+
+      const frames = await thread.getThreadFrames(executor, threadId, frameIndex, 1);
+      if (frames.length === 0 || !frames[0]) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          "No stack frame found",
+          { threadId, frameIndex },
+        );
+      }
+
+      const firstFrame = frames[0];
+
+      // Check if expression contains parentheses (method call)
+      if (expression.includes("(")) {
+        return this.evalMethodCall(executor, threadId, firstFrame, expression);
+      }
+
+      // Check if expression contains dot (field access)
+      if (expression.includes(".")) {
+        return this.evalFieldAccess(executor, threadId, firstFrame, expression);
+      }
+
+      // Simple variable lookup in locals
+      return this.evalVariable(executor, threadId, firstFrame, expression);
+    });
+  }
+
+  /**
+   * Evaluate a simple variable name by looking up in the current frame's locals
+   */
+  private async evalVariable(
+    executor: vm.JDWPCommandExecutor,
+    threadId: string,
+    frame: { frameID: string; location: string; method: string },
+    variableName: string,
+  ): Promise<EvalResult> {
+    // Try to get variable table for proper names
+    try {
+      const varTable = await method.getVariableTable(executor, frame.location, frame.method);
+
+      // Find the variable by name
+      const varInfo = varTable.find((v) => v.name === variableName);
+      if (varInfo) {
+        const rawVars = await stackFrame.getStackFrameValues(executor, threadId, frame.frameID, 10);
+        const rawVar = rawVars[varInfo.slot];
+        if (rawVar) {
+          return {
+            value: rawVar.value,
+            type: this.jdwpSignatureToType(rawVar.type),
+            error: undefined,
+          };
+        }
+      }
+    } catch {
+      // Fall through to generic approach
+    }
+
+    // Fallback: get all frame values and find by name index
+    const rawVars = await stackFrame.getStackFrameValues(executor, threadId, frame.frameID, 20);
+    for (const v of rawVars) {
+      if (v.name === variableName || v.name === `var_0`) {
+        return {
+          value: v.value,
+          type: this.jdwpSignatureToType(v.type),
+          error: undefined,
+        };
+      }
+    }
+
     throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "JDWP does not support expression evaluation",
+      ErrorType.CommandError,
+      ErrorCodes.ResourceNotFound,
+      `Variable '${variableName}' not found in current frame`,
+      { threadId, variableName },
     );
+  }
+
+  /**
+   * Evaluate a field access expression like "this.fieldName" or "object.fieldName"
+   */
+  private async evalFieldAccess(
+    executor: vm.JDWPCommandExecutor,
+    threadId: string,
+    frame: { frameID: string; location: string; method: string },
+    expression: string,
+  ): Promise<EvalResult> {
+    const parts = expression.split(".");
+    const objectExpr = parts[0];
+    const fieldName = parts.slice(1).join(".");
+
+    // Get "this" object from the frame
+    const { objectID } = await stackFrame.getThisObject(executor, threadId, frame.frameID);
+    if (!objectID) {
+      throw new APIError(
+        ErrorType.CommandError,
+        ErrorCodes.ResourceNotFound,
+        "Cannot evaluate field access without 'this' reference",
+        { expression },
+      );
+    }
+
+    // Get the reference type of the object
+    const { refTypeID } = await objectReference.getReferenceType(executor, objectID);
+
+    // Get fields of the class
+    const fields = await referenceType.getFields(executor, refTypeID);
+    const targetField = fields.find((f) => f.name === fieldName);
+
+    if (!targetField) {
+      throw new APIError(
+        ErrorType.CommandError,
+        ErrorCodes.ResourceNotFound,
+        `Field '${fieldName}' not found`,
+        { expression, objectExpr, fieldName },
+      );
+    }
+
+    // Get field value
+    const values = await objectReference.getInstanceFieldValues(executor, objectID, [targetField.fieldID]);
+    const value = values[0];
+
+    return {
+      value,
+      type: this.jdwpSignatureToType(targetField.signature),
+      error: undefined,
+    };
+  }
+
+  /**
+   * Evaluate a method call expression
+   */
+  private async evalMethodCall(
+    executor: vm.JDWPCommandExecutor,
+    threadId: string,
+    frame: { frameID: string; location: string; method: string },
+    expression: string,
+  ): Promise<EvalResult> {
+    // Parse method call: methodName(args) or object.methodName(args)
+    const parenIndex = expression.indexOf("(");
+    const methodCallEnd = expression.lastIndexOf(")");
+
+    if (parenIndex === -1 || methodCallEnd === -1) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Invalid method call expression: ${expression}`,
+        { expression },
+      );
+    }
+
+    const methodNamePortion = expression.substring(0, parenIndex).trim();
+    const argsStr = expression.substring(parenIndex + 1, methodCallEnd).trim();
+    const args = argsStr ? argsStr.split(",").map((a) => a.trim()) : [];
+
+    // Get "this" object
+    const { objectID } = await stackFrame.getThisObject(executor, threadId, frame.frameID);
+    if (!objectID) {
+      throw new APIError(
+        ErrorType.CommandError,
+        ErrorCodes.ResourceNotFound,
+        "Cannot evaluate method call without 'this' reference",
+        { expression },
+      );
+    }
+
+    // Get the reference type and find the method
+    const { refTypeID } = await objectReference.getReferenceType(executor, objectID);
+    const methods = await referenceType.getMethods(executor, refTypeID);
+
+    const targetMethod = methods.find((m) => m.name === methodNamePortion);
+    if (!targetMethod) {
+      throw new APIError(
+        ErrorType.CommandError,
+        ErrorCodes.ResourceNotFound,
+        `Method '${methodNamePortion}' not found`,
+        { expression, methodName: methodNamePortion },
+      );
+    }
+
+    // Invoke the method
+    const { returnValue, exception } = await objectReference.invokeInstanceMethod(
+      executor,
+      objectID,
+      threadId,
+      targetMethod.methodID,
+      args,
+      0, // default invoke options
+    );
+
+    if (exception) {
+      return {
+        value: undefined,
+        type: "object",
+        error: `Method threw exception: ${exception}`,
+      };
+    }
+
+    return {
+      value: returnValue,
+      type: typeof returnValue === "string" ? "string" : typeof returnValue,
+      error: undefined,
+    };
+  }
+
+  /**
+   * Convert JDWP type signature to human-readable type name
+   */
+  private jdwpSignatureToType(signature: string): string {
+    if (!signature || signature.length === 0) return "unknown";
+    switch (signature[0]) {
+      case "B": return "byte";
+      case "C": return "char";
+      case "D": return "double";
+      case "F": return "float";
+      case "I": return "int";
+      case "J": return "long";
+      case "L": {
+        // Object type: "Ljava/lang/String;" -> "java.lang.String"
+        const inner = signature.substring(1, signature.length - 1);
+        return inner.replace(/\//g, ".");
+      }
+      case "S": return "short";
+      case "Z": return "boolean";
+      case "[": return `${this.jdwpSignatureToType(signature.substring(1))}[]`;
+      default: return signature;
+    }
   }
 
   async enableBreakpoint(_id: string): Promise<void> {
@@ -1273,20 +1517,154 @@ export class JDWPClient implements DebugProtocol {
     };
   }
 
-  async getTypeInfo(_typeName: string, _includeFields?: boolean, _includeTemplateArgs?: boolean): Promise<TypeInfo> {
-    throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "JDWP does not support detailed type information query",
-    );
+  async getTypeInfo(typeName: string, includeFields?: boolean, _includeTemplateArgs?: boolean): Promise<TypeInfo> {
+    return this.executeCommand(async (executor) => {
+      // Convert type name to JDWP signature format if needed
+      const signature = typeName.startsWith("L") && typeName.endsWith(";")
+        ? typeName
+        : `L${typeName.replace(/\./g, "/")};`;
+
+      // Find class by signature
+      const classInfo = await vm.classByName(executor, signature);
+      if (!classInfo) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          `Type '${typeName}' not found`,
+          { typeName },
+        );
+      }
+
+      // Get class signature for human-readable name
+      const classSignature = await referenceType.getSignature(executor, classInfo.refID);
+      const readableName = classSignature
+        ? classSignature.replace(/^L|;$/g, "").replace(/\//g, ".")
+        : typeName;
+
+      // Get fields if requested
+      let fields: FieldInfo[] = [];
+      if (includeFields) {
+        const rawFields = await referenceType.getFields(executor, classInfo.refID);
+        fields = rawFields.map((f) => ({
+          name: f.name,
+          typeName: this.jdwpSignatureToType(f.signature),
+          offset: 0,
+          byteSize: 0,
+          isStatic: (f.modifiers & 0x0008) !== 0,
+        }));
+      }
+
+      return {
+        name: readableName,
+        byteSize: 0, // JDWP doesn't provide byte size directly
+        isPointer: false,
+        isArray: signature.startsWith("["),
+        isStruct: false,
+        isClass: !signature.startsWith("["),
+        isUnion: false,
+        isEnumeration: false,
+        numTemplateArgs: 0,
+        templateArgs: [],
+        fields,
+        baseClasses: [], // JDWP provides interfaces but not base classes through simple API
+        enumValues: [],
+      };
+    });
   }
 
-  async getSymbol(_threadId: string, _frameIndex: number, _symbolName?: string, _fuzzyMatch?: boolean): Promise<SymbolInfo> {
-    throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "JDWP does not support symbol query",
-    );
+  async getSymbol(threadId: string, frameIndex: number, symbolName?: string, fuzzyMatch?: boolean): Promise<SymbolInfo> {
+    return this.executeCommand(async (executor) => {
+      // Get the current frame's class context
+      const frames = await thread.getThreadFrames(executor, threadId, frameIndex, 1);
+      if (frames.length === 0 || !frames[0]) {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          "No stack frame found",
+          { threadId, frameIndex },
+        );
+      }
+
+      const frame = frames[0];
+
+      // Get all loaded classes for fuzzy matching
+      const allClasses = await vm.getAllClasses(executor);
+
+      if (symbolName) {
+        // Search for a specific class/symbol
+        const targetSignature = symbolName.startsWith("L")
+          ? symbolName
+          : `L${symbolName.replace(/\./g, "/")};`;
+
+        // Try to find the class
+        const classInfo = await vm.classByName(executor, targetSignature);
+        if (classInfo) {
+          const signature = await referenceType.getSignature(executor, classInfo.refID);
+          const readableName = signature
+            ? signature.replace(/^L|;$/g, "").replace(/\//g, ".")
+            : symbolName;
+
+          return {
+            name: readableName,
+            type: "code",
+            address: parseInt(classInfo.refID, 16) || 0,
+            size: 0,
+            module: "java",
+          };
+        }
+
+        // Fuzzy match if enabled
+        if (fuzzyMatch) {
+          for (const cls of allClasses) {
+            try {
+              const sig = await referenceType.getSignature(executor, cls.refID);
+              if (sig && sig.toLowerCase().includes(targetSignature.toLowerCase())) {
+                const readableName = sig.replace(/^L|;$/g, "").replace(/\//g, ".");
+                return {
+                  name: readableName,
+                  type: "code",
+                  address: parseInt(cls.refID, 16) || 0,
+                  size: 0,
+                  module: "java",
+                };
+              }
+            } catch {
+              continue;
+            }
+          }
+        }
+
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          `Symbol '${symbolName}' not found`,
+          { symbolName },
+        );
+      }
+
+      // No symbol name: return info about the current class
+      try {
+        const signatures = await referenceType.getSignature(executor, frame!.location);
+        const readableName = signatures
+          ? signatures.replace(/^L|;$/g, "").replace(/\//g, ".")
+          : `class_${frame!.location}`;
+
+        return {
+          name: readableName,
+          type: "code",
+          address: parseInt(frame!.location, 16) || 0,
+          size: 0,
+          module: "java",
+        };
+      } catch {
+        throw new APIError(
+          ErrorType.CommandError,
+          ErrorCodes.ResourceNotFound,
+          "Could not resolve symbol for current frame",
+          { threadId, frameIndex },
+        );
+      }
+    });
   }
 
   async getTargetMetadata(): Promise<TargetMetadata> {
@@ -1297,15 +1675,43 @@ export class JDWPClient implements DebugProtocol {
         "Not connected",
       );
     }
-    
-    // JDWP provides limited target metadata
-    return {
-      executable: "java",
-      triple: "java-unknown",
-      numModules: 0,
-      numSections: 0,
-      numSymbols: 0,
-    };
+
+    return this.executeCommand(async (executor) => {
+      // Get JVM version info for runtime details
+      let runtimeVersion = "java";
+      try {
+        const versionInfo = await vm.getVersion(executor);
+        runtimeVersion = versionInfo.runtimeVersion;
+      } catch {
+        // use default
+      }
+
+      // Count loaded classes
+      let numClasses = 0;
+      try {
+        const allClasses = await vm.getAllClasses(executor);
+        numClasses = allClasses.length;
+      } catch {
+        // use default
+      }
+
+      // Get class paths for module-like info
+      let classpathCount = 0;
+      try {
+        const classPaths = await vm.getClassPaths(executor);
+        classpathCount = classPaths.classpath.length + classPaths.bootClasspath.length;
+      } catch {
+        // use default
+      }
+
+      return {
+        executable: runtimeVersion,
+        triple: `java-${process.arch}`,
+        numModules: classpathCount,
+        numSections: numClasses,
+        numSymbols: numClasses,
+      };
+    });
   }
 
   async getThreadBatchInfo(_threadId: string): Promise<ThreadBatchInfo> {
@@ -1319,7 +1725,7 @@ export class JDWPClient implements DebugProtocol {
   supportsFeature(feature: FeatureName): boolean {
     switch (feature) {
       case "eval":
-        return false;
+        return true;
       case "enableDisableBreakpoint":
         return false;
       case "extendedBreakpointInfo":
@@ -1327,9 +1733,9 @@ export class JDWPClient implements DebugProtocol {
       case "targetMetadata":
         return true;
       case "typeInfo":
-        return false;
+        return true;
       case "symbolInfo":
-        return false;
+        return true;
       case "threadBatchInfo":
         return false;
       default:

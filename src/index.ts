@@ -16,3 +16,6 @@ export type { SessionInfo, AutoContext, OutputMode } from "./session/manager.js"
 
 // Export CLI entry
 export { runCli } from "./cli/index.js";
+
+// Export SDK
+export * from "./sdk/index.js";

@@ -20,6 +20,26 @@
     "./cli": {
       "import": "./dist/cli/index.js",
       "types": "./dist/cli/index.d.ts"
+    },
+    "./sdk": {
+      "import": "./dist/sdk/index.js",
+      "types": "./dist/sdk/index.d.ts"
+    },
+    "./sdk/config": {
+      "import": "./dist/sdk/config/index.js",
+      "types": "./dist/sdk/config/index.d.ts"
+    },
+    "./sdk/query": {
+      "import": "./dist/sdk/query/index.js",
+      "types": "./dist/sdk/query/index.d.ts"
+    },
+    "./sdk/assert": {
+      "import": "./dist/sdk/assert/index.js",
+      "types": "./dist/sdk/assert/index.d.ts"
+    },
+    "./sdk/format": {
+      "import": "./dist/sdk/format/index.js",
+      "types": "./dist/sdk/format/index.d.ts"
     }
   },
   "scripts": {
