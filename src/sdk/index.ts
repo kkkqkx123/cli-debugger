@@ -41,7 +41,7 @@ export type {
 
 // ─── Config ───
 
-export { ConfigBuilder, Presets } from "./config/index.js";
+export { ConfigBuilder, Presets, detectProtocol } from "./config/index.js";
 export type { DebugConfig } from "../types/config.js";
 
 // ─── Query ───

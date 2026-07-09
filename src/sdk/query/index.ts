@@ -14,6 +14,7 @@ import type {
   Variable,
 } from "../../types/debug.js";
 import type { TargetMetadata } from "../../protocol/extended.js";
+import { readFileSync } from "node:fs";
 
 // ─── Query Types ─────────────────────────────────────────────────────────────
 
@@ -50,6 +51,42 @@ export interface StackFilter {
 export interface BreakpointFilter {
   enabled?: boolean;
   location?: string | RegExp;
+}
+
+/**
+ * Read source context lines from a file.
+ *
+ * @param filePath - Path to the source file
+ * @param line - Current line number (1-based)
+ * @param contextLines - Number of lines before and after (default: 5)
+ * @returns Array of formatted source lines, or empty array if file cannot be read
+ *
+ * @example
+ * ```ts
+ * const lines = readSourceContext("src/main.ts", 42, 3);
+ * // Returns: [">   42|   const x = 42;", "    43|   console.log(x);"]
+ * ```
+ */
+export function readSourceContext(
+  filePath: string,
+  line: number,
+  contextLines = 5,
+): string[] {
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    const lines = content.split("\n");
+    const start = Math.max(0, line - 1 - contextLines);
+    const end = Math.min(lines.length, line - 1 + contextLines);
+    const result: string[] = [];
+    for (let i = start; i < end; i++) {
+      const lineNum = i + 1;
+      const marker = lineNum === line ? ">" : " ";
+      result.push(`${marker} ${String(lineNum).padStart(4)}| ${lines[i] ?? ""}`);
+    }
+    return result;
+  } catch {
+    return [];
+  }
 }
 
 // ─── Query Module ────────────────────────────────────────────────────────────
@@ -219,11 +256,13 @@ export function createQuery(
       const top = frames[0];
       if (!top || top.location === "<unknown>") return undefined;
 
+      const lines = readSourceContext(top.location, top.line, 5);
+
       return {
         file: top.location,
         line: top.line,
         method: top.method,
-        lines: [],
+        lines,
         startLine: Math.max(0, top.line - 5),
         threadId: tid,
         frameIndex,

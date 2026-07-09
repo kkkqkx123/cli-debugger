@@ -7,6 +7,41 @@
 import type { DebugConfig } from "../../types/config.js";
 
 /**
+ * Auto-detect the debug protocol from a file path.
+ *
+ * Maps file extensions to debug protocols:
+ * - `.go` → `dlv`
+ * - `.java`/`.class`/`.jar` → `jdwp`
+ * - `.py` → `py-debug`
+ * - `.js`/`.ts`/`.mjs`/`.cjs`/`.mts`/`.cts` → `js-debug`
+ * - Native binaries (no extension, `.out`, `.bin`, `.exe`, `.elf`) → `lldb`
+ *
+ * @param programPath - Path to the program/binary file
+ * @returns Detected protocol name, or `undefined` if unknown
+ *
+ * @example
+ * ```ts
+ * detectProtocol("App.java")   // "jdwp"
+ * detectProtocol("main.go")    // "dlv"
+ * detectProtocol("script.py")  // "py-debug"
+ * ```
+ */
+export function detectProtocol(programPath: string): string | undefined {
+  const basename = programPath.split("/").pop()?.toLowerCase() ?? "";
+  const dotIndex = basename.lastIndexOf(".");
+  const ext = dotIndex >= 0 ? basename.slice(dotIndex + 1) : "";
+
+  if (ext === "go" || basename.endsWith(".go")) return "dlv";
+  if (ext === "java" || ext === "class" || ext === "jar") return "jdwp";
+  if (ext === "py" || basename.endsWith(".py")) return "py-debug";
+  if (ext === "js" || ext === "ts" || ext === "mjs" || ext === "cjs" || ext === "mts" || ext === "cts") return "js-debug";
+  if (ext === "out" || ext === "bin" || ext === "exe" || ext === "elf") return "lldb";
+  // No extension → likely a native binary
+  if (ext === "" && basename.length > 0) return "lldb";
+  return undefined;
+}
+
+/**
  * Pre-configured protocol presets.
  *
  * Each preset provides sensible defaults for a specific debug protocol.
@@ -28,9 +63,9 @@ export const Presets = {
     return { protocol: "lldb", host, port, timeout: 30000 };
   },
 
-  /** DebugPy (Python) — default port 5678 */
-  debugpy(port = 5678, host = "127.0.0.1"): DebugConfig {
-    return { protocol: "debugpy", host, port, timeout: 30000 };
+  /** py-debug (Python) — default port 5678 */
+  pyDebug(port = 5678, host = "127.0.0.1"): DebugConfig {
+    return { protocol: "py-debug", host, port, timeout: 30000 };
   },
 
   /** js-debug (JavaScript/TypeScript) — default port 9229 */

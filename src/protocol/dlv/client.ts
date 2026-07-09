@@ -3,7 +3,7 @@
  * Implements DebugProtocol interface for Go Delve debugger
  */
 
-import type { ExtendedDebugProtocol, EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FeatureName } from "../extended.js";
+import type { ExtendedDebugProtocol, EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, ExpandedVariable, FeatureName } from "../extended.js";
 import type { DebugConfig } from "../../types/config.js";
 import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
@@ -26,7 +26,7 @@ import type {
   DlvLoadConfig,
   DlvFilterKind,
 } from "./types.js";
-import { getDefaultLoadConfig } from "./types.js";
+import { getDefaultLoadConfig, isPrimitiveKind } from "./types.js";
 import * as debuggerApi from "./api/debugger.js";
 import * as breakpointApi from "./api/breakpoint.js";
 import * as goroutineApi from "./api/goroutine.js";
@@ -346,7 +346,7 @@ export class DlvClient implements ExtendedDebugProtocol {
   async setBreakpoint(
     location: string,
     condition?: string,
-    _type?:
+    type?:
       | "line"
       | "method-entry"
       | "method-exit"
@@ -359,6 +359,26 @@ export class DlvClient implements ExtendedDebugProtocol {
       | "thread-death",
   ): Promise<string> {
     this.ensureConnected();
+
+    if (type && type !== "line") {
+      // Add best-effort exception breakpoint support for Go panics
+      if (type === "exception") {
+        const bp = await breakpointApi.createBreakpointAtFunction(
+          this.rpc,
+          "runtime.gopanic",
+          condition,
+        );
+        const id = `dlv_bp_${bp.id}`;
+        this.breakpointMap.set(id, bp);
+        return id;
+      }
+      throw new APIError(
+        ErrorType.InternalError,
+        ErrorCodes.NotImplemented,
+        `Delve only supports 'line' breakpoints, not '${type}'`,
+        { type },
+      );
+    }
 
     // Parse location: "file.go:line" or "function"
     let bp: DlvBreakpoint;
@@ -935,21 +955,169 @@ export class DlvClient implements ExtendedDebugProtocol {
     };
   }
 
-  async getTypeInfo(_typeName: string, _includeFields?: boolean, _includeTemplateArgs?: boolean): Promise<TypeInfo> {
+  async getTypeInfo(typeName: string, includeFields?: boolean, _includeTemplateArgs?: boolean): Promise<TypeInfo> {
     this.ensureConnected();
-    throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "DLV does not support detailed type information query",
-    );
+
+    // Use listTypes to find type info
+    const types = await infoApi.listTypes(this.rpc, typeName);
+    const matchedType = types.find(t => t.name === typeName) || types[0];
+
+    if (!matchedType) {
+      throw new APIError(
+        ErrorType.CommandError,
+        ErrorCodes.ResourceNotFound,
+        `Type '${typeName}' not found`,
+        { typeName },
+      );
+    }
+
+    // Try to get fields via eval if requested
+    let fields: TypeInfo["fields"] = [];
+    if (includeFields) {
+      try {
+        const scope = variableApi.createEvalScope(0, 0);
+        // Use a dummy eval to get the type's fields
+        const result = await variableApi.evalExpr(this.rpc, `reflect.TypeOf(${typeName}{})`, scope);
+        // Map fields from the type's structure
+        try {
+          if (result.children) {
+            fields = result.children.map((child) => ({
+              name: child.name,
+              typeName: child.type,
+              offset: 0,
+              byteSize: 0,
+              isStatic: false,
+            }));
+          }
+        } catch {
+          // If eval fails, use the children info from the type
+          if (result.children) {
+            fields = result.children.map((child) => ({
+              name: child.name,
+              typeName: child.type,
+              offset: 0,
+              byteSize: 0,
+              isStatic: false,
+            }));
+          }
+        }
+      } catch {
+        // Fields not available
+      }
+    }
+
+    return {
+      name: matchedType.name,
+      byteSize: matchedType.size,
+      isPointer: false,
+      isArray: false,
+      isStruct: matchedType.kind === 7, // Struct kind
+      isClass: false,
+      isUnion: false,
+      isEnumeration: false,
+      numTemplateArgs: 0,
+      templateArgs: [],
+      fields,
+      baseClasses: [],
+      enumValues: [],
+    };
   }
 
-  async getSymbol(_threadId: string, _frameIndex: number, _symbolName?: string, _fuzzyMatch?: boolean): Promise<SymbolInfo> {
+  async getSymbol(threadId: string, frameIndex: number, symbolName?: string, fuzzyMatch?: boolean): Promise<SymbolInfo> {
     this.ensureConnected();
+
+    if (symbolName) {
+      // Try to find the symbol by searching functions, types, and packages
+      try {
+        // Search functions first
+        const functions = await infoApi.listFunctions(this.rpc, fuzzyMatch ? "" : symbolName);
+        const matchedFunc = fuzzyMatch
+          ? functions.find(f => f.toLowerCase().includes(symbolName.toLowerCase()))
+          : functions.find(f => f === symbolName);
+
+        if (matchedFunc) {
+          return {
+            name: matchedFunc,
+            type: "code",
+            address: 0,
+            size: 0,
+            module: "go",
+          };
+        }
+      } catch {
+        // Fall through
+      }
+
+      try {
+        // Search types
+        const types = await infoApi.listTypes(this.rpc, fuzzyMatch ? "" : symbolName);
+        const matchedType = fuzzyMatch
+          ? types.find(t => t.name.toLowerCase().includes(symbolName.toLowerCase()))
+          : types.find(t => t.name === symbolName);
+
+        if (matchedType) {
+          return {
+            name: matchedType.name,
+            type: "data",
+            address: 0,
+            size: matchedType.size,
+            module: "go",
+          };
+        }
+      } catch {
+        // Fall through
+      }
+
+      try {
+        // Search packages as module info
+        const packages = await infoApi.listPackages(this.rpc, fuzzyMatch ? "" : symbolName);
+        const matchedPkg = fuzzyMatch
+          ? packages.find(p => p.toLowerCase().includes(symbolName.toLowerCase()))
+          : packages.find(p => p === symbolName);
+
+        if (matchedPkg) {
+          return {
+            name: matchedPkg,
+            type: "code",
+            address: 0,
+            size: 0,
+            module: "go",
+          };
+        }
+      } catch {
+        // Fall through
+      }
+
+      throw new APIError(
+        ErrorType.CommandError,
+        ErrorCodes.ResourceNotFound,
+        `Symbol '${symbolName}' not found`,
+        { symbolName },
+      );
+    }
+
+    // No symbol name: return current function context
+    try {
+      const state = await debuggerApi.getState(this.rpc);
+      const goroutine = state.currentGoroutine;
+      if (goroutine?.currentLoc?.function?.name) {
+        return {
+          name: goroutine.currentLoc.function.name,
+          type: "code",
+          address: 0,
+          size: 0,
+          module: "go",
+        };
+      }
+    } catch {
+      // Fall through
+    }
+
     throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "DLV does not support symbol query",
+      ErrorType.CommandError,
+      ErrorCodes.ResourceNotFound,
+      "Could not resolve symbol for current context",
+      { threadId, frameIndex },
     );
   }
 
@@ -957,22 +1125,90 @@ export class DlvClient implements ExtendedDebugProtocol {
     this.ensureConnected();
     const target = await miscApi.getTarget(this.rpc);
 
+    // Get package count for numModules
+    let numModules = 0;
+    try {
+      const packages = await infoApi.listPackages(this.rpc);
+      numModules = packages.length;
+    } catch {
+      // Packages unavailable
+    }
+
     return {
       executable: target.cmd[0] || "",
-      triple: "unknown",
-      numModules: 0,
+      triple: "go",
+      numModules,
       numSections: 0,
       numSymbols: 0,
     };
   }
 
-  async getThreadBatchInfo(_threadId: string): Promise<ThreadBatchInfo> {
+  async getThreadBatchInfo(threadId: string): Promise<ThreadBatchInfo> {
     this.ensureConnected();
-    throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "DLV does not support batch thread information query",
-    );
+
+    const goroutineId = parseInt(threadId, 10);
+    const rawFrames = await stackApi.stacktraceFull(this.rpc, goroutineId, 50);
+
+    // Get module names from listPackages
+    let modules: string[] = [];
+    try {
+      modules = await infoApi.listPackages(this.rpc);
+    } catch {
+      // Packages unavailable
+    }
+
+    return {
+      threadId,
+      functions: rawFrames.map(f => f.function?.name ?? "<unknown>"),
+      files: rawFrames.map(f => f.file),
+      lines: rawFrames.map(f => f.line),
+      addresses: rawFrames.map(f => BigInt(f.pc)),
+      modules,
+    };
+  }
+
+  async expandVariable(objectId: string, depth: number = 1): Promise<ExpandedVariable[]> {
+    this.ensureConnected();
+
+    // Evaluate the variable expression to get its children
+    const state = await debuggerApi.getState(this.rpc);
+    const goroutineId = state.currentGoroutine?.id ?? 0;
+    const scope = variableApi.createEvalScope(goroutineId, 0);
+
+    const result = await variableApi.evalExpr(this.rpc, objectId, scope);
+    return this.expandDlvVariableChildren(result, depth, goroutineId);
+  }
+
+  private expandDlvVariableChildren(
+    var_: DlvVariable,
+    depth: number,
+    _goroutineId: number,
+    parentObjectId?: string,
+  ): ExpandedVariable[] {
+    if (!var_.children || var_.children.length === 0) {
+      return [];
+    }
+
+    const result: ExpandedVariable[] = [];
+    for (const child of var_.children) {
+      const entry: ExpandedVariable = {
+        name: child.name,
+        type: child.type,
+        value: child.value,
+        isPrimitive: isPrimitiveKind(child.kind),
+        isNull: child.value === "nil" || child.unreadable !== "",
+      };
+
+      if (!entry.isPrimitive && depth > 1 && child.children && child.children.length > 0) {
+        const childId = parentObjectId ? `${parentObjectId}.${child.name}` : child.name;
+        entry.objectId = childId;
+        entry.children = this.expandDlvVariableChildren(child, depth - 1, _goroutineId, childId);
+      }
+
+      result.push(entry);
+    }
+
+    return result;
   }
 
   supportsFeature(feature: FeatureName): boolean {
@@ -986,11 +1222,13 @@ export class DlvClient implements ExtendedDebugProtocol {
       case "targetMetadata":
         return true;
       case "typeInfo":
-        return false;
+        return true;
       case "symbolInfo":
-        return false;
+        return true;
       case "threadBatchInfo":
-        return false;
+        return true;
+      case "expandVariable":
+        return true;
       default:
         return false;
     }

@@ -11,7 +11,7 @@ export const DebugConfigSchema = z.object({
   host: z.string().min(1).default("127.0.0.1"),
   port: z.number().int().positive().default(5005),
   timeout: z.number().int().positive().default(30000),
-});
+}).passthrough();
 
 /** Debug connection configuration type */
 export type DebugConfig = z.infer<typeof DebugConfigSchema>;

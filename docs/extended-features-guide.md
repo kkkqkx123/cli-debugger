@@ -50,21 +50,22 @@ const FeatureNames = {
   SymbolInfo: "symbolInfo",
   TargetMetadata: "targetMetadata",
   ThreadBatchInfo: "threadBatchInfo",
+  ExpandVariable: "expandVariable",
 };
 ```
 
 ## 协议功能支持矩阵
 
-| 功能 | LLDB | DLV | JDWP |
-|------|------|-----|------|
-| eval | ✅ | ✅ | ❌ |
-| enableBreakpoint | ✅ | ✅ | ❌ |
-| disableBreakpoint | ✅ | ✅ | ❌ |
-| getBreakpointInfo | ✅ | ✅ | ✅ |
-| getTypeInfo | ✅ | ❌ | ❌ |
-| getSymbol | ✅ | ❌ | ❌ |
-| getTargetMetadata | ✅ | ✅ | ✅ |
-| getThreadBatchInfo | ✅ | ❌ | ❌ |
+| 功能 | LLDB | DLV | JDWP | DAP (py-debug/js-debug) |
+|------|------|-----|------|------------------------|
+| eval | ✅ | ✅ | ✅ | ✅ |
+| enableDisableBreakpoint | ✅ | ✅ | ✅ | ✅ |
+| extendedBreakpointInfo | ✅ | ✅ | ✅ | ✅ |
+| typeInfo | ✅ | ✅ | ✅ | ⚠️ (basic) |
+| symbolInfo | ✅ | ✅ | ✅ | ⚠️ (basic) |
+| targetMetadata | ✅ | ✅ | ✅ | ✅ |
+| threadBatchInfo | ✅ | ✅ | ✅ | ✅ |
+| expandVariable | ✅ | ✅ | ✅ | ✅ |
 
 ## 使用示例
 
@@ -374,16 +375,21 @@ try {
 
 ### JDWP 限制
 
-1. **不支持表达式求值**：JDWP 不支持直接表达式求值，需要使用 `invokeStaticMethod` 或 `invokeInstanceMethod` 代替。
-2. **不支持断点启用/禁用**：JDWP 使用事件请求，不支持直接启用/禁用断点，需要删除并重新创建。
-3. **不支持类型信息查询**：JDWP 不支持详细的类型信息查询。
-4. **不支持符号查询**：JDWP 不支持符号查询功能。
+1. **不支持方法级断点**：JDWP 支持方法入口/出口断点，但需要通过 EventRequest 命令设置，接口层面的 `setBreakpoint` 仅支持 `line` 和 `exception` 类型。
+2. **断点启用/禁用通过 remove+recreate 实现**：JDWP 使用事件请求，不支持直接启用/禁用断点，需要删除并重新创建。`enableBreakpoint`/`disableBreakpoint` 在内部通过此模式实现。
+3. **类型信息查询有限**：JDWP 不直接提供类修饰符信息，需要通过字段特征（如 `$VALUES` 字段）来推断枚举类型。
 
 ### DLV 限制
 
-1. **不支持类型信息查询**：DLV 不支持详细的类型信息查询。
-2. **不支持符号查询**：DLV 不支持符号查询功能。
-3. **不支持批量信息获取**：DLV 不支持批量信息获取功能。
+1. **仅支持 line 类型断点**：DLV 不支持其他断点类型。
+2. **类型信息查询有限**：通过 `reflect` 包间接获取，不支持模板参数等高级类型信息。
+3. **不支持 true 的符号查询**：`getSymbol` 通过搜索函数/类型/包实现，但无法提供精确的地址信息。
+
+### DAP (py-debug/js-debug) 限制
+
+1. **类型信息（typeInfo）为基础实现**：通过 `evaluate` 表达式和 `variablesReference` 链获取，不支持 byteSize、模板参数、基类等详细信息。
+2. **符号查询（symbolInfo）为基础实现**：通过 `stackTrace` 获取函数名，或通过 `evaluate` 获取变量信息，不支持精确的地址/大小信息。
+3. **目标元数据（targetMetadata）为基础实现**：通过 `evaluate` 获取运行时版本，模块数通过 `modules` 请求获取。
 
 ### LLDB 限制
 

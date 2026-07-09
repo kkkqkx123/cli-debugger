@@ -111,6 +111,19 @@ export interface ThreadBatchInfo {
 }
 
 /**
+ * Expanded variable with recursive children (for expandVariable)
+ */
+export interface ExpandedVariable {
+  name: string;
+  type: string;
+  value: unknown;
+  isPrimitive: boolean;
+  isNull: boolean;
+  objectId?: string; // Only set for non-primitive fields that can be further expanded
+  children?: ExpandedVariable[];
+}
+
+/**
  * Extended DebugProtocol interface
  * 
  * This interface extends the base DebugProtocol with optional advanced features.
@@ -180,6 +193,14 @@ export interface ExtendedDebugProtocol extends DebugProtocol {
   getThreadBatchInfo?(threadId: string): Promise<ThreadBatchInfo>;
 
   /**
+   * Recursively expand variable fields (optional)
+   * @param objectId - Object ID to expand (format depends on protocol)
+   * @param depth - Maximum expansion depth (default: 1, meaning only direct fields)
+   * @returns Expanded variable tree
+   */
+  expandVariable?(objectId: string, depth?: number): Promise<ExpandedVariable[]>;
+
+  /**
    * Check if a feature is supported (optional)
    * @param feature - Feature name
    * @returns True if feature is supported
@@ -198,6 +219,7 @@ export const FeatureNames = {
   SymbolInfo: "symbolInfo",
   TargetMetadata: "targetMetadata",
   ThreadBatchInfo: "threadBatchInfo",
+  ExpandVariable: "expandVariable",
 } as const;
 
 export type FeatureName = typeof FeatureNames[keyof typeof FeatureNames];
@@ -226,6 +248,8 @@ export function hasFeature(protocol: ExtendedDebugProtocol, feature: FeatureName
       return typeof protocol.getTargetMetadata === "function";
     case FeatureNames.ThreadBatchInfo:
       return typeof protocol.getThreadBatchInfo === "function";
+    case FeatureNames.ExpandVariable:
+      return typeof protocol.expandVariable === "function";
     default:
       return false;
   }

@@ -121,6 +121,16 @@ vi.mock("../api/stack.js", () => ({
       systemStack: false,
     },
   ]),
+  stacktraceFull: vi.fn().mockResolvedValue([
+    {
+      file: "main.go",
+      line: 10,
+      function: { name: "main.main", value: 0, type: 0, goType: 0 },
+      pc: 0,
+      goroutineID: 1,
+      systemStack: false,
+    },
+  ]),
   frameUp: vi.fn().mockResolvedValue(null),
   frameDown: vi.fn().mockResolvedValue(null),
   setFrame: vi.fn().mockResolvedValue({}),
@@ -805,6 +815,53 @@ describe("DlvClient", () => {
         expect(target).toHaveProperty("pid");
         expect(target).toHaveProperty("cmd");
       });
+    });
+  });
+
+  describe("setBreakpoint with exception type", () => {
+    it("场景: 用户设置异常断点 — 应调用 createBreakpointAtFunction 设置 runtime.gopanic", async () => {
+      // 需要动态导入 mock 模块来验证
+      await client.connect();
+      mockIsConnected.mockReturnValue(true);
+
+      const bpId = await client.setBreakpoint("", undefined, "exception");
+
+      expect(bpId).toMatch(/^dlv_bp_/);
+      // createBreakpointAtFunction 在 mock 中返回 { id: 2 }
+      expect(bpId).toBe("dlv_bp_2");
+    });
+  });
+
+  describe("getTargetMetadata", () => {
+    it("场景: 用户查询调试目标元数据 — 应包含可执行文件名和包数量", async () => {
+      await client.connect();
+      mockIsConnected.mockReturnValue(true);
+
+      const meta = await client.getTargetMetadata();
+
+      expect(meta.executable).toBe("./app");
+      // listPackages mock 返回 ["main"]
+      expect(meta.numModules).toBe(1);
+      expect(meta.triple).toBe("go");
+    });
+  });
+
+  describe("getThreadBatchInfo", () => {
+    it("场景: 用户批量获取线程堆栈信息 — 应返回 function/file/line/address/module", async () => {
+      await client.connect();
+      mockIsConnected.mockReturnValue(true);
+
+      const info = await client.getThreadBatchInfo("1");
+
+      // stacktraceFull mock 返回 1 帧，pc=0
+      expect(info.functions).toHaveLength(1);
+      expect(info.functions[0]).toBe("main.main");
+      expect(info.files[0]).toBe("main.go");
+      expect(info.lines[0]).toBe(10);
+      // addresses 从 frame.pc 填充
+      expect(info.addresses[0]).toBe(BigInt(0));
+      // listPackages mock 返回 ["main"]
+      expect(info.modules).toEqual(["main"]);
     });
   });
 });

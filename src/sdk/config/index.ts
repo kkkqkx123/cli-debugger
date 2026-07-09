@@ -3,6 +3,6 @@
  */
 
 export { ConfigBuilder } from "./builder.js";
-export { Presets } from "./presets.js";
+export { Presets, detectProtocol } from "./presets.js";
 
 export type { DebugConfig } from "../../types/config.js";

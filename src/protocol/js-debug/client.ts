@@ -46,4 +46,44 @@ export class JsDebugClient extends BaseDAPClient {
     };
     super(config, adapterConfig);
   }
+
+  /**
+   * JavaScript-specific: Evaluate console expression
+   */
+  async jsEval(expression: string, context: "repl" | "hover" | "watch" = "repl"): Promise<{ result: string; type: string }> {
+    const response = await this.sendDAPRequest("evaluate", {
+      expression,
+      context,
+    });
+    const body = response.body as { result?: string; type?: string } | undefined;
+    return {
+      result: body?.result ?? "",
+      type: body?.type ?? "unknown",
+    };
+  }
+
+  /**
+   * JavaScript-specific: Get runtime info (e.g., Node.js version)
+   */
+  async getRuntimeInfo(): Promise<{ runtime: string; version: string; description: string }> {
+    try {
+      const response = await this.sendDAPRequest("evaluate", {
+        expression: "process.version",
+        context: "repl",
+      });
+      const body = response.body as { result?: string } | undefined;
+      const version = body?.result ?? "unknown";
+      return {
+        runtime: "node",
+        version,
+        description: `Node.js ${version}`,
+      };
+    } catch {
+      return {
+        runtime: "unknown",
+        version: "unknown",
+        description: "Could not determine runtime info",
+      };
+    }
+  }
 }

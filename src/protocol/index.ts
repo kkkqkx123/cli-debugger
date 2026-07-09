@@ -54,11 +54,11 @@ export * as dlv from "./dlv/index.js";
 export { LLDBClient } from "./lldb/client.js";
 export * as lldb from "./lldb/index.js";
 
-// DebugPy protocol implementation (placeholder)
-export { DebugPyClient } from "./debugpy/client.js";
-export * as debugpy from "./debugpy/index.js";
+// py-debug (Python) protocol implementation
+export { DebugPyClient } from "./py-debug/client.js";
+export * as pydebug from "./py-debug/index.js";
 
-// js-debug protocol implementation (placeholder)
+// js-debug (JavaScript/TypeScript) protocol implementation
 export { JsDebugClient } from "./js-debug/client.js";
 export * as jsdebug from "./js-debug/index.js";
 
@@ -67,7 +67,7 @@ import { registerProtocol } from "./client.js";
 import { JDWPClient } from "./jdwp/client.js";
 import { DlvClient } from "./dlv/client.js";
 import { LLDBClient } from "./lldb/client.js";
-import { DebugPyClient } from "./debugpy/client.js";
+import { DebugPyClient } from "./py-debug/client.js";
 import { JsDebugClient } from "./js-debug/client.js";
 
 registerProtocol("jdwp", (config) => new JDWPClient(config));

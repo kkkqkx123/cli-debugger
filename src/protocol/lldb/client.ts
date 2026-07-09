@@ -3,7 +3,7 @@
  * Implements DebugProtocol interface for LLDB debugger
  */
 
-import type { ExtendedDebugProtocol, EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FeatureName } from "../extended.js";
+import type { ExtendedDebugProtocol, EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, ExpandedVariable, FeatureName } from "../extended.js";
 import type { DebugConfig } from "../../types/config.js";
 import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
@@ -44,6 +44,10 @@ export class LLDBClient implements ExtendedDebugProtocol {
   private bridge: LLDBBridge;
   private connected = false;
   private breakpointMap = new Map<string, LLDBBreakpoint>();
+  /** Tracks the currently selected thread for context-dependent operations */
+  private currentThreadId = "";
+  /** Tracks the currently selected frame index for context-dependent operations */
+  private currentFrameIndex = 0;
 
   constructor(config: DebugConfig) {
     // Extract extra fields before validation
@@ -276,7 +280,7 @@ export class LLDBClient implements ExtendedDebugProtocol {
   async setBreakpoint(
     location: string,
     condition?: string,
-    _type?:
+    type?:
       | "line"
       | "method-entry"
       | "method-exit"
@@ -289,6 +293,24 @@ export class LLDBClient implements ExtendedDebugProtocol {
       | "thread-death",
   ): Promise<string> {
     this.ensureConnected();
+
+    if (type && type !== "line") {
+      // Add exception breakpoint support via LLDB's BreakpointCreateForException
+      if (type === "exception") {
+        const result = await this.bridge.call<LLDBBreakpoint>("setBreakpoint", {
+          exceptionType: location, // e.g., "objc" for ObjC exceptions, "cpp" for C++ exceptions
+          condition,
+        });
+        this.breakpointMap.set(result.id, result);
+        return result.id;
+      }
+      throw new APIError(
+        ErrorType.InternalError,
+        ErrorCodes.NotImplemented,
+        `LLDB only supports 'line' breakpoints, not '${type}'`,
+        { type },
+      );
+    }
 
     const result = await this.bridge.call<LLDBBreakpoint>("setBreakpoint", {
       location,
@@ -519,6 +541,7 @@ export class LLDBClient implements ExtendedDebugProtocol {
    */
   async setSelectedThread(threadId: string): Promise<void> {
     this.ensureConnected();
+    this.currentThreadId = threadId;
     await this.bridge.call("setSelectedThread", {
       threadId: parseInt(threadId, 10),
     });
@@ -545,6 +568,8 @@ export class LLDBClient implements ExtendedDebugProtocol {
     frameIndex: number,
   ): Promise<void> {
     this.ensureConnected();
+    this.currentThreadId = threadId;
+    this.currentFrameIndex = frameIndex;
     await this.bridge.call("setSelectedFrame", {
       threadId: parseInt(threadId, 10),
       frameIndex,
@@ -869,6 +894,21 @@ export class LLDBClient implements ExtendedDebugProtocol {
     };
   }
 
+  async expandVariable(objectId: string, depth: number = 1): Promise<ExpandedVariable[]> {
+    const result = await this.bridge.call<ExpandedVariable[]>("expand_variable", {
+      objectId,
+      depth,
+      threadId: this.currentThreadId,
+      frameIndex: this.currentFrameIndex,
+    });
+    return result.map((r) => ({
+      ...r,
+      isPrimitive: r.isPrimitive ?? true,
+      isNull: r.isNull ?? false,
+      value: r.value ?? null,
+    }));
+  }
+
   supportsFeature(feature: FeatureName): boolean {
     switch (feature) {
       case "eval":
@@ -884,6 +924,8 @@ export class LLDBClient implements ExtendedDebugProtocol {
       case "targetMetadata":
         return true;
       case "threadBatchInfo":
+        return true;
+      case "expandVariable":
         return true;
       default:
         return false;

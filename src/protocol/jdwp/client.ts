@@ -6,7 +6,7 @@
 import * as net from "node:net";
 import type { DebugProtocol } from "../base.js";
 import type { DebugConfig } from "../../types/config.js";
-import type { EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, FieldInfo, FeatureName } from "../extended.js";
+import type { EvalOptions, EvalResult, ExtendedBreakpointInfo, TypeInfo, SymbolInfo, TargetMetadata, ThreadBatchInfo, ExpandedVariable, FieldInfo, FeatureName, ExtendedDebugProtocol } from "../extended.js";
 import { DebugConfigSchema } from "../../types/config.js";
 import type { VersionInfo, Capabilities } from "../../types/metadata.js";
 import type {
@@ -37,12 +37,14 @@ import * as event from "./event.js";
 /**
  * JDWP Client
  */
-export class JDWPClient implements DebugProtocol {
+export class JDWPClient implements DebugProtocol, ExtendedDebugProtocol {
   private config: DebugConfig;
   private socket: net.Socket | null = null;
   private connected = false;
   private idSizes: IDSizes | null = null;
   private breakpointMap: Map<string, InternalBreakpointInfo> = new Map();
+  /** Stores breakpoint creation parameters for enable/disable via remove+recreate */
+  private breakpointParams: Map<string, { type: string; location: string; condition?: string; params: Record<string, unknown> }> = new Map();
   private packetBuffer: Buffer = Buffer.alloc(0);
 
   constructor(config: DebugConfig) {
@@ -451,6 +453,11 @@ export class JDWPClient implements DebugProtocol {
         enabled: true,
         hitCount: 0,
       });
+      this.breakpointParams.set(bpID, {
+        type: "line",
+        location,
+        params: { classInfo: { refID: classInfo.refID }, targetMethod: { methodID: targetMethod.methodID }, lineLocation: { lineCodeIndex: lineLocation.lineCodeIndex }, condition: _condition ?? null },
+      });
 
       return bpID;
     });
@@ -502,6 +509,11 @@ export class JDWPClient implements DebugProtocol {
         enabled: true,
         hitCount: 0,
       });
+      this.breakpointParams.set(bpID, {
+        type,
+        location,
+        params: { classInfo: { refID: classInfo.refID }, targetMethod: { methodID: targetMethod.methodID } },
+      });
 
       return bpID;
     });
@@ -545,6 +557,11 @@ export class JDWPClient implements DebugProtocol {
         location: exceptionClassName,
         enabled: true,
         hitCount: 0,
+      });
+      this.breakpointParams.set(bpID, {
+        type: "exception",
+        location: exceptionClassName,
+        params: { exceptionRefTypeID },
       });
 
       return bpID;
@@ -611,6 +628,11 @@ export class JDWPClient implements DebugProtocol {
         enabled: true,
         hitCount: 0,
       });
+      this.breakpointParams.set(bpID, {
+        type: `field-${type}`,
+        location: fieldLocation,
+        params: { className, fieldName },
+      });
 
       return bpID;
     });
@@ -637,6 +659,11 @@ export class JDWPClient implements DebugProtocol {
         location: classPattern,
         enabled: true,
         hitCount: 0,
+      });
+      this.breakpointParams.set(bpID, {
+        type,
+        location: classPattern,
+        params: { classPattern },
       });
 
       return bpID;
@@ -665,6 +692,11 @@ export class JDWPClient implements DebugProtocol {
         enabled: true,
         hitCount: 0,
       });
+      this.breakpointParams.set(bpID, {
+        type,
+        location: threadID,
+        params: { threadID },
+      });
 
       return bpID;
     });
@@ -681,6 +713,7 @@ export class JDWPClient implements DebugProtocol {
     });
 
     this.breakpointMap.delete(id);
+    this.breakpointParams.delete(id);
   }
 
   async clearBreakpoints(): Promise<void> {
@@ -688,6 +721,7 @@ export class JDWPClient implements DebugProtocol {
       event.clearAllBreakpoints(executor),
     );
     this.breakpointMap.clear();
+    this.breakpointParams.clear();
   }
 
   async breakpoints(): Promise<BreakpointInfo[]> {
@@ -835,6 +869,76 @@ export class JDWPClient implements DebugProtocol {
         };
       });
     });
+  }
+
+  // ==================== Variable Expansion ====================
+
+  async expandVariable(objectId: string, depth: number = 1): Promise<ExpandedVariable[]> {
+    return this.executeCommand((executor) =>
+      this.expandVariableRecursive(executor, objectId, depth),
+    );
+  }
+
+  /**
+   * Recursively expand variable fields using the JDWP executor
+   */
+  private async expandVariableRecursive(
+    executor: vm.JDWPCommandExecutor,
+    objectId: string,
+    depth: number,
+  ): Promise<ExpandedVariable[]> {
+    const parts = objectId.split(":");
+    if (parts.length !== 2) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidObjectId,
+        `Invalid object ID: ${objectId}`,
+        { objectId, expectedFormat: "tag:id" },
+      );
+    }
+
+    const refTypeID = parts[1]!;
+    const fields = await referenceType.getFields(executor, refTypeID);
+    if (fields.length === 0) {
+      return [];
+    }
+
+    const fieldIDs = fields.map((f) => f.fieldID);
+    const { tags, values } = await referenceType.getValuesWithTags(
+      executor,
+      refTypeID,
+      fieldIDs,
+    );
+
+    const result: ExpandedVariable[] = [];
+    for (let i = 0; i < fields.length; i++) {
+      const field = fields[i]!;
+      const tag = tags[i] ?? 0;
+      const value = values[i];
+      const isPrimitive = this.isPrimitiveTag(tag);
+      const isNull = value === null || value === undefined;
+
+      const entry: ExpandedVariable = {
+        name: field.name,
+        type: this.jdwpSignatureToType(field.signature),
+        value,
+        isPrimitive,
+        isNull,
+      };
+
+      // For non-primitive, non-null fields, attach objectId for further expansion
+      if (!isPrimitive && !isNull) {
+        const childObjectId = `${tag}:${value}`;
+        entry.objectId = childObjectId;
+        if (depth > 1) {
+          entry.children = await this.expandVariableRecursive(executor, childObjectId, depth - 1);
+        }
+      }
+
+      result.push(entry);
+    }
+
+    return result;
   }
 
   async setField(objectId: string, fieldId: string, value: unknown): Promise<void> {
@@ -1221,7 +1325,7 @@ export class JDWPClient implements DebugProtocol {
 
   // ==================== Extended Interface ====================
 
-  async eval(threadId: string, frameIndex: number, expression: string, _options?: EvalOptions): Promise<EvalResult> {
+  async eval(expression: string, threadId: string, frameIndex: number, _options?: EvalOptions): Promise<EvalResult> {
     return this.executeCommand(async (executor) => {
       // Check if thread is suspended
       const { suspendStatus } = await thread.getThreadStatus(executor, threadId);
@@ -1473,20 +1577,145 @@ export class JDWPClient implements DebugProtocol {
     }
   }
 
-  async enableBreakpoint(_id: string): Promise<void> {
-    throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "JDWP does not support enable/disable breakpoint",
-    );
+  async enableBreakpoint(id: string): Promise<void> {
+    const bp = this.breakpointMap.get(id);
+    if (!bp) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Breakpoint ${id} not found`,
+        { id },
+      );
+    }
+    if (bp.enabled) {
+      return; // Already enabled
+    }
+
+    // Recreate the EventRequest using stored params
+    await this.executeCommand(async (executor) => {
+      const stored = this.breakpointParams.get(id);
+      if (!stored) {
+        throw new APIError(
+          ErrorType.InternalError,
+          ErrorCodes.InternalError,
+          `Breakpoint ${id} params not found for re-creation`,
+          { id },
+        );
+      }
+
+      let newRequestID: number;
+
+      switch (stored.type) {
+        case "line": {
+          const p = stored.params as Record<string, unknown>;
+          const ci = p["classInfo"] as { refID: string };
+          const tm = p["targetMethod"] as { methodID: string };
+          const ll = p["lineLocation"] as { lineCodeIndex: bigint };
+          newRequestID = await event.setBreakpointRequest(
+            executor,
+            ci.refID,
+            tm.methodID,
+            ll.lineCodeIndex,
+            SuspendPolicy.EventThread,
+          );
+          break;
+        }
+        case "method-entry":
+        case "method-exit": {
+          const p = stored.params as Record<string, unknown>;
+          const ci = p["classInfo"] as { refID: string };
+          const tm = p["targetMethod"] as { methodID: string };
+          const evtType = stored.type === "method-entry" ? EventType.MethodEntry : EventType.MethodExit;
+          newRequestID = await event.setMethodRequest(
+            executor,
+            evtType,
+            ci.refID,
+            tm.methodID,
+            SuspendPolicy.EventThread,
+          );
+          break;
+        }
+        case "exception": {
+          const p = stored.params as { exceptionRefTypeID: string | null };
+          newRequestID = await event.setExceptionRequest(
+            executor,
+            p.exceptionRefTypeID,
+            true,
+            true,
+            SuspendPolicy.All,
+          );
+          break;
+        }
+        case "field-access":
+        case "field-modify": {
+          const p = stored.params as { className: string; fieldName: string };
+          const evtType = stored.type === "field-access" ? EventType.FieldAccess : EventType.FieldModification;
+          newRequestID = await event.setFieldRequest(
+            executor,
+            evtType,
+            p.className,
+            p.fieldName,
+            SuspendPolicy.EventThread,
+          );
+          break;
+        }
+        case "class-load":
+        case "class-unload": {
+          const p = stored.params as { classPattern: string };
+          const evtType = stored.type === "class-load" ? EventType.ClassLoad : EventType.ClassUnload;
+          newRequestID = await event.setClassRequest(
+            executor,
+            evtType,
+            p.classPattern,
+            SuspendPolicy.EventThread,
+          );
+          break;
+        }
+        case "thread-start":
+        case "thread-death": {
+          const p = stored.params as { threadID: string };
+          const evtType = stored.type === "thread-start" ? EventType.ThreadStart : EventType.ThreadDeath;
+          newRequestID = await event.setThreadRequest(
+            executor,
+            evtType,
+            p.threadID,
+            SuspendPolicy.EventThread,
+          );
+          break;
+        }
+        default:
+          throw new APIError(
+            ErrorType.InternalError,
+            ErrorCodes.InternalError,
+            `Unknown breakpoint type: ${stored.type}`,
+            { id, type: stored.type },
+          );
+      }
+
+      bp.requestID = newRequestID;
+      bp.enabled = true;
+    });
   }
 
-  async disableBreakpoint(_id: string): Promise<void> {
-    throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "JDWP does not support enable/disable breakpoint",
-    );
+  async disableBreakpoint(id: string): Promise<void> {
+    const bp = this.breakpointMap.get(id);
+    if (!bp) {
+      throw new APIError(
+        ErrorType.InputError,
+        ErrorCodes.InvalidInput,
+        `Breakpoint ${id} not found`,
+        { id },
+      );
+    }
+    if (!bp.enabled) {
+      return; // Already disabled
+    }
+
+    await this.executeCommand(async (executor) => {
+      await event.clearBreakpointRequest(executor, bp.requestID);
+    });
+
+    bp.enabled = false;
   }
 
   async getBreakpointInfo(id: string): Promise<ExtendedBreakpointInfo> {
@@ -1541,10 +1770,15 @@ export class JDWPClient implements DebugProtocol {
         ? classSignature.replace(/^L|;$/g, "").replace(/\//g, ".")
         : typeName;
 
-      // Get fields if requested
+      // Get fields for enum detection (always, even without includeFields)
+      const rawFields = await referenceType.getFields(executor, classInfo.refID);
+
+      // Detect enum type: Java compiler adds a synthetic $VALUES field to enum classes
+      const isEnumeration = rawFields.some(f => f.name === "$VALUES" || f.name === "ENUM$VALUES");
+
+      // Get fields for display if requested
       let fields: FieldInfo[] = [];
       if (includeFields) {
-        const rawFields = await referenceType.getFields(executor, classInfo.refID);
         fields = rawFields.map((f) => ({
           name: f.name,
           typeName: this.jdwpSignatureToType(f.signature),
@@ -1562,12 +1796,16 @@ export class JDWPClient implements DebugProtocol {
         isStruct: false,
         isClass: !signature.startsWith("["),
         isUnion: false,
-        isEnumeration: false,
+        isEnumeration,
         numTemplateArgs: 0,
         templateArgs: [],
         fields,
         baseClasses: [], // JDWP provides interfaces but not base classes through simple API
-        enumValues: [],
+        enumValues: isEnumeration
+          ? rawFields
+              .filter(f => (f.modifiers & 0x0019) === 0x0019) // ACC_STATIC | ACC_FINAL | ACC_PUBLIC = enum constants
+              .map(f => ({ name: f.name, value: BigInt(0) }))
+          : [],
       };
     });
   }
@@ -1714,12 +1952,61 @@ export class JDWPClient implements DebugProtocol {
     });
   }
 
-  async getThreadBatchInfo(_threadId: string): Promise<ThreadBatchInfo> {
-    throw new APIError(
-      ErrorType.InternalError,
-      ErrorCodes.NotImplemented,
-      "JDWP does not support batch thread information query",
-    );
+  async getThreadBatchInfo(threadId: string): Promise<ThreadBatchInfo> {
+    return this.executeCommand(async (executor) => {
+      const frameCount = await thread.getThreadFrameCount(executor, threadId);
+      if (frameCount === 0) {
+        return {
+          threadId,
+          functions: [],
+          files: [],
+          lines: [],
+          addresses: [],
+          modules: [],
+        };
+      }
+
+      const frames = await thread.getThreadFrames(executor, threadId, 0, frameCount);
+      const functions: string[] = [];
+      const files: string[] = [];
+      const lines: number[] = [];
+      const addresses: bigint[] = [];
+      const modules: string[] = ["java"];
+
+      for (const frame of frames) {
+        // Resolve method name from methodID
+        let methodName = frame.method;
+        try {
+          const sig = await referenceType.getSignature(executor, frame.location);
+          const className = sig ? sig.replace(/^L|;$/g, "").replace(/\//g, ".") : frame.location;
+          methodName = `${className}.${frame.method}`;
+        } catch {
+          // Use raw method ID as fallback
+        }
+        functions.push(methodName);
+
+        // Resolve source file and line from location
+        try {
+          const sig = await referenceType.getSignature(executor, frame.location);
+          const sourcePath = sig ? sig.replace(/^L|;$/g, "").replace(/\//g, "/") + ".java" : "unknown";
+          files.push(sourcePath);
+        } catch {
+          files.push("unknown");
+        }
+
+        lines.push(0); // Line number not directly available from frame info
+        addresses.push(BigInt(0));
+      }
+
+      return {
+        threadId,
+        functions,
+        files,
+        lines,
+        addresses,
+        modules,
+      };
+    });
   }
 
   supportsFeature(feature: FeatureName): boolean {
@@ -1727,7 +2014,7 @@ export class JDWPClient implements DebugProtocol {
       case "eval":
         return true;
       case "enableDisableBreakpoint":
-        return false;
+        return true;
       case "extendedBreakpointInfo":
         return true;
       case "targetMetadata":
@@ -1736,8 +2023,10 @@ export class JDWPClient implements DebugProtocol {
         return true;
       case "symbolInfo":
         return true;
+      case "expandVariable":
+        return true;
       case "threadBatchInfo":
-        return false;
+        return true;
       default:
         return false;
     }

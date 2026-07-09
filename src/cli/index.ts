@@ -8,13 +8,14 @@
  */
 
 import process from "node:process";
-import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { SessionManager } from "../session/manager.js";
 import type { OutputMode } from "../session/manager.js";
 import type { AutoContext } from "../session/manager.js";
 import type { DebugConfig } from "../types/config.js";
 import type { BreakpointInfo } from "../types/debug.js";
+import { detectProtocol } from "../sdk/config/index.js";
+import { readSourceContext } from "../sdk/query/index.js";
 import {
   writeContext,
   writeMessage,
@@ -73,30 +74,6 @@ async function resolveThreadId(threadId?: string): Promise<string> {
   process.exit(1);
 }
 
-/**
- * Read source context from file
- */
-function readSourceContext(filePath: string, line: number, ctxLines: number): string[] {
-  try {
-    const content = readFileSync(filePath, "utf-8");
-    const lines = content.split("\n");
-    const start = Math.max(0, line - ctxLines);
-    const end = Math.min(lines.length, line + ctxLines - 1);
-    const result: string[] = [];
-    for (let i = start; i < end; i++) {
-      const lineNum = i + 1;
-      const marker = lineNum === line ? ">" : " ";
-      result.push(`${marker} ${String(lineNum).padStart(4)}| ${lines[i] ?? ""}`);
-    }
-    return result;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Build auto-context from current session state
- */
 async function buildAutoContext(
   threadId?: string,
   options?: { includeSource?: boolean; includeLocals?: boolean; includeStack?: boolean },
@@ -138,7 +115,7 @@ async function buildAutoContext(
             method: topFrame.method,
           };
 
-          // Source context
+          // Source context (uses shared SDK utility)
           if (opts.includeSource && topFrame.location !== "<unknown>") {
             ctx.sourceContext = readSourceContext(
               topFrame.location,
@@ -170,27 +147,6 @@ async function emitAutoContext(threadId?: string): Promise<void> {
   writeContext(ctx, outputMode);
 }
 
-/**
- * Auto-detect debug protocol from a program file path
- */
-function detectProtocol(programPath: string): string {
-  const ext = programPath.split(".").pop()?.toLowerCase() ?? "";
-  const basename = programPath.split("/").pop()?.toLowerCase() ?? "";
-
-  // Go
-  if (ext === "go" || basename.endsWith(".go")) return "dlv";
-  // Java
-  if (ext === "java" || ext === "class" || ext === "jar") return "jdwp";
-  // Python
-  if (ext === "py" || basename.endsWith(".py")) return "debugpy";
-  // JavaScript/TypeScript
-  if (ext === "js" || ext === "ts" || ext === "mjs" || ext === "cjs" || ext === "mts" || ext === "cts") return "js-debug";
-  // C/C++/Rust binaries (no extension or common native extensions)
-  if (ext === "" || ext === "out" || ext === "bin" || ext === "exe" || ext === "elf") return "lldb";
-  // Default to dlv
-  return "dlv";
-}
-
 // ─── Program Setup ───────────────────────────────────────────────────────────
 
 const program = new Command();
@@ -217,7 +173,7 @@ program
 program
   .command("debug")
   .description("Start a new debug session")
-  .argument("[protocol]", "Debug protocol (dlv, jdwp, lldb, debugpy, js-debug) - auto-detected if not specified based on program extension")
+  .argument("[protocol]", "Debug protocol (dlv, jdwp, lldb, py-debug, js-debug) - auto-detected if not specified based on program extension")
   .option("-H, --host <host>", "Debug adapter host", "127.0.0.1")
   .option("-p, --port <port>", "Debug adapter port", "5005")
   .option("-t, --timeout <ms>", "Connection timeout", "30000")
@@ -281,7 +237,7 @@ program
       }
 
       const sessionId = await sessionManager.createSession(config as DebugConfig);
-      const targetInfo = options.program ?? `${config.host}:${config.port}`;
+      const targetInfo = options.program ?? `${config["host"]}:${config["port"]}`;
       writeSuccess(`Debug session started: ${sessionId} (${resolvedProtocol}://${targetInfo})`, outputMode);
 
       if (programArgs.length > 0) {

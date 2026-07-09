@@ -112,6 +112,15 @@ def variable_to_dict(var: lldb.SBValue, kind: str) -> Dict[str, Any]:
     """Convert LLDB variable to dictionary"""
     type_obj = var.GetType()
 
+    # Try to get object description for complex types
+    object_description = None
+    try:
+        desc = var.GetObjectDescription()
+        if desc:
+            object_description = desc
+    except Exception:
+        pass
+
     return {
         "name": var.GetName() or "<anonymous>",
         "type": type_obj.GetName() or "<unknown>",
@@ -124,6 +133,8 @@ def variable_to_dict(var: lldb.SBValue, kind: str) -> Dict[str, Any]:
         "isNil": (
             var.GetValueAsUnsigned() == 0 if type_obj.IsPointerType() else False
         ),
+        "objectDescription": object_description,
+        "valueAsSigned": var.GetValueAsSigned(),
     }
 
 

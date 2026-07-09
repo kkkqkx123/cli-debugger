@@ -130,6 +130,7 @@ class LLDBBridge:
             "locals": VariableHandler(self.state),
             "fields": VariableHandler(self.state),
             "get_variable_by_path": VariableHandler(self.state),
+            "expand_variable": VariableHandler(self.state),
             # Register
             "registers": RegisterHandler(self.state),
             # Selection

@@ -173,15 +173,14 @@ export class DAPTransport {
         const encoded = this.encodeMessage(request);
         this.socket!.write(encoded, (err) => {
           if (err) {
-            clearTimeout(timer);
             this.pendingRequests.delete(seq);
+            clearTimeout(timer);
             reject(
               new APIError(
                 ErrorType.ConnectionError,
                 ErrorCodes.ConnectionClosed,
-                `Failed to send DAP request '${command}'`,
+                `Failed to send DAP request: ${err.message}`,
                 { command, seq },
-                err,
               ),
             );
           }

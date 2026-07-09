@@ -38,6 +38,7 @@ import { DebuggerEventEmitter } from "./events.js";
 import type { SdkEventMap } from "./events.js";
 import { createQuery } from "./query/index.js";
 import type { QueryModule, VariableDetail } from "./query/index.js";
+import { readSourceContext } from "./query/index.js";
 import { createAssert } from "./assert/index.js";
 import type { AssertModule } from "./assert/index.js";
 import { createFormat } from "./format/index.js";
@@ -101,6 +102,7 @@ export class Debugger {
   private _events = new DebuggerEventEmitter();
   private _query: QueryModule | null = null;
   private _assert: AssertModule | null = null;
+  private _format: FormatModule | null = null;
   private _config: DebugConfig;
   private _connected = false;
   private _state: "connected" | "disconnected" | "running" | "paused" = "disconnected";
@@ -303,6 +305,10 @@ export class Debugger {
               const frameIndex = this.manager.getActiveFrameIndex();
               ctx.locals = await client.locals(tid, frameIndex);
             }
+
+            if (opts.includeSource && topFrame.location !== "<unknown>") {
+              ctx.sourceContext = readSourceContext(topFrame.location, topFrame.line, 5);
+            }
           }
         }
       }
@@ -472,6 +478,36 @@ export class Debugger {
     await client.clearBreakpoints();
   }
 
+  /**
+   * Enable a breakpoint by ID.
+   * @param id - Breakpoint ID
+   * @throws If the protocol does not support enable/disable breakpoint
+   */
+  async enableBreakpoint(id: string): Promise<void> {
+    const client = this.requireExtendedClient();
+    if (typeof client.enableBreakpoint !== "function") {
+      throw new Error(
+        `Enable/disable breakpoint is not supported by the '${this._config.protocol}' protocol`,
+      );
+    }
+    await client.enableBreakpoint(id);
+  }
+
+  /**
+   * Disable a breakpoint by ID.
+   * @param id - Breakpoint ID
+   * @throws If the protocol does not support enable/disable breakpoint
+   */
+  async disableBreakpoint(id: string): Promise<void> {
+    const client = this.requireExtendedClient();
+    if (typeof client.disableBreakpoint !== "function") {
+      throw new Error(
+        `Enable/disable breakpoint is not supported by the '${this._config.protocol}' protocol`,
+      );
+    }
+    await client.disableBreakpoint(id);
+  }
+
   // ─── Data Query ───
 
   /**
@@ -599,7 +635,10 @@ export class Debugger {
    * ```
    */
   get format(): FormatModule {
-    return createFormat();
+    if (!this._format) {
+      this._format = createFormat();
+    }
+    return this._format;
   }
 
   // ─── Session Management ───
@@ -676,7 +715,7 @@ export class Debugger {
    */
   async watchVariable(
     name: string,
-    callback: (value: unknown) => void,
+    callback: (newValue: unknown, oldValue: unknown) => void,
     options?: WatchOptions,
   ): Promise<WatchHandle> {
     const interval = options?.interval ?? 200;
@@ -696,8 +735,9 @@ export class Debugger {
         if (variable) {
           const newValue = variable.value;
           if (!Object.is(newValue, lastValue)) {
+            const old = lastValue;
             lastValue = newValue;
-            callback(newValue);
+            callback(newValue, old);
           }
         }
       } catch {
@@ -739,7 +779,7 @@ export class Debugger {
    */
   async watchExpression(
     expr: string,
-    callback: (result: EvalResult) => void,
+    callback: (result: EvalResult, oldResult: EvalResult | undefined) => void,
     options?: WatchOptions,
   ): Promise<WatchHandle> {
     const client = this.requireExtendedClient();
@@ -752,7 +792,7 @@ export class Debugger {
     const interval = options?.interval ?? 500;
     const timeout = options?.timeout ?? 30000;
     let active = true;
-    let lastResult: string | undefined;
+    let lastResult: EvalResult | undefined;
     let timer: ReturnType<typeof setInterval> | null = null;
 
     const poll = async () => {
@@ -763,9 +803,10 @@ export class Debugger {
         if (!tid) return;
         const result = await client.eval!(expr, tid, frameIndex);
         const serialized = JSON.stringify(result.value);
-        if (serialized !== lastResult) {
-          lastResult = serialized;
-          callback(result);
+        if (serialized !== JSON.stringify(lastResult?.value)) {
+          const old = lastResult;
+          lastResult = result;
+          callback(result, old);
         }
       } catch {
         // Ignore poll errors

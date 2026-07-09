@@ -89,6 +89,8 @@ export interface LLDBVariable {
   isStruct: boolean;
   numChildren: number;
   isNil: boolean;
+  objectDescription?: string | null;
+  valueAsSigned?: number;
 }
 
 /** LLDB breakpoint (extended) */

@@ -126,7 +126,7 @@ describe("LLDBClient", () => {
             host: "localhost",
             port: 5005,
             timeout: 30000,
-          }),
+          } as unknown as DebugConfig),
       ).toThrow(/Expected protocol .lldb/);
     });
 
@@ -599,6 +599,70 @@ describe("LLDBClient", () => {
           unwindOnError: undefined,
           ignoreBreakpoints: undefined,
         },
+      });
+    });
+  });
+
+  describe("expandVariable", () => {
+    it("场景: 用户展开调试变量的子字段 — 应通过 bridge 调用并传递内部状态 threadId/frameIndex", async () => {
+      await client.connect();
+
+      // 先设置 selected thread 和 frame，使内部状态有值
+      const setThreadSpy = vi.fn().mockResolvedValue({ success: true, threadId: 1 });
+      mockCall.mockImplementation((method: string) => {
+        if (method === "setSelectedThread") return Promise.resolve({ success: true, threadId: 1 });
+        if (method === "setSelectedFrame") return Promise.resolve({ success: true, threadId: 1, frameIndex: 0 });
+        if (method === "expand_variable") return Promise.resolve([
+          { name: "x", value: "42", type: "int", isPrimitive: true, isNull: false, children: [] },
+          { name: "arr", value: "[...]", type: "int[]", isPrimitive: false, isNull: false, children: [] },
+        ]);
+        return Promise.resolve({});
+      });
+
+      await client.setSelectedThread("1");
+      await client.setSelectedFrame("1", 0);
+      vi.clearAllMocks(); // 重置 mock 调用计数
+
+      // 模拟 expand_variable 响应
+      mockCall.mockResolvedValueOnce([
+        { name: "x", value: "42", type: "int", isPrimitive: true, isNull: false, children: [] },
+      ]);
+
+      const result = await client.expandVariable("obj-id", 2);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.name).toBe("x");
+
+      // 验证调用参数：使用内部状态 threadId/frameIndex，而非额外参数
+      expect(mockCall).toHaveBeenCalledWith("expand_variable", {
+        objectId: "obj-id",
+        depth: 2,
+        threadId: "1",
+        frameIndex: 0,
+      });
+    });
+  });
+
+  describe("setBreakpoint with exception type", () => {
+    it("场景: 用户设置异常断点 — 应调用 bridge 并传递 exceptionType", async () => {
+      await client.connect();
+
+      mockCall.mockResolvedValueOnce({
+        id: "lldb_bp_exc_1",
+        internalId: 100,
+        location: "exception",
+        enabled: true,
+        hitCount: 0,
+        ignoreCount: 0,
+        condition: null,
+      });
+
+      const bpId = await client.setBreakpoint("objc", undefined, "exception");
+
+      expect(bpId).toBe("lldb_bp_exc_1");
+      expect(mockCall).toHaveBeenCalledWith("setBreakpoint", {
+        exceptionType: "objc",
+        condition: undefined,
       });
     });
   });

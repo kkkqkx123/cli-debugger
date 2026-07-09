@@ -29,4 +29,23 @@ describe('client', () => {
       expect(client.isConnected()).toBe(false);
     });
   });
+
+  describe('supportsFeature', () => {
+    it('should return true for all 8 extended features', () => {
+      const client = new JDWPClient(config);
+      expect(client.supportsFeature('eval')).toBe(true);
+      expect(client.supportsFeature('enableDisableBreakpoint')).toBe(true);
+      expect(client.supportsFeature('extendedBreakpointInfo')).toBe(true);
+      expect(client.supportsFeature('typeInfo')).toBe(true);
+      expect(client.supportsFeature('symbolInfo')).toBe(true);
+      expect(client.supportsFeature('targetMetadata')).toBe(true);
+      expect(client.supportsFeature('threadBatchInfo')).toBe(true);
+      expect(client.supportsFeature('expandVariable')).toBe(true);
+    });
+
+    it('should return false for unknown features', () => {
+      const client = new JDWPClient(config);
+      expect(client.supportsFeature('nonexistent' as any)).toBe(false);
+    });
+  });
 });
